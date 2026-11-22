@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Quarry Go</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<input id="file" type="file" accept="video/*,image/gif">
+
+<section id="reviews"></section>
+
+<div id="player">
+  <canvas id="cv"></canvas>
+  <div class="ui" id="top">
+    <button class="btn" id="back" aria-label="Back">‹</button>
+    <button class="btn" id="fsBtn" style="display:none" aria-label="Full screen">⤢</button>
+    <span class="sp"></span>
+    <button class="btn" id="viewBtn" style="display:none">Retimed</button>
+    <button class="btn" id="secBtn">Retime</button>
+    <button class="btn" id="annBtn">Annotate</button>
+  </div>
+  <div class="ui" id="tray" hidden>
+    <button class="btn" id="noteBtn">Note</button>
+    <button class="btn" id="arrowBtn">Arrow</button>
+    <button class="btn" id="boxBtn">Box</button>
+    <button class="btn" id="circleBtn">Circle</button>
+    <button class="btn" id="undo" aria-label="Undo">↶</button>
+  </div>
+  <div id="noteChip"></div>
+  <div class="ui" id="bot">
+    <div class="readout"><span id="fr">1 / 1</span><button id="rangeChip" style="display:none" aria-label="Clear loop"><span id="rangeTxt"></span><span class="x">✕</span></button><span class="sp"></span><span id="tc"></span></div>
+    <div class="bar">
+      <div class="grp l">
+        <button class="btn pri big" id="play" aria-label="Play">▶︎</button>
+        <button class="btn num big" id="rateBtn">1×</button>
+      </div>
+      <div class="lane"><canvas id="scrub"></canvas></div>
+      <div class="grp r">
+        <button class="btn big io" id="inBtn">In</button>
+        <button class="btn big io" id="outBtn">Out</button>
+        <button class="btn big" id="more" aria-label="More">···</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="veil" id="rateVeil"><div class="sheet grain">
+  <div class="cap">Play rate</div><div class="opts" id="rateList"></div>
+  <div class="opts" style="margin-top:10px"><div class="opt" id="customOpt">Custom…</div></div>
+  <div id="customBox" style="display:none;margin-top:10px">
+    <input id="customIn" type="number" inputmode="decimal" step="0.01" min="0.01" max="8" placeholder="e.g. 0.35">
+    <div class="row"><span class="sp"></span><button class="btn pri" id="customOk">Set rate</button></div>
+  </div>
+</div></div>
+
+<div class="veil" id="secVeil"><div class="sheet grain">
+  <div class="cap" id="secCap">Retime</div>
+  <div id="secBody">
+    <div class="opts" id="secRates"></div>
+    <div class="opts" style="margin-top:10px"><div class="opt" id="secCustom" style="grid-column:1/-1;font-weight:500">Custom speed…</div></div>
+    <div id="secCustomBox" style="display:none;margin-top:10px">
+      <input id="secCustomIn" type="number" inputmode="decimal" step="0.01" min="0.01" max="8" placeholder="e.g. 0.35">
+      <div class="row"><span class="sp"></span><button class="btn pri" id="secCustomOk">Set speed</button></div>
+    </div>
+    <div class="opts" style="margin-top:10px;grid-template-columns:repeat(3,minmax(0,1fr))">
+      <div class="opt" id="secHold">Hold</div><div class="opt" id="secCut" style="color:var(--late)">Cut</div><div class="opt" id="secClear">Clear</div>
+    </div>
+  </div>
+  <div id="secMsg" style="color:var(--mut);display:none;padding:4px 2px 8px">Set In and Out around the frames you want to retime, or put the playhead on a section to change it.</div>
+</div></div>
+
+<div class="veil" id="noteVeil"><div class="sheet grain">
+  <div class="cap" id="noteCap">Note</div>
+  <textarea id="noteIn" rows="3"></textarea>
+  <div class="row"><span class="sp"></span><button class="btn" id="noteNo">Cancel</button><button class="btn pri" id="noteOk">Add note</button></div>
+</div></div>
+
+<div class="veil" id="moreVeil"><div class="sheet grain">
+  <div class="cap">Notes and marks</div><div class="list" id="notes"></div>
+  <div class="row" style="margin-top:14px;flex-wrap:wrap">
+    <button class="btn" id="clearRange" style="display:none">Clear loop</button>
+    <button class="btn" id="reset">Reset zoom</button>
+    <span class="sp"></span>
+    <label class="btn" for="file">Open another</label>
+    <button class="btn" id="exportBoth" style="display:none">Export original + retimed</button>
+    <button class="btn pri" id="export">Export video</button>
+  </div>
+  <div id="log2" style="font:11px/1.4 ui-monospace,monospace;color:var(--mut);white-space:pre-wrap;margin-top:12px"></div>
+</div></div>
+
+<div id="toast"></div>
+<div id="status"><span id="stxt"></span><div class="bar"><i id="sbar"></i></div></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
