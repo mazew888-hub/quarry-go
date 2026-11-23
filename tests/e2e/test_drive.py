@@ -51,6 +51,7 @@ def test_expired_token_renews(page):
 
 def test_not_set_up_message(page):
     FakeDrive(page)
+    page.add_init_script("localStorage.setItem('qg_client_id', 'NOT_SET')")
     page.goto(BASE); page.wait_for_load_state('domcontentloaded')
     msg = page.evaluate(f"async () => {{ try {{ {D}.signIn(); return 'no error'; }} catch (e) {{ return e.message; }} }}")
     assert "isn't set up yet" in msg

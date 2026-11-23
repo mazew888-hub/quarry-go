@@ -2,7 +2,7 @@
 // Sign-in goes to Google's own page and comes back here with a short-lived token (about an hour);
 // when it runs out, the next Drive call renews it the same way without asking (prompt=none).
 
-export const CLIENT_ID = 'NOT_SET';   // the Web client ID from the Vista Google project
+export const CLIENT_ID = '809933074914-m71em0v1ipfvs8ston13qpkigmeafq7l.apps.googleusercontent.com';   // the Web client ID from the Vista Google project
 const SCOPE = 'https://www.googleapis.com/auth/drive email';
 const API = 'https://www.googleapis.com';
 const FOLDER = 'application/vnd.google-apps.folder';
@@ -17,7 +17,7 @@ const ls = {
   del: k => { try { localStorage.removeItem(k); } catch {} },
 };
 const clientId = () => ls.get('qg_client_id') || CLIENT_ID;
-export const configured = () => clientId() !== 'NOT_SET';
+export const configured = () => !!clientId() && clientId() !== 'NOT_SET';
 const here = () => location.origin + location.pathname;
 
 export function signIn({ silent = false } = {}) {
