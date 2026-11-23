@@ -78,3 +78,9 @@ def test_diagnose_without_phone_folder(page):
     page.goto(BASE + '#/'); page.wait_for_load_state('domcontentloaded'); sign_in(page)
     d = page.evaluate(f"async () => {D}.diagnose()")
     assert d['roots'][0]['phone'] is False and d['roots'][0]['children'] == []
+
+def test_connect_lets_you_pick_the_account(page):
+    fake = start(page); sign_in(page)
+    assert fake.auth_requests[-1].get('prompt') == 'select_account'
+    page.evaluate(f"async () => {D}.signOut()")
+    assert page.evaluate("localStorage.getItem('qg_email')") is None

@@ -29,7 +29,10 @@ export function signIn({ silent = false } = {}) {
     client_id: clientId(), redirect_uri: here(), response_type: 'token', scope: SCOPE,
     include_granted_scopes: 'true', state,
   });
+  // A quiet renew stays with the same account; Connect always shows Google's account picker,
+  // so you can choose a different account after Disconnect.
   if (silent) { p.set('prompt', 'none'); const e = ls.get('qg_email'); if (e) p.set('login_hint', e); }
+  else p.set('prompt', 'select_account');
   location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + p);
 }
 
