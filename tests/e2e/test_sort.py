@@ -1,0 +1,126 @@
+"""The tab bar, Settings' Google section and the Sort tab, against FakeDrive."""
+from fakedrive import FakeDrive
+
+BASE = 'http://localhost:8765/'
+SIGNED_IN = """
+  localStorage.setItem('qg_client_id', 'test-client.apps.googleusercontent.com');
+  localStorage.setItem('qg_token', 'fake1');
+  localStorage.setItem('qg_token_exp', String(Date.now() + 3600e3));
+  localStorage.setItem('qg_email', 'you@example.com');
+"""
+
+def go(page, hash='#/sort', signed_in=True, **kw):
+    fake = FakeDrive(page, **kw)
+    page.add_init_script("localStorage.setItem('qg_client_id', 'test-client.apps.googleusercontent.com');")
+    if signed_in: page.add_init_script(SIGNED_IN)
+    page.goto(BASE + '#/'); page.wait_for_selector('#reviews.show', timeout=8000)
+    page.evaluate("async () => { const S = await import('/js/store.js'); await S.phoneReset(); }")
+    page.evaluate(f"location.hash = '{hash}'")
+    return fake
+
+def count(page):
+    page.wait_for_function("document.getElementById('soCount') && /to sort/.test(document.getElementById('soCount').textContent)", timeout=8000)
+    return int(page.inner_text('#soCount').split()[0])
+
+def swipe(page, dx):
+    bx = page.locator('#soCard').bounding_box(); x, y = bx['x'] + bx['width'] / 2, bx['y'] + bx['height'] / 2
+    page.mouse.move(x, y); page.mouse.down(); page.mouse.move(x + dx, y, steps=8); page.mouse.up()
+
+def sent(fake):
+    return [a for _, parent, body in fake.written if parent == 'actions' for a in body['actions']]
+
+def test_tabs_route(page):
+    go(page, '#/')
+    assert page.locator('#tabbar.show').count() == 1 and 'on' in page.get_attribute('#tab-review', 'class')
+    page.click('#tab-sort'); page.wait_for_selector('#sort.show')
+    assert 'on' in page.get_attribute('#tab-sort', 'class')
+    page.click('#tab-library'); page.wait_for_selector('#library.show')
+    assert not page.locator('#sort').is_visible()
+    page.click('#tab-review'); page.wait_for_selector('#reviews.show')
+
+def test_settings_connect_shows_account(page):
+    go(page, '#/')
+    page.click('#gear'); page.wait_for_selector('#settingsVeil', state='visible')
+    assert page.inner_text('#gAccount') == 'you@example.com' and page.inner_text('#gBtn') == 'Disconnect'
+
+def test_settings_connect_round_trip(page):
+    go(page, '#/', signed_in=False)
+    page.click('#gear'); page.wait_for_selector('#settingsVeil', state='visible')
+    assert page.inner_text('#gAccount') == 'Not connected'
+    page.click('#gBtn')
+    page.wait_for_function("localStorage.getItem('qg_email') === 'you@example.com'", timeout=8000)
+
+def test_swipe_left_skips(page):
+    fake = go(page)
+    assert count(page) == 4
+    swipe(page, -200)
+    page.wait_for_function("document.getElementById('soCount').textContent.startsWith('3')")
+    page.wait_for_function("true")
+    page.wait_for_timeout(300)
+    assert sent(fake)[0]['op'] == 'skip' and sent(fake)[0]['id'] == '1800'
+
+def test_small_swipe_snaps_back(page):
+    fake = go(page); count(page)
+    swipe(page, 60)
+    page.wait_for_timeout(300)
+    assert count(page) == 4 and sent(fake) == []
+
+def test_keep_asks_folder(page):
+    fake = go(page); count(page)
+    swipe(page, 220)
+    page.wait_for_selector('#folderVeil', state='visible')
+    page.click('#folderList [data-f="Anatomy/Hands"]')
+    page.fill('#tagIn', 'hands'); page.keyboard.press('Enter')
+    page.click('#folderOk')
+    page.wait_for_function("document.getElementById('soCount').textContent.startsWith('3')")
+    page.wait_for_timeout(300)
+    a = sent(fake)[0]
+    assert (a['op'], a['id'], a['folder'], a['tags']) == ('keep', '1800', 'Anatomy/Hands', ['hands'])
+
+def test_keep_cancel_keeps_post(page):
+    fake = go(page); count(page)
+    page.click('#soKeep'); page.wait_for_selector('#folderVeil', state='visible')
+    page.click('#folderNo')
+    assert count(page) == 4 and sent(fake) == []
+
+def test_recent_folder_first(page):
+    fake = go(page); count(page)
+    page.click('#soKeep'); page.click('#folderList [data-f="Poses"]'); page.click('#folderOk')
+    page.wait_for_function("document.getElementById('soCount').textContent.startsWith('3')")
+    page.click('#soKeep'); page.wait_for_selector('#folderVeil', state='visible')
+    assert page.inner_text('#recentFolders').strip() == 'Poses'
+    assert 'on' in page.get_attribute('#folderList [data-f="Poses"]', 'class')
+
+def test_undo_steps_back(page):
+    fake = go(page); count(page)
+    page.click('#soSkip'); page.wait_for_function("document.getElementById('soCount').textContent.startsWith('3')")
+    page.click('#soUndo'); page.wait_for_function("document.getElementById('soCount').textContent.startsWith('4')")
+    page.wait_for_timeout(300)
+    assert [a['op'] for a in sent(fake)] == ['skip', 'undo']
+    assert 'artist0' in page.inner_text('#soInfo')
+
+def test_video_post_plays_muted_loop(page):
+    go(page); count(page)
+    page.click('#soSkip'); page.wait_for_function("document.getElementById('soCount').textContent.startsWith('3')")
+    v = page.locator('#soCard video')
+    assert v.count() == 1
+    assert page.evaluate("() => { const v = document.querySelector('#soCard video'); return [v.muted, v.loop, v.src]; }") == [True, True, 'https://video.twimg.com/fake/1.mp4']
+
+def test_all_sorted(page):
+    go(page); count(page)
+    for i in range(4):
+        page.click('#soSkip'); page.wait_for_timeout(260)
+    page.wait_for_selector('.so-msg h2')
+    assert page.inner_text('.so-msg h2') == 'All sorted'
+
+def test_signed_out_prompt(page):
+    go(page, signed_in=False)
+    page.wait_for_selector('.so-msg h2')
+    assert page.inner_text('.so-msg h2') == 'Connect Google Drive'
+    page.click('#soMsgBtn')
+    page.wait_for_function("document.getElementById('soCount') && document.getElementById('soCount').textContent.startsWith('4')", timeout=8000)
+
+def test_no_phone_folder(page):
+    go(page, with_phone=False)
+    page.wait_for_selector('.so-msg h2')
+    assert page.inner_text('.so-msg h2') == 'Nothing from Quarry yet'

@@ -4,6 +4,8 @@ import { openPlayer, log, status } from './player.js';
 import { renderReviews } from './reviews.js';
 import * as S from './store.js';
 import * as G from './drive.js';
+import * as phone from './phone.js';
+import { createSort } from './sort.js';
 
 export const VERSION = '0.1.4';
 const $ = id => document.getElementById(id);
@@ -66,6 +68,11 @@ async function settings() {
   const [{ bytes }, list] = await Promise.all([S.usage(), S.listReviews()]);
   $('spaceUsed').textContent = `${(bytes / 1e6).toFixed(1)} MB · ${list.length} review${list.length === 1 ? '' : 's'}`;
   $('version').textContent = VERSION;
+  const acc = G.connected() ? await G.account().catch(() => null) : null;
+  $('gAccount').textContent = !G.configured() ? 'Not set up yet' : acc ? acc.email : 'Not connected';
+  $('gBtn').textContent = acc ? 'Disconnect' : 'Connect';
+  $('gBtn').style.display = G.configured() ? '' : 'none';
+  $('gBtn').onclick = () => { if (acc) { G.signOut(); settings(); } else { try { G.signIn(); } catch (e) { toast(e.message); } } };
   show('settingsVeil');
   $('deleteAll').onclick = async () => {
     hide('settingsVeil');
@@ -148,9 +155,29 @@ async function openReview(id) {
 $('missingBack').onclick = () => { location.hash = '#/'; showReviews(); };
 
 // ---------- routing and lifecycle
+// ---------- tabs: Review, Sort, Library
+let sortTab = null;
+function setTab(name) {
+  $('tabbar').classList.toggle('show', !!name);
+  for (const t of ['review', 'sort', 'library']) $('tab-' + t).classList.toggle('on', t === name);
+  if (name !== 'review') $('reviews').classList.remove('show');
+  if (name !== 'sort' && sortTab) sortTab.close();
+  if (name !== 'library') $('library').classList.remove('show');
+}
+async function showSort() {
+  openSeq++; if (player) { player.close(); player = null; }
+  setTab('sort');
+  if (!sortTab) sortTab = createSort($('sort'), { phone, drive: G, toast });
+  sortTab.open();
+}
+
 function route() {
-  const m = location.hash.match(/^#\/r\/(.+)$/);
-  if (m) openReview(decodeURIComponent(m[1])); else showReviews();
+  const h = location.hash;
+  const m = h.match(/^#\/r\/(.+)$/);
+  if (m) { setTab(null); openReview(decodeURIComponent(m[1])); }
+  else if (h === '#/sort') showSort();
+  else if (h === '#/library') { setTab('library'); $('library').classList.add('show'); }
+  else { setTab('review'); showReviews(); }
 }
 addEventListener('hashchange', route);
 addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') save(); });
@@ -184,8 +211,22 @@ function sample() {
 // Back from Google's sign-in page: take the token, put the address back.
 if (G.handleRedirect() && G.ready()) G.account().catch(e => log('google: ' + e.message));
 
+async function sortSample(q) {
+  const { view } = await import('./overlay.js');
+  const j = async n => (await fetch(`tests/fixtures/phone/${n}.json`)).json();
+  const snap = { status: await j('status'), library: await j('library'), folders: await j('folders'), tags: await j('tags'), xqueue: await j('xqueue') };
+  for (const [i, p] of snap.xqueue.posts.entries()) p.media = [{ type: 'photo', url: `tests/fixtures/phone/x${i}.jpg`, poster: null }];
+  snap.xqueue.posts[0].text = 'Quick blocking pass on a heavy attack. Anticipation is still too long, trimming next.';
+  snap.status.written = new Date(Date.now() - 4 * 60e3).toISOString();
+  const fake = { current: () => view(snap, [], { last: 0, failed: [] }), onChange: () => () => {}, refresh: async () => ({ state: 'ok' }), act: async () => {} };
+  setTab('sort'); sortTab = createSort($('sort'), { phone: fake, drive: { configured: () => true }, toast });
+  await sortTab.open();
+  if (q.get('sheet')) setTimeout(() => $('soKeep').click(), 300);
+}
+
 const q = new URLSearchParams(location.search);
-if (local && q.get('test') === 'player') testPlayer(q);
+if (local && q.get('test') === 'sortsample') sortSample(q);
+else if (local && q.get('test') === 'player') testPlayer(q);
 else if (local && q.get('test') === 'sample') sample();
 else {
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});

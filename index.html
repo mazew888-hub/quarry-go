@@ -18,6 +18,9 @@
 <input id="file" type="file" accept="video/*,image/gif">
 
 <section id="reviews"></section>
+<section id="sort"></section>
+<section id="library"></section>
+<nav id="tabbar"><a class="tab" id="tab-review" href="#/"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M10 9l5 3-5 3z" fill="currentColor"/></svg><span>Review</span></a><a class="tab" id="tab-sort" href="#/sort"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M2 7v10M22 7v10"/></svg><span>Sort</span></a><a class="tab" id="tab-library" href="#/library"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg><span>Library</span></a></nav>
 
 <div id="player">
   <canvas id="cv"></canvas>
@@ -113,6 +116,7 @@
 <div class="veil" id="settingsVeil"><div class="sheet grain">
   <div class="cap">Settings</div>
   <div class="list"><div class="note"><span class="t">Space used</span><span id="spaceUsed" style="color:var(--mut)"></span></div>
+    <div class="note"><span class="t">Google Drive<br><span id="gAccount" style="color:var(--mut);font-size:13px"></span></span><button class="btn" id="gBtn">Connect</button></div>
     <div class="note"><span class="t">Version</span><span id="version" style="color:var(--mut)"></span></div></div>
   <p style="margin:12px 2px;color:var(--mut);font-size:13px">Clips stay on this phone. Nothing is uploaded.</p>
   <div class="row"><span class="sp"></span><button class="btn" id="deleteAll" style="color:var(--late)">Delete all reviews</button></div>
@@ -128,6 +132,22 @@
   <div class="cap">Video ready</div>
   <p id="shareName" style="margin:0 2px 16px;color:var(--mut);word-break:break-all"></p>
   <div class="row"><span class="sp"></span><button class="btn pri" id="shareBtn" style="height:48px;padding:0 24px">Share video</button></div>
+</div></div>
+
+<div class="veil" id="folderVeil"><div class="sheet grain">
+  <div class="cap" id="folderCap">Folder</div>
+  <input id="folderSearch" type="search" placeholder="Search folders" autocomplete="off">
+  <div id="recentWrap"><div class="sub">Recent</div><div class="chips" id="recentFolders"></div></div>
+  <div class="list fl-list" id="folderList"></div>
+  <div id="tagsBox"><div class="sub">Tags</div><div class="chips" id="tagChips"></div>
+    <input id="tagIn" type="text" placeholder="Add a tag" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="chips" id="tagSugg"></div></div>
+  <div class="row" style="margin-top:12px"><button class="btn" id="folderNo">Cancel</button><span class="sp"></span><button class="btn pri" id="folderOk" style="height:48px;padding:0 26px">Keep</button></div>
+</div></div>
+
+<div class="veil" id="failedVeil"><div class="sheet grain">
+  <div class="cap">Didn’t work</div>
+  <div class="list" id="failedList"></div>
 </div></div>
 
 <div id="toast"></div>
