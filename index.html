@@ -83,11 +83,36 @@
     <button class="btn" id="clearRange" style="display:none">Clear loop</button>
     <button class="btn" id="reset">Reset zoom</button>
     <span class="sp"></span>
-    <label class="btn" for="file">Open another</label>
     <button class="btn" id="exportBoth" style="display:none">Export original + retimed</button>
     <button class="btn pri" id="export">Export video</button>
   </div>
   <div id="log2" style="font:11px/1.4 ui-monospace,monospace;color:var(--mut);white-space:pre-wrap;margin-top:12px"></div>
+</div></div>
+
+<div id="missing" class="veil"><div class="sheet grain">
+  <div class="cap">Clip missing</div>
+  <p style="margin:0 2px 16px;color:var(--mut)">The clip for this review is missing. Pick it again. Your notes are kept.</p>
+  <div class="row"><button class="btn" id="missingBack">Back</button><span class="sp"></span><label class="btn pri" for="file">Pick the clip</label></div>
+</div></div>
+
+<div class="veil" id="cardVeil"><div class="sheet grain">
+  <div class="cap">Review</div>
+  <input id="renameIn" type="text" autocomplete="off" spellcheck="false">
+  <div class="row"><button class="btn" id="deleteOne" style="color:var(--late)">Delete</button><span class="sp"></span><button class="btn pri" id="renameOk">Rename</button></div>
+</div></div>
+
+<div class="veil" id="settingsVeil"><div class="sheet grain">
+  <div class="cap">Settings</div>
+  <div class="list"><div class="note"><span class="t">Space used</span><span id="spaceUsed" style="color:var(--mut)"></span></div>
+    <div class="note"><span class="t">Version</span><span id="version" style="color:var(--mut)"></span></div></div>
+  <p style="margin:12px 2px;color:var(--mut);font-size:13px">Clips stay on this phone. Nothing is uploaded.</p>
+  <div class="row"><span class="sp"></span><button class="btn" id="deleteAll" style="color:var(--late)">Delete all reviews</button></div>
+</div></div>
+
+<div class="veil" id="confirmVeil" style="z-index:11"><div class="sheet grain">
+  <div class="cap" id="confirmTxt">Delete?</div>
+  <p style="margin:0 2px 16px;color:var(--mut)">This deletes the notes and the phone's copy of the clip. It can't be undone.</p>
+  <div class="row"><span class="sp"></span><button class="btn" id="confirmNo">Cancel</button><button class="btn pri" id="confirmYes" style="background:var(--late)">Delete</button></div>
 </div></div>
 
 <div id="toast"></div>
