@@ -1,5 +1,5 @@
 // Sort: your X likes and reposts one at a time. Swipe right (or Keep) to keep, left (or Skip) to skip.
-import { esc, statusLine, openFolderSheet, ago } from './ui.js';
+import { esc, statusLine, openFolderSheet, ago, pullToRefresh, REFRESH_ICON } from './ui.js';
 
 const THRESHOLD = 120; // px of swipe that counts as a decision
 
@@ -11,6 +11,7 @@ export function createSort(root, { phone, drive, toast }) {
   root.innerHTML = `
     <div class="so-top">
       <div><div class="so-count" id="soCount"></div><div class="so-status" id="soStatus"></div></div><span class="sp"></span>
+      <button class="btn" id="soRefresh" aria-label="Refresh">${REFRESH_ICON}</button>
       <button class="btn" id="soUndo" aria-label="Undo">↶ Undo</button>
     </div>
     <div class="so-stage" id="soStage"></div>
@@ -109,14 +110,23 @@ export function createSort(root, { phone, drive, toast }) {
   $('soSkip').onclick = () => { const q = phone.current().queue; if (q[0]) skip(q[0]); };
   $('soUndo').onclick = async () => { const post = history.pop(); if (post) { await phone.act({ op: 'undo', id: post.id, post }); render(); } };
 
+  async function reload() {
+    $('soRefresh').classList.add('spin');
+    try {
+      const r = await phone.refresh();
+      state = !drive.configured() ? 'notsetup' : r.state;
+      if (r.state === 'offline' && r.message) toast(r.message);
+      stageKey = ''; render();
+    } finally { $('soRefresh').classList.remove('spin'); }
+  }
+  $('soRefresh').onclick = reload;
+  pullToRefresh(root, null, reload);
+
   const off = phone.onChange(render);
   return {
     async open() {
       root.classList.add('show'); stageKey = ''; await phone.init(); render();
-      const r = await phone.refresh();
-      state = !drive.configured() ? 'notsetup' : r.state;
-      if (r.state === 'offline' && r.message) toast(r.message);
-      render();
+      await reload();
     },
     close() { root.classList.remove('show'); for (const v of root.querySelectorAll('video')) v.pause(); },
     destroy() { off(); },

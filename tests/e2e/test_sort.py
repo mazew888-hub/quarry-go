@@ -124,3 +124,9 @@ def test_no_phone_folder(page):
     go(page, with_phone=False)
     page.wait_for_function("document.querySelector('.so-msg h2') && document.querySelector('.so-msg h2').textContent !== 'Loading…'")
     assert page.inner_text('.so-msg h2') == 'Nothing from Quarry yet'
+
+def test_sort_refresh_button(page):
+    go(page); count(page)
+    page.evaluate("window.__n = 0; const f = window.fetch; window.fetch = (...a) => { if (String(a[0]).includes('googleapis')) window.__n++; return f(...a); }")
+    page.click('#soRefresh')
+    page.wait_for_function("window.__n > 0", timeout=4000)

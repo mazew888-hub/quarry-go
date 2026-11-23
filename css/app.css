@@ -221,3 +221,9 @@ input[type=file]{display:none}
 #library,.fl-list,.sheet,.item-sheet,#failedList{touch-action:pan-y}
 .lib-chips{touch-action:pan-x}
 .st-connect{appearance:none;border:0;background:none;color:var(--acc-l);font:inherit;text-decoration:underline;padding:0}
+/* refresh: a spinning icon while checking, and the pull-down pill */
+#soRefresh{margin-right:8px;width:42px;padding:0}
+.spin svg{animation:qgspin .8s linear infinite}
+@keyframes qgspin{to{transform:rotate(360deg)}}
+.ptr{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 8px);transform:translate(-50%,0);z-index:12;opacity:0;pointer-events:none;
+  background:var(--board);color:var(--ink);box-shadow:var(--raised-lg);border-radius:999px;padding:8px 14px;font:500 13px/1 "Rubik";transition:opacity .2s}

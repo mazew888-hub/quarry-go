@@ -90,3 +90,25 @@ export async function openFolderSheet({ title, folders, tags = [], withTags = fa
     };
   });
 }
+
+export const REFRESH_ICON = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>';
+
+// Pull down from the top to refresh (iPhone style): a little pill shows "Pull to refresh" / "Release" / "Checking…".
+export function pullToRefresh(el, scroller, run) {
+  let y0 = null, dy = 0, busy = false;
+  const pill = document.createElement('div'); pill.className = 'ptr'; document.body.append(pill);
+  const show = (t, o) => { pill.textContent = t; pill.style.opacity = o; pill.style.transform = `translate(-50%, ${Math.min(60, dy / 2)}px)`; };
+  el.addEventListener('touchstart', e => {
+    if (busy || e.touches.length !== 1 || (scroller && scroller.scrollTop > 0) || e.target.closest('.veil')) { y0 = null; return; }
+    y0 = e.touches[0].clientY; dy = 0;
+  }, { passive: true });
+  el.addEventListener('touchmove', e => {
+    if (y0 === null) return; dy = e.touches[0].clientY - y0;
+    if (dy > 10) show(dy > 80 ? 'Release to refresh' : 'Pull to refresh', Math.min(1, dy / 80));
+  }, { passive: true });
+  el.addEventListener('touchend', async () => {
+    if (y0 === null) return; y0 = null;
+    if (dy > 80) { busy = true; show('Checking…', 1); try { await run(); } finally { busy = false; } }
+    dy = 0; pill.style.opacity = 0;
+  });
+}

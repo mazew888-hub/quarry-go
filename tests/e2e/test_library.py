@@ -127,3 +127,21 @@ def test_big_library_search_fast(page):
     assert page.inner_text('#libCount') == f'{want:,} items'
     page.evaluate("document.getElementById('library').scrollTo(0, 1e6)")
     page.wait_for_function("document.querySelectorAll('#libGrid .lib-tile').length > 120", timeout=4000)
+
+def test_refresh_button_reloads(page):
+    fake = go(page)
+    before = len([1 for _ in fake.auth_requests])
+    page.evaluate("window.__n = 0; const f = window.fetch; window.fetch = (...a) => { if (String(a[0]).includes('status.json') || String(a[0]).includes('googleapis')) window.__n++; return f(...a); }")
+    page.click('#libRefresh')
+    page.wait_for_function("window.__n > 0", timeout=4000)
+    page.wait_for_function("!document.getElementById('libRefresh').classList.contains('spin')", timeout=4000)
+
+def test_pull_down_refreshes(page):
+    go(page)
+    page.evaluate("window.__n = 0; const f = window.fetch; window.fetch = (...a) => { if (String(a[0]).includes('googleapis')) window.__n++; return f(...a); }")
+    page.evaluate('''() => { const el = document.getElementById('library');
+        const t = y => new Touch({ identifier: 1, target: el, clientX: 200, clientY: y });
+        el.dispatchEvent(new TouchEvent('touchstart', { touches: [t(150)], bubbles: true }));
+        el.dispatchEvent(new TouchEvent('touchmove', { touches: [t(300)], bubbles: true }));
+        el.dispatchEvent(new TouchEvent('touchend', { touches: [], bubbles: true })); }''')
+    page.wait_for_function("window.__n > 0", timeout=4000)

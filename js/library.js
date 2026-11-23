@@ -1,6 +1,6 @@
 // Library: your Quarry library as of the PC's last sync. Search, filter by folder or tag,
 // open an item to change its tags or move it, or step through the untagged ones.
-import { esc, statusLine, openFolderSheet } from './ui.js';
+import { esc, statusLine, openFolderSheet, pullToRefresh, REFRESH_ICON } from './ui.js';
 
 const PAGE = 120;
 // Replaces an element's content only when it actually changed (keeps a tap landing on the same button).
@@ -9,7 +9,7 @@ const setHtml = (el, html) => { if (el.dataset.h !== html) { el.innerHTML = html
 export function createLibrary(root, { phone, drive, toast }) {
   let state = 'ok', folder = null, tag = null, list = [], shown = 0, io = null, lastSig = '';
   root.innerHTML = `
-    <header class="rv-head"><h1>Library</h1></header>
+    <header class="rv-head"><h1>Library</h1><button class="btn rv-gear" id="libRefresh" aria-label="Refresh">${REFRESH_ICON}</button></header>
     <input id="libSearch" class="lib-search" type="search" placeholder="Search titles, tags, people" autocomplete="off" autocapitalize="off" spellcheck="false">
     <div class="lib-chips">
       <button class="chip" id="libAll">All</button>
@@ -152,14 +152,23 @@ export function createLibrary(root, { phone, drive, toast }) {
   D('itemClose').onclick = () => sheet.close();
   D('itemVeil').onclick = e => { if (e.target === D('itemVeil')) sheet.close(); };
 
-  const off = phone.onChange(render);
-  return {
-    async open() {
-      root.classList.add('show'); await phone.init(); render();
+  async function reload() {
+    $('libRefresh').classList.add('spin');
+    try {
       const r = await phone.refresh();
       state = !drive.configured() ? 'notsetup' : r.state;
       if (r.state === 'offline' && r.message) toast(r.message);
       render();
+    } finally { $('libRefresh').classList.remove('spin'); }
+  }
+  $('libRefresh').onclick = reload;
+  pullToRefresh(root, root, reload);
+
+  const off = phone.onChange(render);
+  return {
+    async open() {
+      root.classList.add('show'); await phone.init(); render();
+      await reload();
     },
     close() { root.classList.remove('show'); sheet.close(); },
     destroy() { off(); io.disconnect(); },
