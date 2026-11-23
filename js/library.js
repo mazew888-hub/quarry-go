@@ -33,7 +33,7 @@ export function createLibrary(root, { phone, drive, toast }) {
 
   function render() {
     const v = phone.current();
-    statusLine($('libStatus'), v, phone);
+    statusLine($('libStatus'), v, phone, { signedOut: state === 'signedout', connect: () => { try { drive.signIn(); } catch (e) { toast(e.message); } } });
     const untagged = v.items.filter(it => !it.tags.length).length;
     $('libUntagged').textContent = `Untagged ${untagged}`;
     $('libFolder').textContent = folder === null ? 'Folder' : folder.split('/').pop();
@@ -51,8 +51,14 @@ export function createLibrary(root, { phone, drive, toast }) {
     list = filtered(v);
     $('libCount').textContent = v.items.length ? `${list.length.toLocaleString('en-US')} items` : '';
     // Only rebuild the grid when what it shows changed, so a background refresh never swaps tiles under a finger.
-    const sig = list.length + ':' + list.slice(0, 400).map(it => it.key + '|' + it.thumb).join(',');
-    if (sig !== lastSig) { lastSig = sig; $('libGrid').innerHTML = ''; shown = 0; more(); }
+    const sig = list.map(it => it.key + '|' + it.thumb).join(',');
+    if (sig !== lastSig) {
+      // Rebuild as far as it was shown, and stay at the same place on the page.
+      const keep = Math.max(PAGE, shown), top = root.scrollTop;
+      lastSig = sig; $('libGrid').innerHTML = ''; shown = 0;
+      while (shown < keep && shown < list.length) more();
+      root.scrollTop = top;
+    }
     if (sheet.key) sheet.render();
   }
 
@@ -60,7 +66,7 @@ export function createLibrary(root, { phone, drive, toast }) {
     const frag = document.createDocumentFragment();
     for (const it of list.slice(shown, shown + PAGE)) {
       const b = document.createElement('button'); b.className = 'lib-tile'; b.dataset.key = it.key;
-      b.innerHTML = `<img alt="">${it.kind === 'video' || it.kind === 'gif' ? `<span class="lib-kind">${it.kind === 'gif' ? 'GIF' : '▶'}</span>` : ''}`;
+      b.innerHTML = `<img alt="" loading="lazy" decoding="async">${it.kind === 'video' || it.kind === 'gif' ? `<span class="lib-kind">${it.kind === 'gif' ? 'GIF' : '▶'}</span>` : ''}`;
       const img = b.firstChild;
       phone.thumbUrl(it.thumb).then(u => { if (u) img.src = u; });
       frag.append(b);

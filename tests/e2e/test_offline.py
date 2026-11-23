@@ -66,8 +66,8 @@ def test_library_offline_from_cache(page, context):
         localStorage.setItem('qg_token_exp',String(Date.now()+3600e3));localStorage.setItem('qg_email','a@b')""")
     ready_sw(page)
     page.evaluate("location.hash = '#/library'")
-    page.wait_for_function("document.querySelectorAll('#libGrid .lib-tile img[src^=\"blob:\"]').length === 6", timeout=8000)
+    page.wait_for_function("[...document.querySelectorAll('#libGrid .lib-tile img')].filter(i => i.complete && i.naturalWidth > 0).length === 6", timeout=8000)
     context.set_offline(True); fake.offline = True
     page.reload(); page.wait_for_selector('#libGrid .lib-tile', timeout=8000)
-    page.wait_for_function("document.querySelectorAll('#libGrid .lib-tile img[src^=\"blob:\"]').length === 6", timeout=8000)
+    page.wait_for_function("[...document.querySelectorAll('#libGrid .lib-tile img')].filter(i => i.complete && i.naturalWidth > 0).length === 6", timeout=8000)
     context.set_offline(False); fake.offline = False

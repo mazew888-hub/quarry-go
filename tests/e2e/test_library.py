@@ -29,7 +29,7 @@ def open_item(page, key):
 def test_grid_shows_items_with_thumbs(page):
     go(page)
     assert tiles(page).count() == 6
-    page.wait_for_function("[...document.querySelectorAll('#libGrid .lib-tile img')].every(i => i.src.startsWith('blob:'))", timeout=8000)
+    page.wait_for_function("[...document.querySelectorAll('#libGrid .lib-tile img')].every(i => i.src && i.complete && i.naturalWidth > 0)", timeout=8000)
 
 def test_search_title_tag_author(page):
     go(page)

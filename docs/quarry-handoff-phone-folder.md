@@ -101,6 +101,10 @@ Every tag in use, with how many items carry it, most used first.
 - **When to write:** only when missing, or when the item's file changed.
 - **Removing:** delete thumbs whose item is gone.
 
+### Matching numbers (the phone relies on these)
+- `library.json`'s `snapshot` must equal `status.json`'s `snapshot` for the same sync. The phone ignores a snapshot whose numbers don't match yet, and reads it again next time.
+- `applied/<phone>.json`'s `time` must be written at the start of the sync, and `status.json`'s `written` at the end. The phone keeps showing its actions until `written` is at least `time`.
+
 ### applied/<phone>.json
 ```json
 { "version": 1, "phone": "p-7c1e…", "last": 38, "time": "2026-11-22T17:50:01",
@@ -123,7 +127,7 @@ Every tag in use, with how many items carry it, most used first.
 
 The file name is `<phone>-<seq as 8 digits>.json`. `n` is the phone's own action number, which only goes up, across files.
 
-**Carrying them out.** Read every actions file for each phone and gather the actions with `n` greater than that phone's `applied.last`. Do them in `n` order, then write `applied/<phone>.json`. Each action is done once: never repeat an `n` at or below `last`.
+**Carrying them out.** Read every actions file for each phone and gather the actions with `n` greater than that phone's `applied.last`. Do them in `n` order, then write `applied/<phone>.json`. Each action is done once: never repeat an `n` at or below `last`. **The same `n` can appear in more than one file** (the phone resends when a reply is lost on mobile data): carry each `n` out once, and ignore the copies.
 
 | op | What Quarry does | Fails when (reason shown to the user) |
 |---|---|---|

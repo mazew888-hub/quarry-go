@@ -16,11 +16,15 @@ export function ago(iso) {
 }
 
 // "Quarry synced 3 min ago · 2 waiting · 1 failed" (the failed part opens the failed sheet)
-export function statusLine(el, v, phone) {
+export function statusLine(el, v, phone, { signedOut = false, connect = null } = {}) {
   const parts = [`Quarry synced ${ago(v.status && v.status.written)}`];
   if (v.pending) parts.push(`${v.pending} waiting`);
-  el.innerHTML = esc(parts.join(' · ')) + (v.failed.length ? ` · <button class="st-failed">${v.failed.length} failed</button>` : '');
+  const html = esc(parts.join(' · ')) + (v.failed.length ? ` · <button class="st-failed">${v.failed.length} failed</button>` : '')
+    + (signedOut && connect ? ' · <button class="st-connect">Connect to send</button>' : '');
+  if (el.dataset.h === html) return;
+  el.innerHTML = html; el.dataset.h = html;
   const b = el.querySelector('.st-failed'); if (b) b.onclick = () => failedSheet(phone);
+  const c = el.querySelector('.st-connect'); if (c) c.onclick = connect;
 }
 
 export function failedSheet(phone) {

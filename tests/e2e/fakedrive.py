@@ -24,6 +24,7 @@ class FakeDrive:
         self.ids = itertools.count(1)
         self.written = []          # (name, parent name, json-or-bytes)
         self.expired = False
+        self.lose_next_reply = False   # store an upload, then answer 500 (a reply lost on the way back)
         self.offline = False   # page.route answers even when the context is offline, so offline is faked here
         self.tokens = 0
         self.auth_requests = []
@@ -145,5 +146,8 @@ class FakeDrive:
             try: payload = json.loads(data)
             except ValueError: payload = data
             self.written.append((meta['name'], parent, payload))
+            if self.lose_next_reply:
+                self.lose_next_reply = False
+                return self._json(route, {'error': {'code': 500}}, 500)
             return self._json(route, {'id': fid, 'name': meta['name']})
         return self._json(route, {'error': {'code': 400, 'message': 'fake drive: unhandled ' + path}}, 400)

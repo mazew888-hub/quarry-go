@@ -8,7 +8,7 @@ const API = 'https://www.googleapis.com';
 const FOLDER = 'application/vnd.google-apps.folder';
 
 export class DriveError extends Error {
-  constructor(message, { auth = false } = {}) { super(message); this.auth = auth; }
+  constructor(message, { auth = false, expired = false } = {}) { super(message); this.auth = auth; this.expired = expired; }
 }
 
 const ls = {
@@ -43,7 +43,7 @@ export function handleRedirect() {
     ls.set('qg_token', q.get('access_token'));
     ls.set('qg_token_exp', String(Date.now() + (+q.get('expires_in') || 3600) * 1000));
     ls.del('qg_needs_connect');
-  } else if (ok) ls.set('qg_needs_connect', '1');  // a quiet renew didn't work: ask again
+  } else ls.set('qg_needs_connect', '1');  // a quiet renew didn't work, or the answer wasn't ours: ask again
   const back = sessionStorage.getItem('qg_return') || '#/';
   sessionStorage.removeItem('qg_state'); sessionStorage.removeItem('qg_return');
   history.replaceState(null, '', here() + back);
@@ -55,23 +55,25 @@ const token = () => (ls.get('qg_token') && +ls.get('qg_token_exp') > Date.now() 
 export const ready = () => !!token();
 export const connected = () => !!ls.get('qg_email') && !ls.get('qg_needs_connect');
 
-async function api(path, opts = {}, retry = false) {
+const expired = () => new DriveError('Your Google sign-in needs renewing.', { auth: true, expired: true });
+async function api(path, opts = {}) {
   const t = token();
-  if (!t) return renew();
+  if (!t) throw expired();
   let r;
   try { r = await fetch(API + path, { ...opts, headers: { ...(opts.headers || {}), Authorization: 'Bearer ' + t } }); }
   catch { throw new DriveError("Can't reach Google Drive. Check the connection."); }
-  if (r.status === 401 && !retry) { ls.del('qg_token'); return renew(); }
+  if (r.status === 401) { ls.del('qg_token'); throw expired(); }
   if (!r.ok) throw new DriveError(`Google Drive said no (${r.status}).`, { auth: r.status === 401 || r.status === 403 });
   return r;
 }
+// Renews the sign-in by a quick trip to Google, but only when asked (a foreground refresh) and only
+// online: a background send or a thumbnail never takes the page away, and offline it never leaves.
+// Returns false when it can't (no account yet, or Google asked for a real sign-in).
 let renewing = false;
-function renew() {
-  // Without a known account there's nothing to renew quietly: the person has to connect.
-  if (!ls.get('qg_email') || ls.get('qg_needs_connect') || !configured()) throw new DriveError('Connect Google Drive first.', { auth: true });
-  // Several calls can fail at once: only the first one goes to Google, or the answers' states won't match.
-  if (!renewing) { renewing = true; signIn({ silent: true }); }
-  return new Promise(() => {}); // the page is leaving for Google
+export function renewNow() {
+  if (!ls.get('qg_email') || ls.get('qg_needs_connect') || !configured() || !navigator.onLine) return false;
+  if (!renewing) { renewing = true; signIn({ silent: true }); }  // only one trip, or the answers' states won't match
+  return true;
 }
 
 export async function account() {

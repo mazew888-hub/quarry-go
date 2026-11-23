@@ -42,7 +42,7 @@ def test_expired_token_renews(page):
     fake = start(page); sign_in(page)
     fake.expire()
     with page.expect_navigation(timeout=8000):
-        page.evaluate("() => { import('/js/drive.js').then(d => d.phoneFolder()); }")
+        page.evaluate("() => { import('/js/phone.js').then(p => p.refresh()); }")
     page.wait_for_function("localStorage.getItem('qg_token') === 'fake2'", timeout=8000)
     assert fake.auth_requests[-1].get('prompt') == 'none'
     assert page.evaluate("location.hash") == '#/library'
@@ -60,6 +60,6 @@ def test_two_failing_calls_renew_once(page):
     before = len(fake.auth_requests)
     fake.expire()
     with page.expect_navigation(timeout=8000):
-        page.evaluate("() => { import('/js/drive.js').then(d => { d.phoneFolder(); d.phoneFolder(); }); }")
+        page.evaluate("() => { import('/js/phone.js').then(p => { p.refresh(); p.refresh(); }); }")
     page.wait_for_function("localStorage.getItem('qg_token') === 'fake2'", timeout=8000)
     assert len(fake.auth_requests) == before + 1

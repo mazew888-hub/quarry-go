@@ -70,9 +70,9 @@ def test_thumb_url_cached(page, context):
     start(page); refresh(page)
     name = page.evaluate(f"async () => {P}.current().items[0].thumb")
     url = page.evaluate(f"async n => {P}.thumbUrl(n)", name)
-    assert url.startswith('blob:')
+    assert url.startswith('blob:') or '/qg-thumbs/' in url
     context.set_offline(True)
     page.reload(); page.wait_for_load_state('domcontentloaded')
     url2 = page.evaluate(f"async n => {{ const p = {P}; await p.init(); return p.thumbUrl(n); }}", name)
-    assert url2 and url2.startswith('blob:')
+    assert url2 and (url2.startswith('blob:') or '/qg-thumbs/' in url2)
     context.set_offline(False)
