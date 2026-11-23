@@ -1,3 +1,8 @@
+/* Rubik ships with the app (SIL OFL, fonts/OFL.txt): nothing is fetched from anywhere else. */
+@font-face{font-family:"Rubik";font-style:normal;font-weight:400;font-display:swap;src:url(../fonts/rubik-400.woff2) format("woff2")}
+@font-face{font-family:"Rubik";font-style:normal;font-weight:500;font-display:swap;src:url(../fonts/rubik-500.woff2) format("woff2")}
+@font-face{font-family:"Rubik";font-style:normal;font-weight:600;font-display:swap;src:url(../fonts/rubik-600.woff2) format("woff2")}
+@font-face{font-family:"Rubik";font-style:normal;font-weight:800;font-display:swap;src:url(../fonts/rubik-800.woff2) format("woff2")}
 
 /* Planner A2 look, dark mode ("one light logic"): page darkest, raised lighter and lit from above,
    sunken darker. Rubik. Blue-teal accent; selection is an underglow, fill means "press me". */

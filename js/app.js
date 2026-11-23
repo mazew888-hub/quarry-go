@@ -171,5 +171,6 @@ if (local && q.get('test') === 'player') testPlayer(q);
 else if (local && q.get('test') === 'sample') sample();
 else {
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register(`sw.js?v=${VERSION}`).catch(e => log('offline: ' + e.message));
   route();
 }
