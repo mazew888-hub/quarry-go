@@ -1,7 +1,7 @@
 // Offline: the app's own files are cached on install and served from the cache.
 // Keep VERSION equal to VERSION in js/app.js (a test checks): changing it changes this file,
 // which is how an installed copy finds out there's an update.
-const VERSION = '0.2.3';
+const VERSION = '0.2.4';
 const CACHE = `quarry-go-${VERSION}`;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
@@ -11,7 +11,9 @@ const FILES = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // cache: 'reload' skips the browser's own copy (GitHub Pages lets it keep files 10 minutes), so a new
+  // version never stores yesterday's files.
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()

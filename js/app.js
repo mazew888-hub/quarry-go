@@ -8,7 +8,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.2.3';
+export const VERSION = '0.2.4';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -236,6 +236,17 @@ else if (local && q.get('test') === 'player') testPlayer(q);
 else if (local && q.get('test') === 'sample') sample();
 else {
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(e => log('offline: ' + e.message));
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+      // Look for an update each time the app comes back to the front (home-screen apps rarely reload).
+      addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    }).catch(e => log('offline: ' + e.message));
+    // When a new version takes over, reload once, unless a review is open (it updates next time instead).
+    let had = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (had && !/^#\/r\//.test(location.hash)) location.reload();
+      had = true;
+    });
+  }
   route();
 }

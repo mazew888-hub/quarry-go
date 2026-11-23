@@ -9,5 +9,11 @@ test('the offline worker carries the app version itself, so a new version change
   const sw = read('sw.js').match(/const VERSION = '([^']+)'/);
   assert.ok(sw, 'sw.js has its own VERSION constant');
   assert.equal(sw[1], app);
-  assert.match(read('js/app.js'), /serviceWorker\.register\('sw\.js'\)/);
+  assert.match(read('js/app.js'), /serviceWorker\.register\('sw\.js'[,)]/);
+});
+
+test('a new version fetches fresh files, not the browser copy', () => {
+  assert.match(read('sw.js'), /cache: 'reload'/);
+  assert.match(read('js/app.js'), /updateViaCache: 'none'/);
+  assert.match(read('js/app.js'), /controllerchange/);
 });
