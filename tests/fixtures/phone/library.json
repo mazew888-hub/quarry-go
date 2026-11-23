@@ -1,0 +1,112 @@
+{
+ "version": 1,
+ "snapshot": 3,
+ "items": [
+  {
+   "key": "Anatomy/Hands/hand_01.jpg",
+   "kind": "image",
+   "title": "Hand study",
+   "author": "alice",
+   "source": "X",
+   "post_url": "https://x.com/alice/status/1",
+   "media_url": null,
+   "folder": "Anatomy/Hands",
+   "tags": [
+    "hands",
+    "gesture"
+   ],
+   "added": "2026-11-20 10:00:00",
+   "parent": null,
+   "thumb": "24237a4c5d48294b4f15b7c243f321289ba0384e.jpg",
+   "w": 400,
+   "h": 300
+  },
+  {
+   "key": "Anatomy/Hands/hand_02.jpg",
+   "kind": "image",
+   "title": "Gripping",
+   "author": "bob",
+   "source": "Pinterest",
+   "post_url": null,
+   "media_url": null,
+   "folder": "Anatomy/Hands",
+   "tags": [
+    "hands"
+   ],
+   "added": "2026-11-21 10:00:00",
+   "parent": null,
+   "thumb": "b91f79ae06f8fc4b1a55be3d3045c08ff0d40dbe.jpg",
+   "w": 400,
+   "h": 300
+  },
+  {
+   "key": "Anatomy/Body/torso.jpg",
+   "kind": "image",
+   "title": "Torso twist",
+   "author": "carol",
+   "source": "Local",
+   "post_url": null,
+   "media_url": null,
+   "folder": "Anatomy/Body",
+   "tags": [],
+   "added": "2026-11-22 10:00:00",
+   "parent": null,
+   "thumb": "54de6bcb26615e631cef15c1518955c534cf6188.jpg",
+   "w": 400,
+   "h": 300
+  },
+  {
+   "key": "Poses/standing.jpg",
+   "kind": "image",
+   "title": "Standing pose",
+   "author": "dan",
+   "source": "X",
+   "post_url": "https://x.com/dan/status/1",
+   "media_url": null,
+   "folder": "Poses",
+   "tags": [
+    "contrapposto",
+    "misc"
+   ],
+   "added": "2026-11-23 10:00:00",
+   "parent": null,
+   "thumb": "b343d3f25ce7196ae76ecfbb7cdea5561f314b03.jpg",
+   "w": 400,
+   "h": 300
+  },
+  {
+   "key": "Poses/run_cycle.mp4",
+   "kind": "video",
+   "title": "Run cycle",
+   "author": "erin",
+   "source": "X",
+   "post_url": "https://x.com/erin/status/1",
+   "media_url": null,
+   "folder": "Poses",
+   "tags": [],
+   "added": "2026-11-24 10:00:00",
+   "parent": null,
+   "thumb": "e671c074628c161280af74d51eda077b5d18ca01.jpg",
+   "w": 400,
+   "h": 300
+  },
+  {
+   "key": "Poses/jump.gif",
+   "kind": "gif",
+   "title": "Jump",
+   "author": "frank",
+   "source": "X",
+   "post_url": "https://x.com/frank/status/1",
+   "media_url": null,
+   "folder": "Poses",
+   "tags": [
+    "jump"
+   ],
+   "added": "2026-11-25 10:00:00",
+   "parent": null,
+   "thumb": "fd1d9a97f88694f1d37bbd01a5ada096c339bf67.jpg",
+   "w": 400,
+   "h": 300
+  }
+ ]
+}

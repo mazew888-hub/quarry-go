@@ -1,0 +1,77 @@
+{
+ "version": 1,
+ "posts": [
+  {
+   "id": "1800",
+   "url": "https://x.com/artist0/status/1800",
+   "author": "artist0",
+   "author_name": "Artist 0",
+   "text": "Post number 0 with some text #anim",
+   "date": "2026-11-20T09:00:00",
+   "kinds": [
+    "like"
+   ],
+   "media": [
+    {
+     "type": "photo",
+     "url": "https://pbs.twimg.com/fake/0.jpg",
+     "poster": null
+    }
+   ]
+  },
+  {
+   "id": "1801",
+   "url": "https://x.com/artist1/status/1801",
+   "author": "artist1",
+   "author_name": "Artist 1",
+   "text": "Post number 1 with some text #anim",
+   "date": "2026-11-21T09:00:00",
+   "kinds": [
+    "like"
+   ],
+   "media": [
+    {
+     "type": "video",
+     "url": "https://video.twimg.com/fake/1.mp4",
+     "poster": "https://pbs.twimg.com/fake/p1.jpg"
+    }
+   ]
+  },
+  {
+   "id": "1802",
+   "url": "https://x.com/artist2/status/1802",
+   "author": "artist2",
+   "author_name": "Artist 2",
+   "text": "Post number 2 with some text #anim",
+   "date": "2026-11-22T09:00:00",
+   "kinds": [
+    "like"
+   ],
+   "media": [
+    {
+     "type": "photo",
+     "url": "https://pbs.twimg.com/fake/2.jpg",
+     "poster": null
+    }
+   ]
+  },
+  {
+   "id": "1803",
+   "url": "https://x.com/artist3/status/1803",
+   "author": "artist3",
+   "author_name": "Artist 3",
+   "text": "Post number 3 with some text #anim",
+   "date": "2026-11-23T09:00:00",
+   "kinds": [
+    "like"
+   ],
+   "media": [
+    {
+     "type": "photo",
+     "url": "https://pbs.twimg.com/fake/3.jpg",
+     "poster": null
+    }
+   ]
+  }
+ ]
+}

@@ -3,6 +3,7 @@ import { loadFrames, CANT_OPEN } from './frames.js';
 import { openPlayer, log, status } from './player.js';
 import { renderReviews } from './reviews.js';
 import * as S from './store.js';
+import * as G from './drive.js';
 
 export const VERSION = '0.1.4';
 const $ = id => document.getElementById(id);
@@ -179,6 +180,9 @@ function sample() {
   $('reviews').classList.add('show');
   renderReviews($('reviews'), rs, { onOpen() {}, onHold() {}, onSettings() {} }, r => r.t);
 }
+
+// Back from Google's sign-in page: take the token, put the address back.
+if (G.handleRedirect() && G.ready()) G.account().catch(e => log('google: ' + e.message));
 
 const q = new URLSearchParams(location.search);
 if (local && q.get('test') === 'player') testPlayer(q);
