@@ -118,3 +118,23 @@ def test_newest_open_wins(page):
     page.wait_for_timeout(4000)
     assert page.inner_text('#fr').endswith('/ 7')
     assert page.locator('#player').is_visible()
+
+def test_old_review_drawings_keep_12_frames(page):
+    home(page)
+    clip = (FIX / 'clip.webm').read_bytes()
+    rid = page.evaluate('''async bytes => { const S = await import('/js/store.js');
+        const r = await S.createReview({ name: 'old', fps: 24, frameCount: 72, marks: [{ f: 0, type: 'box', x1: 100, y1: 100, x2: 500, y2: 300 }] },
+            new Blob([new Uint8Array(bytes)], { type: 'video/webm' })); return r.id; }''', list(clip))
+    page.evaluate(f"location.hash = '#/r/{rid}'"); in_player(page)
+    red = "(r, g, b) => r > 230 && g > 40 && g < 80 && b > 75 && b < 110"
+    # look only along the box's top edge (video 200..400, y 100), mapped to the screen
+    seen = lambda: page.evaluate(f'''() => {{ const c = document.getElementById('cv'), x = c.getContext('2d'), ok = {red};
+        const s = Math.min(c.width / 640, c.height / 360), ox = (c.width - 640 * s) / 2, oy = (c.height - 360 * s) / 2;
+        for (let vx = 200; vx < 400; vx += 4) for (let dy = -3; dy <= 3; dy++) {{
+            const [r, g, b] = x.getImageData(ox + vx * s, oy + 100 * s + dy, 1, 1).data; if (ok(r, g, b)) return true; }}
+        return false; }}''')
+    assert seen()
+    for _ in range(11): page.mouse.click(370, 400)
+    assert seen()
+    page.mouse.click(370, 400)
+    assert not seen()

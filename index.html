@@ -40,6 +40,19 @@
     <button class="btn" id="circleBtn">Circle</button>
     <button class="btn" id="undo" aria-label="Undo">↶</button>
   </div>
+  <div class="ui" id="penRow" hidden>
+    <button class="sw on" data-color="#FF3B5C" style="--c:#FF3B5C" aria-label="Red"></button>
+    <button class="sw" data-color="#4FA3FF" style="--c:#4FA3FF" aria-label="Blue"></button>
+    <button class="sw" data-color="#ECEEF1" style="--c:#ECEEF1" aria-label="White"></button>
+    <button class="sw" data-color="#111111" style="--c:#111111" aria-label="Black"></button>
+    <span class="pr-sep"></span>
+    <button class="sz" data-size="1" aria-label="Thin"><i style="width:4px;height:4px"></i></button>
+    <button class="sz on" data-size="2" aria-label="Medium"><i style="width:8px;height:8px"></i></button>
+    <button class="sz" data-size="3" aria-label="Thick"><i style="width:14px;height:14px"></i></button>
+    <span class="pr-sep"></span>
+    <button class="btn" id="eraseBtn">Eraser</button>
+    <button class="btn" id="clearBtn" style="color:var(--late)">Clear</button>
+  </div>
   <div id="noteChip"></div>
   <div class="ui" id="bot">
     <div class="readout"><span id="fr">1 / 1</span><button id="rangeChip" style="display:none" aria-label="Clear loop"><span id="rangeTxt"></span><span class="x">✕</span></button><span class="sp"></span><span id="tc"></span></div>
@@ -48,7 +61,7 @@
         <button class="btn pri big" id="play" aria-label="Play">▶︎</button>
         <button class="btn num big" id="rateBtn">1×</button>
       </div>
-      <div class="lane"><canvas id="scrub"></canvas></div>
+      <div class="lane"><canvas id="scrub"></canvas><canvas id="drawLane" aria-label="Drawings: drag a bar's end to change how long it holds"></canvas></div>
       <div class="grp r">
         <button class="btn big io" id="inBtn">In</button>
         <button class="btn big io" id="outBtn">Out</button>

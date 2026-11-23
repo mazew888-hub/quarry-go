@@ -227,3 +227,20 @@ input[type=file]{display:none}
 @keyframes qgspin{to{transform:rotate(360deg)}}
 .ptr{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 8px);transform:translate(-50%,0);z-index:12;opacity:0;pointer-events:none;
   background:var(--board);color:var(--ink);box-shadow:var(--raised-lg);border-radius:999px;padding:8px 14px;font:500 13px/1 "Rubik";transition:opacity .2s}
+
+/* ---- draw-over: pen bar and the drawings lane ---- */
+#penRow{top:calc(env(safe-area-inset-top) + 96px);display:flex;justify-content:flex-end;align-items:center;gap:6px;padding:0 max(8px,env(safe-area-inset-right)) 0 8px;flex-wrap:wrap}
+#penRow[hidden]{display:none}
+#penRow .sw{appearance:none;width:30px;height:30px;border-radius:15px;border:2px solid rgba(255,255,255,.18);background:var(--c);box-shadow:0 2px 6px rgba(0,0,0,.35)}
+#penRow .sw.on{border-color:#ECEEF1;box-shadow:0 0 0 3px rgba(134,176,194,.55),0 2px 6px rgba(0,0,0,.35)}
+#penRow .sz{appearance:none;width:34px;height:34px;border-radius:10px;border:0;background:rgba(40,44,49,.42);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);display:flex;align-items:center;justify-content:center}
+#penRow .sz i{display:block;border-radius:50%;background:#ECEEF1}
+#penRow .sz.on{box-shadow:var(--selected)}
+#penRow .pr-sep{width:1px;height:24px;background:rgba(255,255,255,.12);margin:0 2px}
+#eraseBtn.on{color:var(--acc-l);box-shadow:var(--selected)}
+#bot .lane{display:flex;flex-direction:column}
+#drawLane{width:100%;height:18px;display:block;touch-action:none}
+#penRow{gap:5px;flex-wrap:nowrap}
+#penRow .sw{width:27px;height:27px;flex:none}
+#penRow .sz{width:28px;height:30px;flex:none}
+#penRow .btn{height:30px;padding:0 9px;font-size:13px;flex:none}

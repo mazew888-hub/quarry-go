@@ -134,3 +134,98 @@ def test_freehand_draw(page):
     assert hit
     page.click('#undo')
     assert page.evaluate('window.changes')[-1]['marks'] == []
+
+
+# ---------- draw-over: pen bar, holds on the timeline, eraser, clear and undo
+PEN = "(r, g, b) => r > 230 && g > 40 && g < 80 && b > 75 && b < 110"
+BLUE = "(r, g, b) => r < 110 && g > 140 && g < 190 && b > 230"
+
+def ink(page, test=PEN, box=(100, 330, 300, 430)):
+    return page.evaluate(f'''() => {{ const c = document.getElementById('cv'), x = c.getContext('2d'), d = devicePixelRatio, ok = {test};
+        for (let px = {box[0]}; px < {box[2]}; px += 2) for (let py = {box[1]}; py < {box[3]}; py += 2) {{
+            const [r, g, b] = x.getImageData(px * d, py * d, 1, 1).data; if (ok(r, g, b)) return true; }}
+        return false; }}''')
+
+def stroke(page, x0=120, x1=280, y=380):
+    page.mouse.move(x0, y); page.mouse.down()
+    for i in range(1, 21): page.mouse.move(x0 + (x1 - x0) * i / 20, y)
+    page.mouse.up()
+
+def pen(page):
+    page.click('#annBtn'); page.click('#drawBtn')
+
+def last(page, key):
+    return [c[key] for c in page.evaluate('window.changes') if key in c][-1]
+
+def lane_x(page, f, n=72, end=False):
+    bx = page.locator('#drawLane').bounding_box()
+    return bx['x'] + bx['width'] * ((f + 1) if end else f) / n, bx['y'] + bx['height'] / 2
+
+def test_new_drawing_holds_one_frame(page):
+    open_clip(page); loaded(page); pen(page)
+    stroke(page)
+    assert ink(page)
+    page.click('#annBtn')                      # close the tray; taps step frames again
+    step(page, 1)
+    assert not ink(page)
+
+def test_pen_colour_and_size(page):
+    open_clip(page); loaded(page); pen(page)
+    stroke(page, y=360)
+    small = last(page, 'marks')[-1]['size']
+    page.click('#penRow [data-color="#4FA3FF"]'); page.click('#penRow [data-size="3"]')
+    stroke(page, y=400)
+    m = last(page, 'marks')[-1]
+    assert m['color'] == '#4FA3FF' and m['size'] > small
+    assert ink(page, BLUE)
+
+def test_stretch_hold_on_lane(page):
+    open_clip(page); loaded(page); pen(page)
+    stroke(page)
+    page.click('#annBtn')
+    x, y = lane_x(page, 0, end=True); x2, _ = lane_x(page, 4, end=True)
+    page.mouse.move(x - 1, y); page.mouse.down(); page.mouse.move(x2 - 1, y, steps=6); page.mouse.up()
+    assert last(page, 'holds') == {'0': 5}
+    step(page, 4); assert ink(page)
+    step(page, 1); assert not ink(page)
+
+def test_draw_on_held_frame_adds_to_drawing(page):
+    open_clip(page); loaded(page); pen(page)
+    stroke(page, y=360)
+    page.click('#annBtn')
+    x, y = lane_x(page, 0, end=True); x2, _ = lane_x(page, 4, end=True)
+    page.mouse.move(x - 1, y); page.mouse.down(); page.mouse.move(x2 - 1, y, steps=6); page.mouse.up()
+    step(page, 2); pen(page); stroke(page, y=400)
+    assert [m['f'] for m in last(page, 'marks')] == [0, 0]
+
+def test_tap_lane_bar_jumps(page):
+    open_clip(page); loaded(page)
+    step(page, 10); pen(page); stroke(page); page.click('#annBtn')
+    step(page, 20)
+    x, y = lane_x(page, 10); page.mouse.click(x + 1, y)
+    assert fr(page).startswith('11')
+
+def test_eraser_splits_stroke(page):
+    open_clip(page); loaded(page); pen(page)
+    stroke(page, 100, 300, 380)
+    page.click('#eraseBtn')
+    page.mouse.move(200, 340); page.mouse.down(); page.mouse.move(200, 420, steps=8); page.mouse.up()
+    drawn = [m for m in last(page, 'marks') if m['type'] == 'draw']
+    assert len(drawn) == 2
+
+def test_clear_and_undo(page):
+    open_clip(page); loaded(page); pen(page)
+    stroke(page, y=360); stroke(page, y=400)
+    page.click('#clearBtn')
+    assert [m for m in last(page, 'marks') if m['type'] == 'draw'] == []
+    assert not ink(page)
+    page.click('#undo')
+    assert len(last(page, 'marks')) == 2 and ink(page)
+
+def test_eraser_undo_restores(page):
+    open_clip(page); loaded(page); pen(page)
+    stroke(page, 100, 300, 380)
+    page.click('#eraseBtn')
+    page.mouse.move(200, 340); page.mouse.down(); page.mouse.move(200, 420, steps=8); page.mouse.up()
+    page.click('#undo')
+    assert len(last(page, 'marks')) == 1
