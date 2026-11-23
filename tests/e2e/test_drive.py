@@ -64,3 +64,17 @@ def test_two_failing_calls_renew_once(page):
         page.evaluate("() => { import('/js/phone.js').then(p => { p.refresh(); p.refresh(); }); }")
     page.wait_for_function("localStorage.getItem('qg_token') === 'fake2'", timeout=8000)
     assert len(fake.auth_requests) == before + 1
+
+def test_diagnose_reports_what_it_sees(page):
+    start(page); sign_in(page)
+    d = page.evaluate(f"async () => {D}.diagnose()")
+    assert d['email'] == 'you@example.com' and len(d['roots']) == 1
+    r = d['roots'][0]
+    assert r['phone'] is True and 'status.json' in r['files'] and 'library.json' in r['files']
+
+def test_diagnose_without_phone_folder(page):
+    fake = FakeDrive(page, with_phone=False)
+    page.add_init_script("localStorage.setItem('qg_client_id', 'test-client.apps.googleusercontent.com')")
+    page.goto(BASE + '#/'); page.wait_for_load_state('domcontentloaded'); sign_in(page)
+    d = page.evaluate(f"async () => {D}.diagnose()")
+    assert d['roots'][0]['phone'] is False and d['roots'][0]['children'] == []

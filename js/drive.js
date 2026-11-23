@@ -135,3 +135,17 @@ export async function writeJson(folderId, name, obj) {
                `--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(obj)}\r\n--${b}--`;
   await api('/upload/drive/v3/files?uploadType=multipart', { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${b}` }, body });
 }
+
+// For Settings → Check Drive: what this phone can actually see, in plain terms.
+export async function diagnose() {
+  const acc = await account();
+  const roots = await list(`name = 'Quarry Sync' and mimeType = '${FOLDER}' and trashed = false`, 'files(id,name,modifiedTime,parents),nextPageToken');
+  const out = [];
+  for (const r of roots) {
+    const kids = await list(`'${r.id}' in parents and trashed = false`, 'files(id,name,mimeType),nextPageToken');
+    const phone = kids.find(k => k.name === 'phone' && k.mimeType === FOLDER);
+    const files = phone ? (await list(`'${phone.id}' in parents and trashed = false`, 'files(id,name),nextPageToken')).map(f => f.name) : [];
+    out.push({ id: r.id, modified: r.modifiedTime || null, phone: !!phone, children: kids.map(k => k.name).filter(n => n !== 'phone'), files });
+  }
+  return { email: acc && acc.email, roots: out };
+}

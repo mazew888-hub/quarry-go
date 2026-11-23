@@ -8,7 +8,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.2.5';
+export const VERSION = '0.2.6';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -73,6 +73,20 @@ async function settings() {
   $('gAccount').textContent = !G.configured() ? 'Not set up yet' : acc ? acc.email : 'Not connected';
   $('gBtn').textContent = acc ? 'Disconnect' : 'Connect';
   $('gBtn').style.display = G.configured() ? '' : 'none';
+  $('gCheckRow').style.display = acc ? '' : 'none';
+  $('gCheck').textContent = 'Check what this phone can see in your Drive.';
+  $('gCheckBtn').onclick = async () => {
+    $('gCheck').textContent = 'Checking…';
+    try {
+      const d = await G.diagnose();
+      const lines = [`Signed in as ${d.email}.`];
+      if (!d.roots.length) lines.push('No folder called “Quarry Sync” is visible in this Google Drive. Is Quarry syncing to this same Google account?');
+      d.roots.forEach((r, i) => lines.push(`Quarry Sync ${d.roots.length > 1 ? i + 1 : ''}: ` + (r.phone
+        ? `phone folder found with ${r.files.length} file(s): ${r.files.slice(0, 8).join(', ') || 'none yet'}.`
+        : `no phone folder inside (has: ${r.children.slice(0, 6).join(', ') || 'nothing'}).`)));
+      $('gCheck').textContent = lines.join('\n');
+    } catch (e) { $('gCheck').textContent = e.message; }
+  };
   $('gBtn').onclick = () => { if (acc) { G.signOut(); settings(); } else { try { G.signIn(); } catch (e) { toast(e.message); } } };
   show('settingsVeil');
   $('deleteAll').onclick = async () => {
