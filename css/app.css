@@ -143,3 +143,4 @@ input[type=file]{display:none}
 .rv-empty p{margin:0}
 #missing.show{display:flex}
 #reviews.busy{pointer-events:none}
+.rv-gear{width:44px;height:44px;padding:0;color:var(--ink)}
