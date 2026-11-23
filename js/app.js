@@ -4,7 +4,7 @@ import { openPlayer, log, status } from './player.js';
 import { renderReviews } from './reviews.js';
 import * as S from './store.js';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.1.1';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
