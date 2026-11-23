@@ -110,17 +110,17 @@ def test_all_sorted(page):
     go(page); count(page)
     for i in range(4):
         page.click('#soSkip'); page.wait_for_timeout(260)
-    page.wait_for_selector('.so-msg h2')
+    page.wait_for_function("document.querySelector('.so-msg h2') && document.querySelector('.so-msg h2').textContent !== 'Loading…'")
     assert page.inner_text('.so-msg h2') == 'All sorted'
 
 def test_signed_out_prompt(page):
     go(page, signed_in=False)
-    page.wait_for_selector('.so-msg h2')
+    page.wait_for_function("document.querySelector('.so-msg h2') && document.querySelector('.so-msg h2').textContent !== 'Loading…'")
     assert page.inner_text('.so-msg h2') == 'Connect Google Drive'
     page.click('#soMsgBtn')
     page.wait_for_function("document.getElementById('soCount') && document.getElementById('soCount').textContent.startsWith('4')", timeout=8000)
 
 def test_no_phone_folder(page):
     go(page, with_phone=False)
-    page.wait_for_selector('.so-msg h2')
+    page.wait_for_function("document.querySelector('.so-msg h2') && document.querySelector('.so-msg h2').textContent !== 'Loading…'")
     assert page.inner_text('.so-msg h2') == 'Nothing from Quarry yet'

@@ -5,7 +5,7 @@ const THRESHOLD = 120; // px of swipe that counts as a decision
 
 export function createSort(root, { phone, drive, toast }) {
   const history = [];   // this session's decisions, for Undo: {id, post}
-  let busy = false, state = 'ok', mediaIx = 0, shownId = null;
+  let busy = false, state = 'loading', mediaIx = 0, shownId = null;
 
   root.innerHTML = `
     <div class="so-top">
@@ -41,6 +41,7 @@ export function createSort(root, { phone, drive, toast }) {
     statusLine($('soStatus'), v, phone);
     if (state === 'notsetup') return message('Google sign-in isn’t set up yet', 'Sort needs a Google sign-in for Quarry Go first.');
     if (state === 'signedout' && !v.status) return message('Connect Google Drive', 'Sort reads the X likes Quarry finds on your PC, through your Quarry Sync folder.', { label: 'Connect Google Drive', run: () => { try { drive.signIn(); } catch (e) { toast(e.message); } } });
+    if (state === 'loading' && !v.status) return message('Loading…', 'Checking your Quarry Sync folder.');
     if (state === 'nofolder') return message('Nothing from Quarry yet', 'Quarry hasn’t made the phone folder yet. Open Quarry on your PC and sync.');
     if (!q.length) return message('All sorted', `Quarry last looked for new likes ${ago(v.status && v.status.x_checked)}.`);
     const post = q[0], next = q[1];
