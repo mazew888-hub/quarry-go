@@ -21,6 +21,8 @@ def context(browser, server):
 
 @pytest.fixture
 def page(context):
+    # Sort and Library are off by default (test_focus covers that); the other tests use them.
+    context.add_init_script("try { localStorage.setItem('qg_extra_tabs', '1'); } catch (e) {}")
     pg = context.new_page(); pg.errors = []; pg.set_default_timeout(8000)
     pg.on('pageerror', lambda e: pg.errors.append(str(e)))
     yield pg

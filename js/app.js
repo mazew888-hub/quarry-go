@@ -8,7 +8,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.2.7';
+export const VERSION = '0.2.8';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -69,11 +69,18 @@ async function settings() {
   const [{ bytes }, list] = await Promise.all([S.usage(), S.listReviews()]);
   $('spaceUsed').textContent = `${(bytes / 1e6).toFixed(1)} MB · ${list.length} review${list.length === 1 ? '' : 's'}`;
   $('version').textContent = VERSION;
+  const on = extraTabs();
+  $('extraTabs').textContent = on ? 'On' : 'Off'; $('extraTabs').classList.toggle('on', on);
+  $('extraTabs').onclick = () => {
+    try { localStorage.setItem('qg_extra_tabs', on ? '0' : '1'); } catch {}
+    $('extraTabs').textContent = on ? 'Off' : 'On'; $('tabbar').classList.toggle('show', !on); settings();
+  };
+  $('gRow').style.display = on ? '' : 'none';
   const acc = G.connected() ? await G.account().catch(() => null) : null;
   $('gAccount').textContent = !G.configured() ? 'Not set up yet' : acc ? acc.email : 'Not connected';
   $('gBtn').textContent = acc ? 'Disconnect' : 'Connect';
   $('gBtn').style.display = G.configured() ? '' : 'none';
-  $('gCheckRow').style.display = acc ? '' : 'none';
+  $('gCheckRow').style.display = acc && on ? '' : 'none';
   $('gCheck').textContent = 'Check what this phone can see in your Drive.';
   $('gCheckBtn').onclick = async () => {
     $('gCheck').textContent = 'Checking…';
@@ -172,8 +179,10 @@ $('missingBack').onclick = () => { location.hash = '#/'; showReviews(); };
 // ---------- routing and lifecycle
 // ---------- tabs: Review, Sort, Library
 let sortTab = null, libTab = null;
+// Quarry Go is a review app first: Sort and Library stay hidden until switched on in Settings.
+const extraTabs = () => { try { return localStorage.getItem('qg_extra_tabs') === '1'; } catch { return false; } };
 function setTab(name) {
-  $('tabbar').classList.toggle('show', !!name);
+  $('tabbar').classList.toggle('show', !!name && extraTabs());
   for (const t of ['review', 'sort', 'library']) $('tab-' + t).classList.toggle('on', t === name);
   if (name !== 'review') $('reviews').classList.remove('show');
   if (name !== 'sort' && sortTab) sortTab.close();
@@ -190,6 +199,7 @@ function route() {
   const h = location.hash;
   const m = h.match(/^#\/r\/(.+)$/);
   if (m) { setTab(null); openReview(decodeURIComponent(m[1])); }
+  else if ((h === '#/sort' || h === '#/library') && !extraTabs()) { location.replace('#/'); }
   else if (h === '#/sort') showSort();
   else if (h === '#/library') {
     openSeq++; if (player) { player.close(); player = null; }
