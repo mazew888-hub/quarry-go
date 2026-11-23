@@ -117,3 +117,20 @@ def test_export_shares_from_a_fresh_tap(page):
     assert page.evaluate('window.shared') is None      # nothing shared until the tap
     page.click('#shareBtn')
     page.wait_for_function('window.shared === "clip - notes.mp4"')
+
+def test_freehand_draw(page):
+    open_clip(page); loaded(page)
+    page.click('#annBtn'); page.click('#drawBtn')
+    assert page.inner_text('#annBtn') == 'Draw'
+    page.mouse.move(120, 380); page.mouse.down()
+    for i in range(1, 21): page.mouse.move(120 + i * 8, 380 + (i % 5) * 3)
+    page.mouse.up()
+    m = page.evaluate('window.changes')[-1]['marks'][-1]
+    assert m['type'] == 'draw' and len(m['pts']) > 5
+    hit = page.evaluate('''() => { const c = document.getElementById('cv'), x = c.getContext('2d'), d = devicePixelRatio;
+        for (let px = 125; px < 275; px += 2) for (let py = 370; py < 400; py++) {
+            const [r, g, b] = x.getImageData(px * d, py * d, 1, 1).data; if (r > 230 && g > 40 && g < 80 && b > 75 && b < 110) return true; }
+        return false; }''')
+    assert hit
+    page.click('#undo')
+    assert page.evaluate('window.changes')[-1]['marks'] == []

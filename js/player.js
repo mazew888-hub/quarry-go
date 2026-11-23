@@ -58,7 +58,12 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
       c.beginPath(); c.moveTo(m.x2, m.y2);
       c.lineTo(m.x2 - L*Math.cos(a-0.45), m.y2 - L*Math.sin(a-0.45));
       c.lineTo(m.x2 - L*Math.cos(a+0.45), m.y2 - L*Math.sin(a+0.45)); c.closePath(); c.fill();
-    } else if (m.type === 'circle') {
+    } else if (m.type === 'draw') {
+    // freehand: smoothed through the midpoints of the points the finger left
+    const p = m.pts; c.beginPath(); c.moveTo(p[0][0], p[0][1]);
+    for (let i = 1; i < p.length - 1; i++) c.quadraticCurveTo(p[i][0], p[i][1], (p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2);
+    c.lineTo(p[p.length - 1][0], p[p.length - 1][1]); c.stroke();
+  } else if (m.type === 'circle') {
       // grows from where you touched: that point is the centre, the drag sets the radius
       c.beginPath(); c.arc(m.x1, m.y1, Math.hypot(m.x2-m.x1, m.y2-m.y1), 0, Math.PI*2); c.stroke();
     } else if (m.type === 'box') {
@@ -219,7 +224,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     }
     tapStart = { x: e.clientX, y: e.clientY, t: performance.now(), f: pos };
     sliding = false;
-    if (tool) { stop(); const [x, y] = toVideo(e.clientX, e.clientY); drag = { f: cur, type: tool, x1: x, y1: y, x2: x, y2: y }; }
+    if (tool) { stop(); const [x, y] = toVideo(e.clientX, e.clientY); drag = tool === 'draw' ? { f: cur, type: 'draw', pts: [[x, y]] } : { f: cur, type: tool, x1: x, y1: y, x2: x, y2: y }; }
   });
   on(cv, 'pointermove', e => {
     if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, [e.clientX, e.clientY]);
@@ -231,7 +236,12 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
       panY = (pinch.my - cym - pinch.py) * (1 - z / pinch.z0) + pinch.py + (my - pinch.my);
       zoom = z; clampPan(); draw(); return;
     }
-    if (drag) { [drag.x2, drag.y2] = toVideo(e.clientX, e.clientY); draw(); return; }
+    if (drag) {
+      const [x, y] = toVideo(e.clientX, e.clientY);
+      if (drag.type === 'draw') { const l = drag.pts[drag.pts.length - 1]; if (Math.hypot(x - l[0], y - l[1]) * view().s / (devicePixelRatio || 1) > 2) drag.pts.push([Math.round(x * 10) / 10, Math.round(y * 10) / 10]); }
+      else [drag.x2, drag.y2] = [x, y];
+      draw(); return;
+    }
     if (!tapStart) return;
     const dx = e.clientX - tapStart.x;
     if (!sliding && Math.abs(dx) > 8) { sliding = true; stop(); showUi(true); tapStart.x = e.clientX; }
@@ -243,7 +253,10 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   const up = e => {
     pts.delete(e.pointerId);
     if (pinch) { if (pts.size < 2) pinch = null; tapStart = null; return; }
-    if (drag) { if (Math.hypot(drag.x2 - drag.x1, drag.y2 - drag.y1) > 6) { marks.push(drag); changed('marks'); } drag = null; draw(); return; }
+    if (drag) {
+      const big = drag.type === 'draw' ? drag.pts.length > 2 : Math.hypot(drag.x2 - drag.x1, drag.y2 - drag.y1) > 6;
+      if (big) { marks.push(drag); changed('marks'); } drag = null; draw(); return;
+    }
     if (sliding) { sliding = false; tapStart = null; poke(); changed('pos'); return; }
     if (tapStart && Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 10 && performance.now() - tapStart.t < 350) {
       const third = e.clientX / innerWidth;
@@ -275,12 +288,12 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   // ---------- annotate
   function pick(t) {
     tool = tool === t ? null : t;
-    for (const k of ['arrow', 'box', 'circle']) $(k + 'Btn').classList.toggle('on', tool === k);
+    for (const k of ['draw', 'arrow', 'box', 'circle']) $(k + 'Btn').classList.toggle('on', tool === k);
     $('annBtn').textContent = tool ? tool[0].toUpperCase() + tool.slice(1) : 'Annotate';
     $('annBtn').classList.toggle('on', !!tool); poke();
   }
   $('annBtn').onclick = () => { const t = $('tray'); t.hidden = !t.hidden; $('annBtn').classList.toggle('open', !t.hidden); if (!t.hidden) stop(); else showUi(); };
-  $('arrowBtn').onclick = () => pick('arrow'); $('boxBtn').onclick = () => pick('box'); $('circleBtn').onclick = () => pick('circle');
+  $('drawBtn').onclick = () => pick('draw'); $('arrowBtn').onclick = () => pick('arrow'); $('boxBtn').onclick = () => pick('box'); $('circleBtn').onclick = () => pick('circle');
   $('undo').onclick = () => { if (marks.length) { marks.pop(); changed('marks'); } draw(); poke(); };
   $('noteBtn').onclick = () => { stop(); $('noteCap').textContent = `Note on frame ${cur + 1}`; $('noteIn').value = ''; openSheet('noteVeil'); $('noteIn').focus(); };
   $('noteNo').onclick = closeSheets;
@@ -291,7 +304,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
       const d = document.createElement('div'); d.className = 'note';
       d.innerHTML = '<span class="f"></span><span class="t"></span><span class="x">×</span>';
       d.querySelector('.f').textContent = `FR ${m.f + 1}`;
-      d.querySelector('.t').textContent = m.type === 'note' ? m.text : m.type[0].toUpperCase() + m.type.slice(1);
+      d.querySelector('.t').textContent = m.type === 'note' ? m.text : m.type === 'draw' ? 'Drawing' : m.type[0].toUpperCase() + m.type.slice(1);
       d.querySelector('.t').onclick = () => { if (retimed && isCut(secs, m.f)) setView(false); pos = firstPos[m.f] >= 0 ? firstPos[m.f] : posAtOrAfter(seq, m.f); inF = outF = null; closeSheets(); draw(); changed('pos', 'inF', 'outF'); };
       d.querySelector('.x').onclick = () => { marks.splice(i, 1); changed('marks'); renderNotes(); draw(); };
       box.append(d);
@@ -371,7 +384,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
 
   // ---------- start
   $('player').style.display = 'block';
-  for (const k of ['arrow', 'box', 'circle']) $(k + 'Btn').classList.remove('on');
+  for (const k of ['draw', 'arrow', 'box', 'circle']) $(k + 'Btn').classList.remove('on');
   $('annBtn').textContent = 'Annotate'; $('annBtn').classList.remove('on', 'open'); $('tray').hidden = true;
   $('log2').textContent = '';
   rebuild(); setRate(rate); updateRetimeUi(); sizeAll(); closeSheets(); draw(); poke();
