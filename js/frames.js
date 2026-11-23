@@ -1,40 +1,56 @@
 // Loads every frame of a clip into memory, so scrubbing and any play rate are exact.
 // Returns as soon as the size and frame rate are known; frames fill in while the player is in use.
-import { decodeGif, gifTimeline } from './gif.js';
+import { decodeGif, scanGif, gifTimeline } from './gif.js';
 
 export const CANT_OPEN = "This clip can't be opened here";
 const tooLong = n => `This clip is too long to hold on the phone (${n} frames)`;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const MAX_W = 960;
 
-export async function loadFrames(blob, { maxBytes = 900e6, signal, log = () => {} } = {}) {
+// The returned media has cancel(): it stops loading and frees every frame. Call it when the clip is left.
+export async function loadFrames(blob, { maxBytes = 900e6, log = () => {} } = {}) {
   const head = new Uint8Array(await blob.slice(0, 6).arrayBuffer());
   const isGif = blob.type === 'image/gif' || String.fromCharCode(...head).startsWith('GIF8');
-  return isGif ? loadGif(blob, maxBytes, log) : loadVideo(blob, maxBytes, signal, log);
+  return isGif ? loadGif(blob, maxBytes, log) : loadVideo(blob, maxBytes, log);
 }
 
 function media(fps, count, W, H) {
   // onFrame is set by the player; loading flips to false when every frame is in.
-  return { fps, count, W, H, frames: new Array(count).fill(null), loading: true, onFrame: null, done: null };
+  const m = { fps, count, W, H, frames: new Array(count).fill(null), loading: true, onFrame: null, done: null, cancelled: false, cleanup: () => {} };
+  m.cancel = () => {
+    if (m.cancelled) return; m.cancelled = true; m.onFrame = null; m.cleanup();
+    for (const f of new Set(m.frames)) if (f && f.close) f.close();
+    m.frames.fill(null);
+  };
+  return m;
 }
 
 async function loadGif(blob, maxBytes, log) {
-  let g;
-  try { g = decodeGif(await blob.arrayBuffer()); } catch (e) { log('gif: ' + e.message); throw new Error(CANT_OPEN); }
-  const scale = Math.min(1, MAX_W / g.width);
-  const W = Math.round(g.width * scale), H = Math.round(g.height * scale);
-  if (g.frames.length * W * H * 4 > maxBytes) throw new Error(tooLong(g.frames.length));
-  const { fps, slots } = gifTimeline(g.frames.map(f => f.delayMs));
+  const buf = await blob.arrayBuffer();
+  let info;
+  try { info = scanGif(buf); } catch (e) { log('gif: ' + e.message); throw new Error(CANT_OPEN); }
+  const scale = Math.min(1, MAX_W / info.width);
+  const W = Math.round(info.width * scale), H = Math.round(info.height * scale);
+  if (info.count * W * H * 4 > maxBytes) throw new Error(tooLong(info.count));
+  const { fps, slots } = gifTimeline(info.delays);
   const count = slots.reduce((a, b) => a + b, 0);
   const m = media(fps, count, W, H);
+  // One full-size picture at a time: each is drawn down to the cached size straight away.
+  const full = document.createElement('canvas'); full.width = info.width; full.height = info.height;
+  const fc = full.getContext('2d');
   m.done = (async () => {
+    await new Promise(r => setTimeout(r, 0)); // let the player open first
     let i = 0;
-    for (let k = 0; k < g.frames.length; k++) {
-      const bmp = await createImageBitmap(new ImageData(g.frames[k].rgba, g.width, g.height), { resizeWidth: W, resizeHeight: H, resizeQuality: 'medium' });
-      for (let s = 0; s < slots[k]; s++) m.frames[i++] = bmp;
-      m.onFrame && m.onFrame();
-    }
-    m.loading = false; log(`gif: ${g.width}x${g.height}, ${g.frames.length} pictures over ${count} frames at ${fps} fps`);
+    try {
+      decodeGif(buf, (f, k) => {
+        if (m.cancelled) return;
+        fc.putImageData(new ImageData(f.rgba, info.width, info.height), 0, 0);
+        const c = document.createElement('canvas'); c.width = W; c.height = H;
+        const x = c.getContext('2d'); x.imageSmoothingQuality = 'medium'; x.drawImage(full, 0, 0, W, H);
+        for (let s = 0; s < slots[k]; s++) m.frames[i++] = c;
+      });
+    } catch (e) { log('gif: ' + e.message); }
+    if (!m.cancelled) { m.loading = false; m.onFrame && m.onFrame(); log(`gif: ${info.width}x${info.height}, ${info.count} pictures over ${count} frames at ${fps} fps`); }
   })();
   return m;
 }
@@ -86,7 +102,7 @@ async function detectFps(v, log) {
   return [12, 15, 23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60].reduce((a, b) => Math.abs(b - raw) < Math.abs(a - raw) ? b : a, 24);
 }
 
-async function loadVideo(blob, maxBytes, signal, log) {
+async function loadVideo(blob, maxBytes, log) {
   const url = URL.createObjectURL(blob);
   let v;
   try { v = await vid(url); } catch (e) { URL.revokeObjectURL(url); throw e; }
@@ -100,10 +116,11 @@ async function loadVideo(blob, maxBytes, signal, log) {
   const W = Math.round(v.videoWidth * scale), H = Math.round(v.videoHeight * scale);
   if (count * W * H * 4 > maxBytes) { quit(); throw new Error(tooLong(count)); }
   const m = media(fps, count, W, H);
+  m.cleanup = () => { try { v.pause(); } catch {} quit(); };
   const opts = { resizeWidth: W, resizeHeight: H, resizeQuality: 'medium' };
   let got = 0;
-  const stopped = () => signal && signal.aborted;
-  const grab = i => createImageBitmap(v, opts).then(b => { if (!m.frames[i]) { m.frames[i] = b; got++; m.onFrame && m.onFrame(); } else b.close && b.close(); });
+  const stopped = () => m.cancelled;
+  const grab = i => createImageBitmap(v, opts).then(b => { if (m.cancelled) { b.close && b.close(); return; } if (!m.frames[i]) { m.frames[i] = b; got++; m.onFrame && m.onFrame(); } else b.close && b.close(); });
   m.done = (async () => {
     const t0 = performance.now();
     rvfcMisses = 0;
@@ -131,7 +148,8 @@ async function loadVideo(blob, maxBytes, signal, log) {
       await seek(v, Math.min(dur - 0.001, (i + 0.5) / fps));
       await grab(i);
     }
-    m.loading = false; quit();
+    if (m.cancelled) return;
+    m.loading = false; quit(); m.cleanup = () => {};
     log(`${v.videoWidth}x${v.videoHeight}, ${fps} fps, ${count} frames, loaded in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
   })();
   return m;

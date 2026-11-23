@@ -1,6 +1,7 @@
 // Offline: the app's own files are cached on install and served from the cache.
-// The cache name carries the app version (passed as ?v= when the app registers this worker).
-const VERSION = new URL(self.location).searchParams.get('v') || 'dev';
+// Keep VERSION equal to VERSION in js/app.js (a test checks): changing it changes this file,
+// which is how an installed copy finds out there's an update.
+const VERSION = '0.1.0';
 const CACHE = `quarry-go-${VERSION}`;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',

@@ -142,3 +142,4 @@ input[type=file]{display:none}
 .rv-empty{background:var(--well);box-shadow:var(--pressed);border-radius:14px;padding:22px 18px;color:var(--mut);text-align:center}
 .rv-empty p{margin:0}
 #missing.show{display:flex}
+#reviews.busy{pointer-events:none}

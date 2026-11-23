@@ -51,3 +51,15 @@ test('larger noisy picture matches a reference decoder', () => {
     assert.deepEqual(Buffer.from(g.frames[0].rgba).equals(Buffer.from(ref)), true, name);
   }
 });
+
+test('scanGif reads size, count and delays without decoding pictures', async () => {
+  const { scanGif } = await import('../js/gif.js');
+  assert.deepEqual(scanGif(load('mixed.gif')), { width: 8, height: 6, count: 3, delays: [40, 120, 100] });
+});
+
+test('decodeGif with a callback hands frames over one at a time and keeps none', () => {
+  const got = [];
+  const g = decodeGif(load('solid3.gif'), (f, i) => got.push([i, [...f.rgba.slice(0, 4)]]));
+  assert.equal(g.frames.length, 0);
+  assert.deepEqual(got, [[0, [255, 0, 0, 255]], [1, [0, 255, 0, 255]], [2, [0, 0, 255, 255]]]);
+});

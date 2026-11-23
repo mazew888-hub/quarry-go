@@ -103,3 +103,17 @@ def test_too_long_refused_before_save(page):
     page.wait_for_function("document.getElementById('toast').textContent.includes('too long')", timeout=15000)
     assert page.evaluate('window.changes') == []
     assert not page.locator('#player').is_visible()
+
+def test_export_shares_from_a_fresh_tap(page):
+    page.add_init_script('''
+        const mm = window.matchMedia.bind(window);
+        window.matchMedia = q => q === '(pointer: coarse)' ? { matches: true, addEventListener() {}, removeEventListener() {} } : mm(q);
+        navigator.canShare = () => true;
+        navigator.share = async d => { window.shared = d.files[0].name; };
+    ''')
+    open_clip(page); loaded(page)
+    page.click('#more'); page.click('#export')
+    page.wait_for_selector('#shareVeil', state='visible', timeout=20000)
+    assert page.evaluate('window.shared') is None      # nothing shared until the tap
+    page.click('#shareBtn')
+    page.wait_for_function('window.shared === "clip - notes.mp4"')

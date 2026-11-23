@@ -28,17 +28,23 @@ function confirmSheet(text) {
 
 // ---------- Reviews
 let player = null, pending = null; // pending: {id, media} just made, so it opens without decoding again
+let openSeq = 0;                     // only the newest open request may show its review
+const dropPending = () => { if (pending) { pending.media.cancel(); pending = null; } };
+const save = () => S.flush().catch(e => toast(e.message));
+let thumbUrls = [];
 async function showReviews() {
+  openSeq++;
   if (player) { player.close(); player = null; }
+  dropPending(); $('reviews').classList.remove('busy');
   hide('missing');
-  await S.flush();
+  await save();
   const list = await S.listReviews();
-  const urls = [];
+  for (const u of thumbUrls) URL.revokeObjectURL(u); thumbUrls = [];
   renderReviews($('reviews'), list, {
     onOpen: id => { location.hash = `#/r/${id}`; },
     onHold: id => cardSheet(list.find(r => r.id === id)),
     onSettings: settings,
-  }, r => { const u = URL.createObjectURL(r.thumb); urls.push(u); return u; });
+  }, r => { const u = URL.createObjectURL(r.thumb); thumbUrls.push(u); return u; });
   $('reviews').classList.add('show');
   fileMode = { kind: 'new' };
 }
@@ -85,7 +91,7 @@ async function open(file) {
   try {
     const media = await loadFrames(file, { log });
     const f0 = await firstFrame(media);
-    if (!f0) throw new Error(CANT_OPEN);
+    if (!f0) { media.cancel(); throw new Error(CANT_OPEN); }
     return { media, thumb: await thumbOf(f0) };
   } finally { status(''); }
 }
@@ -100,24 +106,32 @@ $('file').onchange = async e => {
   try {
     if (mode.kind === 'repick') {
       await S.putClip(mode.id, file); S.saveReview(mode.id, { clipType: file.type, thumb }); await S.flush();
-      pending = { id: mode.id, media }; hide('missing'); openReview(mode.id);
+      dropPending(); pending = { id: mode.id, media }; hide('missing'); openReview(mode.id);
       return;
     }
     const r = await S.createReview({ name: baseName(file), fps: media.fps, frameCount: media.count, width: media.W, height: media.H, thumb }, file);
-    pending = { id: r.id, media }; location.hash = `#/r/${r.id}`;
-  } catch (err) { toast(err.message); }
+    dropPending(); pending = { id: r.id, media }; location.hash = `#/r/${r.id}`;
+  } catch (err) { media.cancel(); toast(err.message); }
 };
 
 async function openReview(id) {
+  const my = ++openSeq, stale = () => my !== openSeq;
+  $('reviews').classList.add('busy'); // no second tap while this one opens
   const review = await S.getReview(id);
+  if (stale()) return;
   if (!review) { location.hash = '#/'; return; }
-  let media = pending && pending.id === id ? pending.media : null; pending = null;
+  let media = null;
+  if (pending && pending.id === id) { media = pending.media; pending = null; } else dropPending();
   if (!media) {
     const clip = await S.getClip(id);
-    if (!clip) { fileMode = { kind: 'repick', id }; $('reviews').classList.add('show'); show('missing'); return; }
-    try { status('Opening…', 0); media = await loadFrames(clip, { log }); } catch (err) { status(''); toast(err.message); location.hash = '#/'; return; }
+    if (stale()) return;
+    if (!clip) { $('reviews').classList.remove('busy'); fileMode = { kind: 'repick', id }; $('reviews').classList.add('show'); show('missing'); return; }
+    try { status('Opening…', 0); media = await loadFrames(clip, { log }); }
+    catch (err) { status(''); if (!stale()) { toast(err.message); location.hash = '#/'; } return; }
     status('');
+    if (stale()) { media.cancel(); return; }
   }
+  $('reviews').classList.remove('busy');
   if (player) player.close();
   $('reviews').classList.remove('show');
   player = openPlayer($('player'), {
@@ -125,7 +139,7 @@ async function openReview(id) {
     onChange: patch => {
       S.saveReview(id, patch);
       // Notes, shapes, loops and retimes are written at once; playhead moves wait for the next save.
-      if (Object.keys(patch).some(k => k !== 'pos')) S.flush();
+      if (Object.keys(patch).some(k => k !== 'pos')) save();
     },
     onBack: () => { location.hash = '#/'; },
   });
@@ -138,8 +152,8 @@ function route() {
   if (m) openReview(decodeURIComponent(m[1])); else showReviews();
 }
 addEventListener('hashchange', route);
-addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') S.flush(); });
-addEventListener('pagehide', () => S.flush());
+addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') save(); });
+addEventListener('pagehide', () => save());
 
 // ---------- test routes, only when served from this machine
 async function testPlayer(q) {
@@ -171,6 +185,6 @@ if (local && q.get('test') === 'player') testPlayer(q);
 else if (local && q.get('test') === 'sample') sample();
 else {
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register(`sw.js?v=${VERSION}`).catch(e => log('offline: ' + e.message));
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(e => log('offline: ' + e.message));
   route();
 }

@@ -46,8 +46,16 @@ export async function exportVideo(kind, ctx) {
   // Inside Claude (testing): the downloads capability. Installed: the iOS Share sheet. Otherwise a download.
   const dl = window.claude ? await window.claude.use('downloads').catch(() => null) : null;
   if (dl) { try { await dl.save({ filename: file.name, data: blob }); log('saved'); } catch (e) { log('save: ' + (e.code || e.message)); } return; }
+  // iOS only opens the Share sheet straight after a tap, and recording took a while: ask for a fresh tap.
   if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia('(pointer: coarse)').matches) {
-    try { await navigator.share({ files: [file] }); return; } catch (e) { if (e.name === 'AbortError') return; log('share: ' + e.message); }
+    const veil = document.getElementById('shareVeil');
+    document.getElementById('shareName').textContent = file.name;
+    veil.style.display = 'flex';
+    document.getElementById('shareBtn').onclick = async () => {
+      veil.style.display = 'none';
+      try { await navigator.share({ files: [file] }); } catch (e) { if (e.name !== 'AbortError') log('share: ' + e.message); }
+    };
+    return;
   }
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 60000);

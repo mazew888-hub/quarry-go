@@ -51,3 +51,19 @@ def test_list_newest_first_and_usage(page):
         return { names: (await S.listReviews()).map(r => r.name), u: (await S.usage()).bytes };
     }''')
     assert out == {'names': ['b', 'a'], 'u': 5}
+
+def test_flush_survives_a_lost_connection(page):
+    open_harness(page)
+    out = page.evaluate('''async () => {
+        const r = await S.createReview({ name: 'a' }, new Blob(['x']));
+        const tx = IDBDatabase.prototype.transaction; let fails = 1;
+        IDBDatabase.prototype.transaction = function (...a) {
+            if (fails-- > 0) throw new DOMException('Connection to Indexed Database server lost', 'InvalidStateError');
+            return tx.apply(this, a);
+        };
+        S.saveReview(r.id, { name: 'kept' });
+        let err = null; try { await S.flush(); } catch (e) { err = e.message; }
+        IDBDatabase.prototype.transaction = tx;
+        return { err, name: (await S.getReview(r.id)).name };
+    }''')
+    assert out == {'err': None, 'name': 'kept'}

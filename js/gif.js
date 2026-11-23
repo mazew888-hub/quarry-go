@@ -3,7 +3,20 @@
 
 const bad = why => new Error(`This GIF can't be read (${why})`);
 
-export function decodeGif(buf) {
+// Reads only the size, frame count and timings: no pictures are decoded, so it's quick and small.
+export function scanGif(buf) {
+  const g = walk(buf, null, true);
+  return { width: g.width, height: g.height, count: g.delays.length, delays: g.delays };
+}
+
+// With onFrame(frame, index), frames are handed over one at a time and none are kept
+// (only one full-size picture is in memory at once); without it they're all returned.
+export function decodeGif(buf, onFrame = null) {
+  const g = walk(buf, onFrame, false);
+  return { width: g.width, height: g.height, frames: g.frames };
+}
+
+function walk(buf, onFrame, scanOnly) {
   const d = new Uint8Array(buf);
   let p = 0;
   const need = n => { if (p + n > d.length) throw bad('it ends too early'); };
@@ -18,8 +31,8 @@ export function decodeGif(buf) {
   const readTable = n => { need(n * 3); const t = d.slice(p, p + n * 3); p += n * 3; return t; };
   const gct = flags & 0x80 ? readTable(1 << ((flags & 7) + 1)) : null;
 
-  const canvas = new Uint8ClampedArray(width * height * 4); // starts transparent
-  const frames = [];
+  const canvas = scanOnly ? null : new Uint8ClampedArray(width * height * 4); // starts transparent
+  const frames = [], delays = [];
   let gce = { delay: 0, disposal: 0, trans: -1 };
 
   for (;;) {
@@ -41,6 +54,10 @@ export function decodeGif(buf) {
     if (!table) throw bad('no colour table');
     const interlaced = !!(lf & 0x40);
     const minCode = u8();
+    if (scanOnly) {
+      skipSubBlocks(); delays.push(gce.delay < 20 ? 100 : gce.delay); gce = { delay: 0, disposal: 0, trans: -1 };
+      continue;
+    }
     const data = readSubBlocks();
     const idx = lzw(data, minCode, fw * fh);
 
@@ -58,14 +75,16 @@ export function decodeGif(buf) {
         canvas[o] = table[t]; canvas[o + 1] = table[t + 1]; canvas[o + 2] = table[t + 2]; canvas[o + 3] = 255;
       }
     }
-    frames.push({ rgba: canvas.slice(), delayMs: gce.delay < 20 ? 100 : gce.delay });
+    const frame = { rgba: canvas.slice(), delayMs: gce.delay < 20 ? 100 : gce.delay };
+    delays.push(frame.delayMs);
+    if (onFrame) onFrame(frame, delays.length - 1); else frames.push(frame);
     if (gce.disposal === 2) {
       for (let y = fy; y < Math.min(height, fy + fh); y++) canvas.fill(0, (y * width + fx) * 4, (y * width + Math.min(width, fx + fw)) * 4);
     } else if (before) canvas.set(before);
     gce = { delay: 0, disposal: 0, trans: -1 };
   }
-  if (!frames.length) throw bad('no frames');
-  return { width, height, frames };
+  if (!delays.length) throw bad('no frames');
+  return { width, height, frames, delays };
 
   function skipSubBlocks() { for (let n = u8(); n; n = u8()) { need(n); p += n; } }
   function readSubBlocks() {

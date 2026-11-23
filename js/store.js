@@ -57,10 +57,23 @@ export function saveReview(id, patch) {
   pending.set(id, { ...(pending.get(id) || {}), ...patch });
   clearTimeout(timer); timer = setTimeout(flush, 300);
 }
+// iOS can drop the database connection while the app is in the background: a failed write reopens
+// the connection and tries once more, and if that fails too the changes stay queued for the next save.
 export async function flush() {
   clearTimeout(timer);
   if (!pending.size) return;
   const batch = [...pending]; pending.clear();
+  try { await write(batch); }
+  catch {
+    dbp = null;
+    try { await write(batch); }
+    catch (e) {
+      for (const [id, patch] of batch) pending.set(id, { ...patch, ...(pending.get(id) || {}) });
+      throw new Error("Couldn't save your last change. It will be tried again.");
+    }
+  }
+}
+async function write(batch) {
   const d = await db(); const tx = d.transaction('reviews', 'readwrite'); const st = tx.objectStore('reviews');
   for (const [id, patch] of batch) {
     const rq = st.get(id);

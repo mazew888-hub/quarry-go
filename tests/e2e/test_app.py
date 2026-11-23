@@ -98,3 +98,23 @@ def test_settings(page):
     assert 'Version' in page.inner_text('#settingsVeil')
     page.click('#deleteAll'); page.click('#confirmYes')
     page.wait_for_function("!document.querySelector('.rv-card')")
+
+def test_leaving_stops_loading(page):
+    home(page); new_review(page); in_player(page); back(page)
+    cards(page).first.click()
+    page.wait_for_selector('#player', state='visible', timeout=10000)
+    page.click('#back'); page.wait_for_selector('#reviews.show', timeout=8000)
+    page.wait_for_function("document.querySelectorAll('video').length === 0", timeout=800)
+
+def test_newest_open_wins(page):
+    home(page)
+    new_review(page); in_player(page); back(page)
+    new_review(page, FIX / 'mixed.gif'); in_player(page); back(page)
+    ids = page.evaluate("async () => (await (await import('/js/store.js')).listReviews()).map(r => [r.name, r.id])")
+    ids = dict(ids)
+    page.evaluate(f"location.hash = '#/r/{ids['clip']}'")
+    page.wait_for_timeout(50)
+    page.evaluate(f"location.hash = '#/r/{ids['mixed']}'")
+    page.wait_for_timeout(4000)
+    assert page.inner_text('#fr').endswith('/ 7')
+    assert page.locator('#player').is_visible()

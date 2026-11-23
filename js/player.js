@@ -380,7 +380,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   media.done.then(() => { if (!ac.signal.aborted) { log(`${name}: ${media.count} frames, loaded in`); draw(); } });
 
   return {
-    close() { stop(); ac.abort(); media.onFrame = null; $('player').style.display = 'none'; closeSheets(); },
+    close() { stop(); ac.abort(); media.cancel(); $('player').style.display = 'none'; closeSheets(); },
   };
 }
 
