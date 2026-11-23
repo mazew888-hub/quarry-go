@@ -1,14 +1,20 @@
 // Reviews and their clips, kept in this app's own storage on the phone (IndexedDB "quarry-go").
 // reviews: Review objects keyed by id. clips: the clip Blob keyed by the same id.
 
-const DB = 'quarry-go', VERSION = 1;
+const DB = 'quarry-go', VERSION = 2;
 const FULL = 'Not enough space on this phone for that clip';
 let dbp = null;
 
 function db() {
   if (!dbp) dbp = new Promise((res, rej) => {
     const rq = indexedDB.open(DB, VERSION);
-    rq.onupgradeneeded = () => { const d = rq.result; d.createObjectStore('reviews', { keyPath: 'id' }); d.createObjectStore('clips'); };
+    rq.onupgradeneeded = () => {
+      const d = rq.result, has = n => d.objectStoreNames.contains(n);
+      if (!has('reviews')) d.createObjectStore('reviews', { keyPath: 'id' });
+      if (!has('clips')) d.createObjectStore('clips');
+      if (!has('kv')) d.createObjectStore('kv');                       // Sort/Library: snapshot, applied, counters
+      if (!has('actions')) d.createObjectStore('actions', { keyPath: 'n' }); // the phone's action queue
+    };
     rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
   });
   return dbp;
@@ -101,4 +107,19 @@ export async function usage() {
     c.onerror = () => rej(c.error);
   });
   return { bytes };
+}
+
+// ---------- Sort and Library: a small key/value store and the action queue
+async function tx1(store, mode, fn) {
+  const d = await db(); const tx = d.transaction(store, mode); const r = fn(tx.objectStore(store));
+  await done(tx); return r && 'result' in r ? r.result : undefined;
+}
+export const kvGet = k => tx1('kv', 'readonly', s => s.get(k)).then(v => v ?? null);
+export const kvSet = (k, v) => tx1('kv', 'readwrite', s => s.put(v, k));
+export const actionsAll = () => tx1('actions', 'readonly', s => s.getAll());
+export const actionPut = a => tx1('actions', 'readwrite', s => s.put(a));
+export const actionDel = n => tx1('actions', 'readwrite', s => s.delete(n));
+export async function phoneReset() {
+  const d = await db(); const tx = d.transaction(['kv', 'actions'], 'readwrite');
+  tx.objectStore('kv').clear(); tx.objectStore('actions').clear(); await done(tx);
 }

@@ -67,3 +67,15 @@ def test_flush_survives_a_lost_connection(page):
         return { err, name: (await S.getReview(r.id)).name };
     }''')
     assert out == {'err': None, 'name': 'kept'}
+
+def test_upgrade_from_v1_keeps_reviews(page):
+    page.goto('http://localhost:8765/tests/e2e/store_harness.html?noimport')
+    page.evaluate('''() => new Promise((res, rej) => { indexedDB.deleteDatabase('quarry-go').onsuccess = () => {
+        const q = indexedDB.open('quarry-go', 1);
+        q.onupgradeneeded = () => { const d = q.result; d.createObjectStore('reviews', { keyPath: 'id' }); d.createObjectStore('clips'); };
+        q.onsuccess = () => { const d = q.result; const tx = d.transaction(['reviews', 'clips'], 'readwrite');
+            tx.objectStore('reviews').put({ id: 'old', name: 'kept', updated: 1, marks: [], secs: [] }); tx.objectStore('clips').put(new Blob(['abc']), 'old');
+            tx.oncomplete = () => { d.close(); res(); }; }; }; })''')
+    page.reload(); page.wait_for_function('window.ready === true')
+    out = page.evaluate("async () => ({ names: (await S.listReviews()).map(r => r.name), clip: (await S.getClip('old')).size, kv: await S.kvGet('x') })")
+    assert out == {'names': ['kept'], 'clip': 3, 'kv': None}
