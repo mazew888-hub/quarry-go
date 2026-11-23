@@ -29,7 +29,7 @@ def test_refresh_loads_snapshot(page):
 
 def test_act_sends_file(page):
     fake = start(page); refresh(page)
-    page.evaluate(f"async () => {{ const p = {P}; p.act({{ op: 'skip', id: '1800' }}); await p.send(); }}")
+    page.evaluate(f"async () => {{ const p = {P}; await p.act({{ op: 'skip', id: '1800' }}); await p.send(); }}")
     page.wait_for_function("true")
     name, parent, body = fake.written[-1]
     assert parent == 'actions' and name.endswith('-00000001.json') and name.startswith('p-')
@@ -39,11 +39,11 @@ def test_act_sends_file(page):
 
 def test_offline_action_queues_and_sends(page, context):
     fake = start(page); refresh(page)
-    context.set_offline(True)
-    page.evaluate(f"async () => {{ const p = {P}; p.act({{ op: 'tag', key: 'Poses/standing.jpg', add: ['x'], remove: [] }}); try {{ await p.send(); }} catch (e) {{}} }}")
+    context.set_offline(True); fake.offline = True
+    page.evaluate(f"async () => {{ const p = {P}; await p.act({{ op: 'tag', key: 'Poses/standing.jpg', add: ['x'], remove: [] }}); try {{ await p.send(); }} catch (e) {{}} }}")
     assert page.evaluate(f"async () => {P}.current()")['pending'] == 1
     assert fake.written == []
-    context.set_offline(False)
+    context.set_offline(False); fake.offline = False
     assert refresh(page)['state'] == 'ok'
     assert len(fake.written) == 1 and fake.written[0][2]['actions'][0]['op'] == 'tag'
 
@@ -53,7 +53,7 @@ def test_no_phone_folder_message(page):
 
 def test_applied_failure_shows(page):
     fake = start(page); refresh(page)
-    phone = page.evaluate(f"async () => {{ const p = {P}; p.act({{ op: 'tag', key: 'Gone/x.jpg', add: ['a'], remove: [] }}); await p.send(); return p.phoneId(); }}")
+    phone = page.evaluate(f"async () => {{ const p = {P}; await p.act({{ op: 'tag', key: 'Gone/x.jpg', add: ['a'], remove: [] }}); await p.send(); return p.phoneId(); }}")
     fake.set_json(fake.applied, f'{phone}.json', {'version': 1, 'phone': phone, 'last': 1, 'failed': [{'n': 1, 'op': 'tag', 'reason': 'x'}]})
     refresh(page)
     v = page.evaluate(f"async () => {P}.current()")

@@ -24,6 +24,7 @@ class FakeDrive:
         self.ids = itertools.count(1)
         self.written = []          # (name, parent name, json-or-bytes)
         self.expired = False
+        self.offline = False   # page.route answers even when the context is offline, so offline is faked here
         self.tokens = 0
         self.auth_requests = []
         root = self.add('Quarry Sync', 'root', folder=True)
@@ -91,6 +92,8 @@ class FakeDrive:
 
     def _api(self, route):
         req = route.request
+        if self.offline:
+            return route.abort('internetdisconnected')
         cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Authorization, Content-Type',
                 'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS'}
         if req.method == 'OPTIONS':
