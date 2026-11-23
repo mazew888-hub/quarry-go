@@ -149,7 +149,7 @@ export function createLibrary(root, { phone, drive, toast }) {
   const off = phone.onChange(render);
   return {
     async open() {
-      root.classList.add('show'); render();
+      root.classList.add('show'); await phone.init(); render();
       const r = await phone.refresh();
       state = !drive.configured() ? 'notsetup' : r.state;
       if (r.state === 'offline' && r.message) toast(r.message);

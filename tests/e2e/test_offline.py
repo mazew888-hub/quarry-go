@@ -44,3 +44,30 @@ def test_manifest(page):
     assert m['name'] == 'Quarry Go' and m['display'] == 'standalone' and m['start_url'] == './'
     assert page.get_attribute('link[rel=apple-touch-icon]', 'href') == 'icons/icon-180.png'
     assert page.get_attribute('meta[name=apple-mobile-web-app-capable]', 'content') == 'yes'
+
+def test_sort_library_hosts(page):
+    from fakedrive import FakeDrive
+    FakeDrive(page)
+    page.add_init_script("""localStorage.setItem('qg_client_id','x');localStorage.setItem('qg_token','fake1');
+        localStorage.setItem('qg_token_exp',String(Date.now()+3600e3));localStorage.setItem('qg_email','a@b')""")
+    hosts = set()
+    page.on('request', lambda r: hosts.add(r.url.split('/')[2] if r.url.startswith('http') else r.url.split(':')[0]))
+    page.goto(BASE + '#/sort'); page.wait_for_function("document.getElementById('soCount').textContent.startsWith('4')", timeout=8000)
+    page.click('#soSkip'); page.wait_for_timeout(400)
+    page.click('#tab-library'); page.wait_for_selector('#libGrid .lib-tile')
+    page.wait_for_function("[...document.querySelectorAll('#libGrid .lib-tile img')].every(i => i.src)", timeout=8000)
+    allowed = {'localhost:8765', 'accounts.google.com', 'www.googleapis.com', 'pbs.twimg.com', 'video.twimg.com', 'blob', 'data'}
+    assert hosts <= allowed, hosts - allowed
+
+def test_library_offline_from_cache(page, context):
+    from fakedrive import FakeDrive
+    fake = FakeDrive(page)
+    page.add_init_script("""localStorage.setItem('qg_client_id','x');localStorage.setItem('qg_token','fake1');
+        localStorage.setItem('qg_token_exp',String(Date.now()+3600e3));localStorage.setItem('qg_email','a@b')""")
+    ready_sw(page)
+    page.evaluate("location.hash = '#/library'")
+    page.wait_for_function("document.querySelectorAll('#libGrid .lib-tile img[src^=\"blob:\"]').length === 6", timeout=8000)
+    context.set_offline(True); fake.offline = True
+    page.reload(); page.wait_for_selector('#libGrid .lib-tile', timeout=8000)
+    page.wait_for_function("document.querySelectorAll('#libGrid .lib-tile img[src^=\"blob:\"]').length === 6", timeout=8000)
+    context.set_offline(False); fake.offline = False

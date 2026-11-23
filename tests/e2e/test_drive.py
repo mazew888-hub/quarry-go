@@ -54,3 +54,12 @@ def test_not_set_up_message(page):
     page.goto(BASE); page.wait_for_load_state('domcontentloaded')
     msg = page.evaluate(f"async () => {{ try {{ {D}.signIn(); return 'no error'; }} catch (e) {{ return e.message; }} }}")
     assert "isn't set up yet" in msg
+
+def test_two_failing_calls_renew_once(page):
+    fake = start(page); sign_in(page)
+    before = len(fake.auth_requests)
+    fake.expire()
+    with page.expect_navigation(timeout=8000):
+        page.evaluate("() => { import('/js/drive.js').then(d => { d.phoneFolder(); d.phoneFolder(); }); }")
+    page.wait_for_function("localStorage.getItem('qg_token') === 'fake2'", timeout=8000)
+    assert len(fake.auth_requests) == before + 1

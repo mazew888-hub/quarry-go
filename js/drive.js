@@ -65,10 +65,12 @@ async function api(path, opts = {}, retry = false) {
   if (!r.ok) throw new DriveError(`Google Drive said no (${r.status}).`, { auth: r.status === 401 || r.status === 403 });
   return r;
 }
+let renewing = false;
 function renew() {
   // Without a known account there's nothing to renew quietly: the person has to connect.
   if (!ls.get('qg_email') || ls.get('qg_needs_connect') || !configured()) throw new DriveError('Connect Google Drive first.', { auth: true });
-  signIn({ silent: true });
+  // Several calls can fail at once: only the first one goes to Google, or the answers' states won't match.
+  if (!renewing) { renewing = true; signIn({ silent: true }); }
   return new Promise(() => {}); // the page is leaving for Google
 }
 

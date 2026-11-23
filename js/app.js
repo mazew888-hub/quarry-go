@@ -8,7 +8,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.1.4';
+export const VERSION = '0.2.0';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -224,7 +224,7 @@ async function sortSample(q) {
   for (const [i, p] of snap.xqueue.posts.entries()) p.media = [{ type: 'photo', url: `tests/fixtures/phone/x${i}.jpg`, poster: null }];
   snap.xqueue.posts[0].text = 'Quick blocking pass on a heavy attack. Anticipation is still too long, trimming next.';
   snap.status.written = new Date(Date.now() - 4 * 60e3).toISOString();
-  const fake = { current: () => view(snap, [], { last: 0, failed: [] }), onChange: () => () => {}, refresh: async () => ({ state: 'ok' }), act: async () => {} };
+  const fake = { init: async () => {}, current: () => view(snap, [], { last: 0, failed: [] }), onChange: () => () => {}, refresh: async () => ({ state: 'ok' }), act: async () => {} };
   setTab('sort'); sortTab = createSort($('sort'), { phone: fake, drive: { configured: () => true }, toast });
   await sortTab.open();
   if (q.get('sheet')) setTimeout(() => $('soKeep').click(), 300);
