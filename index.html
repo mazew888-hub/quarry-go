@@ -145,6 +145,19 @@
   <div class="row" style="margin-top:12px"><button class="btn" id="folderNo">Cancel</button><span class="sp"></span><button class="btn pri" id="folderOk" style="height:48px;padding:0 26px">Keep</button></div>
 </div></div>
 
+<div class="veil" id="itemVeil"><div class="sheet grain item-sheet">
+  <div class="item-preview" id="itemPreview"></div>
+  <div class="item-title" id="itemTitle"></div>
+  <div class="item-meta"><span id="itemAuthor"></span></div>
+  <div class="item-meta">Folder: <b id="itemFolder"></b></div>
+  <div class="sub" style="margin-top:12px">Tags</div>
+  <div class="chips" id="itemTags"></div>
+  <input id="itemTagIn" type="text" placeholder="Add a tag" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
+  <div class="chips" id="itemSugg"></div>
+  <div class="row"><button class="btn" id="itemMove">Move…</button><span class="sp"></span>
+    <button class="btn" id="itemClose">Close</button><button class="btn pri" id="itemNext" style="min-width:90px">Next</button></div>
+</div></div>
+
 <div class="veil" id="failedVeil"><div class="sheet grain">
   <div class="cap">Didn’t work</div>
   <div class="list" id="failedList"></div>

@@ -196,3 +196,24 @@ input[type=file]{display:none}
 .so-msg h2{margin:0 0 8px;font:800 24px/1.1 "Rubik";text-shadow:var(--emb)}
 .so-msg p{color:var(--mut);margin:0 0 18px;max-width:300px}
 .so-nomedia{color:var(--faint)}
+
+/* ---- Library ---- */
+#library{position:fixed;inset:0;overflow:auto;background:var(--page);padding:calc(env(safe-area-inset-top) + 18px) 12px calc(env(safe-area-inset-bottom) + 90px);display:none;-webkit-overflow-scrolling:touch}
+#library.show{display:block}
+.lib-search{width:100%;font:16px "Rubik",system-ui;padding:12px 14px;border:0;border-radius:12px;background:var(--well);box-shadow:var(--pressed);color:var(--ink);outline:none;-webkit-user-select:text;user-select:text}
+.lib-chips{display:flex;gap:6px;margin:10px 0 8px;overflow-x:auto;scrollbar-width:none}
+.lib-chips .chip{flex:none}
+.lib-meta{display:flex;align-items:baseline;gap:8px;font-size:12px;color:var(--mut);margin:2px 2px 8px}
+.lib-meta .so-status{margin:0}
+.lib-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.lib-tile{appearance:none;border:0;padding:0;aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--well);box-shadow:var(--pressed-sm);position:relative;-webkit-touch-callout:none}
+.lib-tile img{width:100%;height:100%;object-fit:cover;display:block}
+.lib-tile img:not([src]){visibility:hidden}
+.lib-kind{position:absolute;right:5px;bottom:5px;font:600 10px/1 "Rubik";color:#fff;background:rgba(20,22,26,.6);padding:3px 5px;border-radius:5px}
+.item-sheet{max-height:88vh}
+.item-preview{background:var(--well);border-radius:12px;box-shadow:var(--pressed);overflow:hidden;display:flex;align-items:center;justify-content:center;height:34vh;margin-bottom:12px}
+.item-preview img,.item-preview video{max-width:100%;max-height:100%;object-fit:contain}
+.item-title{font:600 17px/1.25 "Rubik"}
+.item-meta{font-size:13px;color:var(--mut);margin-top:3px}
+.item-meta b{color:var(--ink);font-weight:500}
+#folderVeil{z-index:10}

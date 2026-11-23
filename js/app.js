@@ -6,6 +6,7 @@ import * as S from './store.js';
 import * as G from './drive.js';
 import * as phone from './phone.js';
 import { createSort } from './sort.js';
+import { createLibrary } from './library.js';
 
 export const VERSION = '0.1.4';
 const $ = id => document.getElementById(id);
@@ -156,13 +157,13 @@ $('missingBack').onclick = () => { location.hash = '#/'; showReviews(); };
 
 // ---------- routing and lifecycle
 // ---------- tabs: Review, Sort, Library
-let sortTab = null;
+let sortTab = null, libTab = null;
 function setTab(name) {
   $('tabbar').classList.toggle('show', !!name);
   for (const t of ['review', 'sort', 'library']) $('tab-' + t).classList.toggle('on', t === name);
   if (name !== 'review') $('reviews').classList.remove('show');
   if (name !== 'sort' && sortTab) sortTab.close();
-  if (name !== 'library') $('library').classList.remove('show');
+  if (name !== 'library' && libTab) libTab.close();
 }
 async function showSort() {
   openSeq++; if (player) { player.close(); player = null; }
@@ -176,7 +177,12 @@ function route() {
   const m = h.match(/^#\/r\/(.+)$/);
   if (m) { setTab(null); openReview(decodeURIComponent(m[1])); }
   else if (h === '#/sort') showSort();
-  else if (h === '#/library') { setTab('library'); $('library').classList.add('show'); }
+  else if (h === '#/library') {
+    openSeq++; if (player) { player.close(); player = null; }
+    setTab('library');
+    if (!libTab) libTab = createLibrary($('library'), { phone, drive: G, toast });
+    libTab.open();
+  }
   else { setTab('review'); showReviews(); }
 }
 addEventListener('hashchange', route);
