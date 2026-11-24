@@ -52,9 +52,9 @@ def test_edit_survives_immediate_reload(page):
 
 def test_state_restored(page):
     home(page); new_review(page); in_player(page)
-    for _ in range(12): page.mouse.click(370, 400)
+    for _ in range(12): page.mouse.click(370, 170)
     page.click('#inBtn')
-    for _ in range(11): page.mouse.click(370, 400)
+    for _ in range(11): page.mouse.click(370, 170)
     page.click('#outBtn')
     page.click('#secBtn'); page.click('#secRates [data-r="0.5"]')
     page.click('#rateBtn'); page.click('#rateList [data-r="0.25"]')
@@ -145,7 +145,7 @@ def test_old_review_drawings_keep_12_frames(page):
             const [r, g, b] = x.getImageData(ox + vx * s, oy + 100 * s + dy, 1, 1).data; if (ok(r, g, b)) return true; }}
         return false; }}''')
     assert seen()
-    for _ in range(11): page.mouse.click(370, 400)
+    for _ in range(11): page.mouse.click(370, 170)
     assert seen()
-    page.mouse.click(370, 400)
+    page.mouse.click(370, 170)
     assert not seen()

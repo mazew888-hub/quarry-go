@@ -23,24 +23,47 @@
 <nav id="tabbar"><a class="tab" id="tab-library" href="#/library"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg><span>Library</span></a><a class="tab" id="tab-sort" href="#/sort"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M2 7v10M22 7v10"/></svg><span>Sort</span></a><a class="tab" id="tab-review" href="#/"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M10 9l5 3-5 3z" fill="currentColor"/></svg><span>Review</span></a></nav>
 
 <div id="player">
-  <canvas id="cv"></canvas>
-  <div class="ui" id="top">
-    <button class="btn" id="back" aria-label="Back">‹</button>
-    <button class="btn" id="fsBtn" style="display:none" aria-label="Full screen">⤢</button>
-    <span class="sp"></span>
+  <header class="ui" id="top">
+    <button class="btn key" id="back" aria-label="Back"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="pt"><div class="pn" id="pName"></div><div class="ps" id="pSub"></div></div>
     <button class="btn" id="viewBtn" style="display:none">Retimed</button>
-    <button class="btn" id="secBtn">Retime</button>
-    <button class="btn" id="annBtn">Annotate</button>
+    <button class="btn key" id="undo" aria-label="Undo" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
+  </header>
+  <div id="stage"><canvas id="cv"></canvas><div id="noteChip"></div></div>
+  <div class="ui" id="bot">
+    <div class="readout"><span id="fr">1 / 1</span><button id="rangeChip" style="display:none" aria-label="Clear loop"><span id="rangeTxt"></span><span class="x">✕</span></button><span class="sp"></span><span id="tc"></span></div>
+    <div class="lane"><canvas id="scrub"></canvas><canvas id="drawLane" aria-label="Drawings: drag a bar's end to change how long it holds"></canvas></div>
   </div>
-  <div class="ui" id="tray" hidden>
-    <button class="btn" id="noteBtn">Note</button>
-    <button class="btn" id="drawBtn">Draw</button>
-    <button class="btn" id="arrowBtn">Arrow</button>
-    <button class="btn" id="boxBtn">Box</button>
-    <button class="btn" id="circleBtn">Circle</button>
-    <button class="btn" id="undo" aria-label="Undo">↶</button>
+  <div id="pBody">
+    <div id="pNotes"><div class="cap" id="pNotesCap">Notes</div><div class="list" id="pList"></div></div>
+    <div id="rail">
+      <button class="btn rk" id="annBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 7l3 3"/></svg><span>Draw</span></button>
+      <i class="rsep"></i>
+      <div class="rg" id="railView">
+        <button class="btn rk" id="secBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Retime</span></button>
+        <button class="btn rk io" id="inBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4v16M8 12h12M15 7l5 5-5 5"/></svg><span>In</span></button>
+        <button class="btn rk io" id="outBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4v16M16 12H4M9 7l-5 5 5 5"/></svg><span>Out</span></button>
+        <i class="rgrow"></i>
+        <button class="btn rk" id="fsBtn" style="display:none" aria-label="Full screen"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      </div>
+      <div class="rg" id="tray" hidden>
+        <button class="btn rk" id="drawBtn" aria-label="Draw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c3-6 5 2 8-3s4-7 7-4 2 6 3 6"/></svg></button>
+        <button class="btn rk" id="arrowBtn" aria-label="Arrow"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19L19 5M10 5h9v9"/></svg></button>
+        <button class="btn rk" id="boxBtn" aria-label="Box"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="1"/></svg></button>
+        <button class="btn rk" id="circleBtn" aria-label="Circle"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg></button>
+        <button class="btn rk" id="noteBtn" aria-label="Note"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg></button>
+        <button class="btn rk" id="eraseBtn" aria-label="Eraser"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4l5 5-10 10H6l-3-3z"/><path d="M9 21h12"/></svg></button>
+      </div>
+    </div>
   </div>
-  <div class="ui" id="penRow" hidden>
+  <div class="ui" id="tp">
+    <button class="btn" id="stepBack" aria-label="Previous frame"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6M7 6v12"/></svg></button>
+    <button class="btn pri" id="play" aria-label="Play">▶︎</button>
+    <button class="btn" id="stepFwd" aria-label="Next frame"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6M17 6v12"/></svg></button>
+    <button class="btn num" id="rateBtn">1×</button>
+    <button class="btn" id="more" aria-label="More"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></svg></button>
+  </div>
+  <div id="penRow" hidden>
     <button class="sw on" data-color="#FF3B5C" style="--c:#FF3B5C" aria-label="Red"></button>
     <button class="sw" data-color="#4FA3FF" style="--c:#4FA3FF" aria-label="Blue"></button>
     <button class="sw" data-color="#ECEEF1" style="--c:#ECEEF1" aria-label="White"></button>
@@ -50,24 +73,7 @@
     <button class="sz on" data-size="2" aria-label="Medium"><i style="width:8px;height:8px"></i></button>
     <button class="sz" data-size="3" aria-label="Thick"><i style="width:14px;height:14px"></i></button>
     <span class="pr-sep"></span>
-    <button class="btn" id="eraseBtn">Eraser</button>
-    <button class="btn" id="clearBtn" style="color:var(--late)">Clear</button>
-  </div>
-  <div id="noteChip"></div>
-  <div class="ui" id="bot">
-    <div class="readout"><span id="fr">1 / 1</span><button id="rangeChip" style="display:none" aria-label="Clear loop"><span id="rangeTxt"></span><span class="x">✕</span></button><span class="sp"></span><span id="tc"></span></div>
-    <div class="bar">
-      <div class="grp l">
-        <button class="btn pri big" id="play" aria-label="Play">▶︎</button>
-        <button class="btn num big" id="rateBtn">1×</button>
-      </div>
-      <div class="lane"><canvas id="scrub"></canvas><canvas id="drawLane" aria-label="Drawings: drag a bar's end to change how long it holds"></canvas></div>
-      <div class="grp r">
-        <button class="btn big io" id="inBtn">In</button>
-        <button class="btn big io" id="outBtn">Out</button>
-        <button class="btn big" id="more" aria-label="More">···</button>
-      </div>
-    </div>
+    <button class="btn" id="clearBtn" style="color:var(--late)">Clear frame</button>
   </div>
 </div>
 

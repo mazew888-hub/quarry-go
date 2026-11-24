@@ -2,6 +2,7 @@
 import subprocess
 
 BASE = 'http://localhost:8765/'
+VY = 170  # the middle of the video, under the header (the video spans y 60-279 at 390x844)
 
 def open_clip(page, clip='clip.webm', extra=''):
     page.goto(f'{BASE}?test=player&clip={clip}{extra}')
@@ -11,7 +12,7 @@ def loaded(page):
     page.wait_for_function("document.getElementById('log2').textContent.includes('loaded in')", timeout=30000)
 
 def step(page, k, x=370):
-    for _ in range(k): page.mouse.click(x, 400)
+    for _ in range(k): page.mouse.click(x, VY)
 
 def fr(page): return page.inner_text('#fr')
 
@@ -36,7 +37,7 @@ def test_range_wrap_and_slide(page):
     step(page, 12); page.click('#inBtn'); step(page, 11); page.click('#outBtn')
     assert page.inner_text('#rangeTxt') == 'Loop 13–24'
     step(page, 1); assert fr(page).startswith('13')            # stepping past Out wraps to In
-    page.mouse.move(200, 400); page.mouse.down(); page.mouse.move(400, 400, steps=10); page.mouse.up()
+    page.mouse.move(200, VY); page.mouse.down(); page.mouse.move(400, VY, steps=10); page.mouse.up()
     n = int(fr(page).split(' ')[0]); assert 13 <= n <= 24      # sliding stays inside the loop
 
 def test_loop_chip_and_hold_clear(page):
@@ -121,14 +122,14 @@ def test_export_shares_from_a_fresh_tap(page):
 def test_freehand_draw(page):
     open_clip(page); loaded(page)
     page.click('#annBtn'); page.click('#drawBtn')
-    assert page.inner_text('#annBtn') == 'Draw'
-    page.mouse.move(120, 380); page.mouse.down()
-    for i in range(1, 21): page.mouse.move(120 + i * 8, 380 + (i % 5) * 3)
+    assert page.inner_text('#annBtn') == 'Done'  # the rail shows the drawing tools until Done
+    page.mouse.move(120, 150); page.mouse.down()
+    for i in range(1, 21): page.mouse.move(120 + i * 8, 150 + (i % 5) * 3)
     page.mouse.up()
     m = page.evaluate('window.changes')[-1]['marks'][-1]
     assert m['type'] == 'draw' and len(m['pts']) > 5
     hit = page.evaluate('''() => { const c = document.getElementById('cv'), x = c.getContext('2d'), d = devicePixelRatio;
-        for (let px = 125; px < 275; px += 2) for (let py = 370; py < 400; py++) {
+        for (let px = 125; px < 275; px += 2) for (let py = 80; py < 110; py++) {
             const [r, g, b] = x.getImageData(px * d, py * d, 1, 1).data; if (r > 230 && g > 40 && g < 80 && b > 75 && b < 110) return true; }
         return false; }''')
     assert hit
@@ -140,13 +141,13 @@ def test_freehand_draw(page):
 PEN = "(r, g, b) => r > 230 && g > 40 && g < 80 && b > 75 && b < 110"
 BLUE = "(r, g, b) => r < 110 && g > 140 && g < 190 && b > 230"
 
-def ink(page, test=PEN, box=(100, 330, 300, 430)):
+def ink(page, test=PEN, box=(100, 40, 300, 150)):  # in the video canvas (page y minus the 60px header)
     return page.evaluate(f'''() => {{ const c = document.getElementById('cv'), x = c.getContext('2d'), d = devicePixelRatio, ok = {test};
         for (let px = {box[0]}; px < {box[2]}; px += 2) for (let py = {box[1]}; py < {box[3]}; py += 2) {{
             const [r, g, b] = x.getImageData(px * d, py * d, 1, 1).data; if (ok(r, g, b)) return true; }}
         return false; }}''')
 
-def stroke(page, x0=120, x1=280, y=380):
+def stroke(page, x0=120, x1=280, y=150):
     page.mouse.move(x0, y); page.mouse.down()
     for i in range(1, 21): page.mouse.move(x0 + (x1 - x0) * i / 20, y)
     page.mouse.up()
@@ -171,10 +172,10 @@ def test_new_drawing_holds_one_frame(page):
 
 def test_pen_colour_and_size(page):
     open_clip(page); loaded(page); pen(page)
-    stroke(page, y=360)
+    stroke(page, y=130)
     small = last(page, 'marks')[-1]['size']
     page.click('#penRow [data-color="#4FA3FF"]'); page.click('#penRow [data-size="3"]')
-    stroke(page, y=400)
+    stroke(page, y=170)
     m = last(page, 'marks')[-1]
     assert m['color'] == '#4FA3FF' and m['size'] > small
     assert ink(page, BLUE)
@@ -191,11 +192,11 @@ def test_stretch_hold_on_lane(page):
 
 def test_draw_on_held_frame_adds_to_drawing(page):
     open_clip(page); loaded(page); pen(page)
-    stroke(page, y=360)
+    stroke(page, y=130)
     page.click('#annBtn')
     x, y = lane_x(page, 0, end=True); x2, _ = lane_x(page, 4, end=True)
     page.mouse.move(x - 1, y); page.mouse.down(); page.mouse.move(x2 - 1, y, steps=6); page.mouse.up()
-    step(page, 2); pen(page); stroke(page, y=400)
+    step(page, 2); pen(page); stroke(page, y=170)
     assert [m['f'] for m in last(page, 'marks')] == [0, 0]
 
 def test_tap_lane_bar_jumps(page):
@@ -207,15 +208,15 @@ def test_tap_lane_bar_jumps(page):
 
 def test_eraser_splits_stroke(page):
     open_clip(page); loaded(page); pen(page)
-    stroke(page, 100, 300, 380)
+    stroke(page, 100, 300, 150)
     page.click('#eraseBtn')
-    page.mouse.move(200, 340); page.mouse.down(); page.mouse.move(200, 420, steps=8); page.mouse.up()
+    page.mouse.move(200, 110); page.mouse.down(); page.mouse.move(200, 190, steps=8); page.mouse.up()
     drawn = [m for m in last(page, 'marks') if m['type'] == 'draw']
     assert len(drawn) == 2
 
 def test_clear_and_undo(page):
     open_clip(page); loaded(page); pen(page)
-    stroke(page, y=360); stroke(page, y=400)
+    stroke(page, y=130); stroke(page, y=170)
     page.click('#clearBtn')
     assert [m for m in last(page, 'marks') if m['type'] == 'draw'] == []
     assert not ink(page)
@@ -224,8 +225,59 @@ def test_clear_and_undo(page):
 
 def test_eraser_undo_restores(page):
     open_clip(page); loaded(page); pen(page)
-    stroke(page, 100, 300, 380)
+    stroke(page, 100, 300, 150)
     page.click('#eraseBtn')
-    page.mouse.move(200, 340); page.mouse.down(); page.mouse.move(200, 420, steps=8); page.mouse.up()
+    page.mouse.move(200, 110); page.mouse.down(); page.mouse.move(200, 190, steps=8); page.mouse.up()
     page.click('#undo')
     assert len(last(page, 'marks')) == 1
+
+
+# ---------- phone layout: notes under the video, tools on the rail, sideways fills the height
+def test_notes_list_jumps_to_frame(page):
+    open_clip(page); loaded(page)
+    assert 'No notes yet' in page.inner_text('#pNotes')
+    step(page, 20); page.click('#annBtn'); page.click('#noteBtn'); page.fill('#noteIn', 'arc is flat'); page.click('#noteOk')
+    step(page, 5); page.click('#drawBtn'); stroke(page); page.click('#annBtn')  # the tray is still open from the note
+    rows = page.locator('#pList .pli')
+    assert rows.count() == 2
+    assert rows.nth(0).inner_text().split('\n')[0] == '21' and 'arc is flat' in rows.nth(0).inner_text()
+    assert 'Drawing' in rows.nth(1).inner_text()
+    assert '1 note' in page.inner_text('#pSub') and '1 drawing' in page.inner_text('#pSub')
+    step(page, 10)
+    rows.nth(0).click()
+    assert fr(page).startswith('21')
+    assert 'on' in rows.nth(0).get_attribute('class')
+
+def test_step_keys(page):
+    open_clip(page); loaded(page)
+    page.click('#stepFwd'); page.click('#stepFwd'); assert fr(page).startswith('3')
+    page.click('#stepBack'); assert fr(page).startswith('2')
+    page.click('#stepBack'); page.click('#stepBack'); assert fr(page).startswith('72')  # wraps
+
+def test_rail_swaps_to_tools_and_back(page):
+    open_clip(page); loaded(page)
+    assert page.locator('#inBtn').is_visible() and not page.locator('#drawBtn').is_visible()
+    page.click('#annBtn')
+    assert page.locator('#drawBtn').is_visible() and page.locator('#penRow').is_visible() and page.locator('#undo').is_visible()
+    assert not page.locator('#inBtn').is_visible()
+    page.click('#annBtn')
+    assert page.inner_text('#annBtn') == 'Draw' and page.locator('#inBtn').is_visible() and not page.locator('#undo').is_visible()
+
+def test_upright_video_sits_under_the_header(page):
+    open_clip(page); loaded(page)
+    st = page.locator('#stage').bounding_box(), 
+    st = st[0]
+    assert abs(st['height'] - 390 * 360 / 640) < 2 and st['y'] < 80
+    assert page.locator('#pNotes').is_visible() and page.locator('#rail').is_visible()
+
+def test_sideways_video_fills_the_height(page):
+    page.set_viewport_size({'width': 844, 'height': 390})
+    open_clip(page); loaded(page)
+    st = page.locator('#stage').bounding_box(), page.locator('#rail').bounding_box()
+    assert st[0]['height'] > 385 and st[1]['x'] > st[0]['x'] + st[0]['width'] - 1  # rail to the right of the video
+    assert not page.locator('#pNotes').is_visible()
+    page.click('#stepFwd'); assert fr(page).startswith('2')
+    # taps on the video still step frames, measured from the video's own edges
+    bx = page.locator('#cv').bounding_box()
+    page.mouse.click(bx['x'] + bx['width'] * 0.9, bx['y'] + bx['height'] / 2); assert fr(page).startswith('3')
+    page.mouse.click(bx['x'] + bx['width'] * 0.1, bx['y'] + bx['height'] / 2); assert fr(page).startswith('2')

@@ -32,7 +32,11 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   const remember = () => { undoStack.push({ marks: JSON.parse(JSON.stringify(marks)), holds: { ...holds } }); if (undoStack.length > 60) undoStack.shift(); };
   let seq = [0], segAt = [null], cutMarks = [], firstPos = new Int32Array(1);
   let cur = 0, playing = false, tool = null, drag = null, zoom = 1, panX = 0, panY = 0;
-  const changed = (...keys) => { const o = {}; for (const k of keys) o[k] = { marks, secs, retimed, inF, outF, rate, pos, holds }[k]; onChange(o); };
+  const changed = (...keys) => {
+    const o = {}; for (const k of keys) o[k] = { marks, secs, retimed, inF, outF, rate, pos, holds }[k]; onChange(o);
+    if (keys.includes('marks') || keys.includes('holds')) renderList();
+  };
+  const stage = $('stage');
 
   // ---------- timeline
   function rebuild() {
@@ -44,9 +48,14 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   const lo = () => inF ?? 0, hi = () => outF ?? seq.length - 1;
 
   // ---------- view: fit to screen, then the viewer's zoom and pan
+  // Upright, the video sits under the header as tall as its shape needs (up to 60% of the screen);
+  // sideways, the stage fills the height and the controls float over it.
+  const sideways = () => matchMedia('(orientation:landscape) and (max-height:600px)').matches;
   function sizeAll() {
     const d = devicePixelRatio || 1;
-    cv.width = innerWidth * d; cv.height = innerHeight * d;
+    stage.style.height = sideways() ? '' : `${Math.round(Math.min(innerWidth * H / W, innerHeight * 0.6))}px`;
+    const sr = stage.getBoundingClientRect();
+    cv.width = Math.max(1, sr.width * d); cv.height = Math.max(1, sr.height * d);
     const r = sc.getBoundingClientRect(); sc.width = r.width * d; sc.height = r.height * d;
     const lr = lane.getBoundingClientRect(); lane.width = lr.width * d; lane.height = lr.height * d;
   }
@@ -75,12 +84,13 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     showNoteChip();
     cx.setTransform(1, 0, 0, 1, 0, 0);
     $('fr').innerHTML = `<b>${pos + 1}</b> / ${seq.length}${retimed ? ` · fr ${cur + 1}` : ''}`;
+    if (!playing) markList();
     const got = media.loading ? frames.reduce((n, x) => n + (x ? 1 : 0), 0) : 0;
     $('tc').textContent = `${(pos / fps).toFixed(2)}s · ${fps} fps${zoom > 1.01 ? ' · ' + zoom.toFixed(1) + '× zoom' : ''}${media.loading ? ` · loading ${Math.round(got / frames.length * 100)}%` : ''}`;
     const hasR = inF !== null || outF !== null;
     $('rangeTxt').textContent = hasR ? `Loop ${lo() + 1}–${hi() + 1}` : ''; $('rangeChip').style.display = hasR ? '' : 'none';
-    $('inBtn').textContent = inF !== null ? `In ${inF + 1}` : 'In'; $('inBtn').classList.toggle('on', inF !== null);
-    $('outBtn').textContent = outF !== null ? `Out ${outF + 1}` : 'Out'; $('outBtn').classList.toggle('on', outF !== null);
+    $('inBtn').lastElementChild.textContent = inF !== null ? `In ${inF + 1}` : 'In'; $('inBtn').classList.toggle('on', inF !== null);
+    $('outBtn').lastElementChild.textContent = outF !== null ? `Out ${outF + 1}` : 'Out'; $('outBtn').classList.toggle('on', outF !== null);
     drawScrub();
   }
   function drawScrub() {
@@ -105,15 +115,13 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
       sx.fillStyle = '#86B0C2'; for (const f of [lo(), hi()]) r(X(f) - 2 * d, h / 2 - 13 * d, 4 * d, 26 * d, 2 * d);
     }
     sx.fillStyle = 'rgba(255,255,255,.08)'; r(0, h / 2 - 3 * d, w, 6 * d, 3 * d);
-    sx.fillStyle = '#86B0C2'; r(0, h / 2 - 3 * d, X(pos), 6 * d, 3 * d);
+    sx.fillStyle = '#ECEEF1'; r(0, h / 2 - 3 * d, X(pos), 6 * d, 3 * d);
     sx.fillStyle = '#E8908C'; for (const m of marks) { const p = firstPos[m.f]; if (p >= 0 && !(retimed && isCut(secs, m.f))) r(X(p) - 1.5 * d, h / 2 + 7 * d, 3 * d, 7 * d, 1.5 * d); }
     if (media.loading) { sx.fillStyle = '#6FBF8E'; for (let p = 0; p < n;) { const has = !!frames[seq[p]]; let q = p; while (q < n && !!frames[seq[q]] === has) q++; if (has) sx.fillRect(E(p), h - 3 * d, E(q) - E(p), 2 * d); p = q; } }
-    // handle: a fingertip-sized raised key standing proud of the lane, with grip lines, lit from above
-    const hx = X(pos), hw = 22 * d, hh = h - 4 * d, hy = 2 * d;
-    sx.save(); sx.shadowColor = 'rgba(0,0,0,.5)'; sx.shadowBlur = 8 * d; sx.shadowOffsetY = 2 * d;
-    sx.fillStyle = '#3E454E'; r(hx - hw / 2, hy, hw, hh, 8 * d); sx.restore();
-    sx.fillStyle = 'rgba(255,255,255,.14)'; r(hx - hw / 2 + 2 * d, hy + 1 * d, hw - 4 * d, 1.5 * d, d);
-    sx.fillStyle = '#ECEEF1'; for (const o of [-4, 0, 4]) r(hx + o * d - 0.75 * d, h / 2 - 6 * d, 1.5 * d, 12 * d, 0.75 * d);
+    // handle: a plain round knob on the track
+    const hx = Math.max(11 * d, Math.min(w - 11 * d, X(pos)));
+    sx.save(); sx.shadowColor = 'rgba(0,0,0,.5)'; sx.shadowBlur = 6 * d; sx.shadowOffsetY = 2 * d;
+    sx.fillStyle = '#ECEEF1'; sx.beginPath(); sx.arc(hx, h / 2, 10 * d, 0, Math.PI * 2); sx.fill(); sx.restore();
     drawLane();
   }
 
@@ -203,6 +211,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   }
   function stop() { const was = playing; playing = false; cancelAnimationFrame(raf); $('play').textContent = '▶︎'; showUi(); if (was) changed('pos'); }
   $('play').onclick = () => playing ? stop() : play();
+  $('stepBack').onclick = () => { stop(); stepBy(-1); draw(); changed('pos'); };
+  $('stepFwd').onclick = () => { stop(); stepBy(1); draw(); changed('pos'); };
 
   // ---------- one play-rate control: presets + custom
   function setRate(r) {
@@ -259,7 +269,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     if (!drawingStarts(marks).includes(s)) delete holds[s];
     draw();
   }
-  const toVideo = (x, y) => { const v = view(), d = v.d; return [(x * d - v.ox) / v.s, (y * d - v.oy) / v.s]; };
+  const box = () => cv.getBoundingClientRect();
+  const toVideo = (x, y) => { const v = view(), d = v.d, b = box(); return [((x - b.left) * d - v.ox) / v.s, ((y - b.top) * d - v.oy) / v.s]; };
   const stepBy = n => { const a = lo(), len = hi() - a + 1; pos = a + (((pos - a + n) % len) + len) % len; };
   on(cv, 'pointerdown', e => {
     cv.setPointerCapture(e.pointerId);
@@ -284,7 +295,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     if (pinch && pts.size >= 2) {
       const [a, b] = [...pts.values()], dd = Math.hypot(a[0] - b[0], a[1] - b[1]);
       const z = Math.max(1, Math.min(12, pinch.z0 * dd / pinch.d0));
-      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, cxm = innerWidth / 2, cym = innerHeight / 2;
+      const r = box(), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, cxm = r.left + r.width / 2, cym = r.top + r.height / 2;
       panX = (pinch.mx - cxm - pinch.px) * (1 - z / pinch.z0) + pinch.px + (mx - pinch.mx);
       panY = (pinch.my - cym - pinch.py) * (1 - z / pinch.z0) + pinch.py + (my - pinch.my);
       zoom = z; clampPan(); draw(); return;
@@ -314,7 +325,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     }
     if (sliding) { sliding = false; tapStart = null; poke(); changed('pos'); return; }
     if (tapStart && Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 10 && performance.now() - tapStart.t < 350) {
-      const third = e.clientX / innerWidth;
+      const r = box(), third = (e.clientX - r.left) / r.width;
       if (third < 0.3) { stop(); stepBy(-1); draw(); changed('pos'); }
       else if (third > 0.7) { stop(); stepBy(1); draw(); changed('pos'); }
       else {
@@ -345,12 +356,16 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     tool = tool === t ? null : t;
     for (const k of ['draw', 'arrow', 'box', 'circle']) $(k + 'Btn').classList.toggle('on', tool === k);
     $('eraseBtn').classList.toggle('on', tool === 'erase');
-    $('annBtn').textContent = tool ? tool[0].toUpperCase() + tool.slice(1) : 'Annotate';
-    $('annBtn').classList.toggle('on', !!tool); poke();
+    poke();
+  }
+  // Draw swaps the rail to the drawing tools (and shows the pen colours and Undo); Done swaps back and puts the pen down.
+  function setTray(open) {
+    $('tray').hidden = !open; $('railView').hidden = open; $('penRow').hidden = !open; $('undo').hidden = !open;
+    $('annBtn').classList.toggle('on', open); $('annBtn').lastElementChild.textContent = open ? 'Done' : 'Draw';
   }
   $('annBtn').onclick = () => {
-    const t = $('tray'); t.hidden = !t.hidden; $('penRow').hidden = t.hidden; $('annBtn').classList.toggle('open', !t.hidden);
-    if (!t.hidden) { stop(); showPen(); } else { if (tool) pick(null); showUi(); }   // closing the menu puts the pen down
+    const open = $('tray').hidden; setTray(open);
+    if (open) { stop(); showPen(); } else { if (tool) pick(null); showUi(); }
   };
   $('drawBtn').onclick = () => pick('draw'); $('arrowBtn').onclick = () => pick('arrow'); $('boxBtn').onclick = () => pick('box'); $('circleBtn').onclick = () => pick('circle');
   $('undo').onclick = () => {
@@ -376,9 +391,47 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     remember(); marks = marks.filter(m => !(isDrawn(m) && m.f === s)); delete holds[s];
     changed('marks', 'holds'); draw(); poke();
   };
-  $('noteBtn').onclick = () => { stop(); $('noteCap').textContent = `Note on frame ${cur + 1}`; $('noteIn').value = ''; openSheet('noteVeil'); $('noteIn').focus(); };
+  $('noteBtn').onclick = () => { stop(); if (tool) pick(null); $('noteCap').textContent = `Note on frame ${cur + 1}`; $('noteIn').value = ''; openSheet('noteVeil'); $('noteIn').focus(); };
   $('noteNo').onclick = closeSheets;
   $('noteOk').onclick = () => { const t = $('noteIn').value.trim(); closeSheets(); if (t) { remember(); marks.push({ f: cur, type: 'note', text: t }); changed('marks'); draw(); } };
+  function jumpTo(f) {
+    stop(); if (retimed && isCut(secs, f)) setView(false);
+    pos = firstPos[f] >= 0 ? firstPos[f] : posAtOrAfter(seq, f); inF = outF = null; draw(); changed('pos', 'inF', 'outF');
+  }
+  // ---------- this video's notes and drawings, under the scrub bar: tap one to go to its frame
+  const kindName = { draw: 'stroke', arrow: 'arrow', box: 'box', circle: 'circle' };
+  let listItems = [];
+  function renderList() {
+    const notes = marks.filter(m => m.type === 'note'), starts = drawingStarts(marks);
+    listItems = [
+      ...notes.map(m => ({ f: m.f, note: m, text: m.text })),
+      ...starts.map(st => {
+        const ms = marks.filter(m => isDrawn(m) && m.f === st), kinds = [...new Set(ms.map(m => kindName[m.type]))];
+        return { f: st, drawing: true, color: (ms[0] && ms[0].color) || '#FF3B5C',
+          text: `Drawing · ${ms.length === 1 ? kinds[0] : `${ms.length} ${kinds.length === 1 ? kinds[0] + 's' : 'marks'}`}${holdOf(holds, st) > 1 ? ` · holds ${holdOf(holds, st)}` : ''}` };
+      }),
+    ].sort((a, b) => a.f - b.f || (a.drawing ? 1 : -1));
+    const nNotes = notes.length, nDraw = starts.length;
+    $('pSub').textContent = [`${seq.length} frames`, nNotes && `${nNotes} note${nNotes === 1 ? '' : 's'}`, nDraw && `${nDraw} drawing${nDraw === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
+    $('pNotesCap').textContent = listItems.length ? `Notes · ${listItems.length}` : 'Notes';
+    const box = $('pList'); box.innerHTML = '';
+    for (const it of listItems) {
+      const d = document.createElement('div'); d.className = 'pli';
+      d.innerHTML = '<span class="f"></span><span class="dot"></span><span class="x"></span>';
+      d.querySelector('.f').textContent = it.f + 1; d.querySelector('.x').textContent = it.text;
+      if (it.drawing) d.querySelector('.dot').style.background = it.color;
+      d.onclick = () => jumpTo(it.f);
+      box.append(d);
+    }
+    let none = $('pNotes').querySelector('.none');
+    if (!listItems.length && !none) { none = document.createElement('p'); none.className = 'none'; none.textContent = 'No notes yet. Tap Draw to mark up a frame or add a note.'; $('pNotes').append(none); }
+    if (listItems.length && none) none.remove();
+    markList();
+  }
+  function markList() {  // light up what's showing on this frame
+    const here = visible(cur), rows = $('pList').children;
+    listItems.forEach((it, i) => rows[i] && rows[i].classList.toggle('on', it.note ? here.includes(it.note) : here.some(m => isDrawn(m) && m.f === it.f)));
+  }
   function renderNotes() {
     const box = $('notes'); box.innerHTML = marks.length ? '' : '<div style="color:var(--mut);padding:8px 2px">No notes or marks yet.</div>';
     [...marks].map((m, i) => ({ m, i })).sort((a, b) => a.m.f - b.m.f).forEach(({ m, i }) => {
@@ -386,7 +439,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
       d.innerHTML = '<span class="f"></span><span class="t"></span><span class="x">×</span>';
       d.querySelector('.f').textContent = `FR ${m.f + 1}`;
       d.querySelector('.t').textContent = m.type === 'note' ? m.text : m.type === 'draw' ? 'Drawing' : m.type[0].toUpperCase() + m.type.slice(1);
-      d.querySelector('.t').onclick = () => { if (retimed && isCut(secs, m.f)) setView(false); pos = firstPos[m.f] >= 0 ? firstPos[m.f] : posAtOrAfter(seq, m.f); inF = outF = null; closeSheets(); draw(); changed('pos', 'inF', 'outF'); };
+      d.querySelector('.t').onclick = () => { jumpTo(m.f); closeSheets(); };
       d.querySelector('.x').onclick = () => { remember(); marks.splice(i, 1); changed('marks'); renderNotes(); draw(); };
       box.append(d);
     });
@@ -464,17 +517,17 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   $('exportBoth').onclick = () => exportVideo('both', exportCtx());
 
   // ---------- start
-  $('player').style.display = 'block';
+  $('player').classList.add('open'); $('pName').textContent = name;
   for (const k of ['draw', 'arrow', 'box', 'circle']) $(k + 'Btn').classList.remove('on');
-  $('annBtn').textContent = 'Annotate'; $('annBtn').classList.remove('on', 'open'); $('tray').hidden = true; $('penRow').hidden = true;
+  setTray(false);
   $('log2').textContent = '';
-  rebuild(); setRate(rate); updateRetimeUi(); sizeAll(); closeSheets(); draw(); poke();
+  rebuild(); setRate(rate); updateRetimeUi(); sizeAll(); closeSheets(); renderList(); draw(); poke();
   let drawT = 0;
   media.onFrame = () => { const now = performance.now(); if (!playing && now - drawT > 120) { drawT = now; draw(); } };
   media.done.then(() => { if (!ac.signal.aborted) { log(`${name}: ${media.count} frames, loaded in`); draw(); } });
 
   return {
-    close() { stop(); ac.abort(); media.cancel(); $('player').style.display = 'none'; closeSheets(); },
+    close() { stop(); ac.abort(); media.cancel(); $('player').classList.remove('open'); closeSheets(); },
   };
 }
 
