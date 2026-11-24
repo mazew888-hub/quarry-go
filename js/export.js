@@ -1,14 +1,14 @@
 // Exports: the video with notes, the retimed video, or the original and retimed side by side.
 // Frames and marks are baked into an MP4, recorded in real time (no sound).
 import { buildSeq } from './retime.js';
-import { log, status, roundRect } from './player.js';
+import { log, status } from './player.js';
+import { roundRect } from './render.js';
 
 export async function exportVideo(kind, ctx) {
   const { frames, fps, W, H, secs, name, compose, closeSheets, stop, loading } = ctx;
   stop(); closeSheets();
   if (loading()) { status('Still loading frames. Try again in a moment.', 0); setTimeout(() => status(''), 2200); return; }
-  const types = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
-  const type = types.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
+  const type = recType();
   if (!type) { status("This phone can't record video here.", 0); setTimeout(() => status(''), 2500); return; }
   const both = kind === 'both', ret = kind !== 'notes';
   const rseq = buildSeq(frames.length, secs, ret && secs.length > 0).seq, oseq = buildSeq(frames.length, secs, false).seq;
@@ -43,10 +43,39 @@ export async function exportVideo(kind, ctx) {
   const file = new File([blob], `${name} - ${both ? 'before and after' : ret && secs.length ? 'retimed' : 'notes'}.${ext}`, { type: blob.type });
   log(`exported ${file.name}: ${(blob.size / 1e6).toFixed(1)} MB in ${((performance.now() - t0) / 1000).toFixed(1)}s (${type})`);
   status('');
-  // Inside Claude (testing): the downloads capability. Installed: the iOS Share sheet. Otherwise a download.
+  await deliver(file);
+}
+
+export const recType = () => ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm']
+  .find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || null;
+
+// Records frames in real time into a video: draw(ctx, i) paints output frame i of total. Returns {blob, ext}.
+// stopped() is checked every frame (null blob when it says stop).
+export async function recordVideo({ W, H, fps, total, draw, onFrame = () => {}, stopped = () => false }) {
+  const type = recType(); if (!type) throw new Error("This phone can't record video here.");
+  const out = document.createElement('canvas'); out.width = W - W % 2; out.height = H - H % 2; const oc = out.getContext('2d');
+  const stream = out.captureStream(0), track = stream.getVideoTracks()[0];
+  const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 8e6 });
+  const chunks = []; rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  const done = new Promise(r => rec.onstop = r);
+  rec.start();
+  const t0 = performance.now();
+  for (let i = 0; i < total; i++) {
+    if (stopped()) { rec.stop(); await done; return { blob: null, ext: '' }; }
+    oc.setTransform(1, 0, 0, 1, 0, 0); draw(oc, i);
+    track.requestFrame && track.requestFrame();
+    onFrame(i + 1, total);
+    const due = t0 + (i + 1) * 1000 / fps; await new Promise(r => setTimeout(r, Math.max(0, due - performance.now())));
+  }
+  rec.stop(); await done;
+  return { blob: new Blob(chunks, { type: type.split(';')[0] }), ext: type.includes('mp4') ? 'mp4' : 'webm' };
+}
+
+// Hands a finished file to the person. Inside Claude (testing): the downloads capability. Installed on a
+// phone: the Share sheet, after a fresh tap (iOS only opens it straight after one). Otherwise a download.
+export async function deliver(file) {
   const dl = window.claude ? await window.claude.use('downloads').catch(() => null) : null;
-  if (dl) { try { await dl.save({ filename: file.name, data: blob }); log('saved'); } catch (e) { log('save: ' + (e.code || e.message)); } return; }
-  // iOS only opens the Share sheet straight after a tap, and recording took a while: ask for a fresh tap.
+  if (dl) { try { await dl.save({ filename: file.name, data: file }); log('saved'); } catch (e) { log('save: ' + (e.code || e.message)); } return; }
   if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia('(pointer: coarse)').matches) {
     const veil = document.getElementById('shareVeil');
     document.getElementById('shareName').textContent = file.name;
@@ -57,6 +86,6 @@ export async function exportVideo(kind, ctx) {
     };
     return;
   }
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 60000);
 }
