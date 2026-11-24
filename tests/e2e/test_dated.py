@@ -124,3 +124,24 @@ def test_stop_export(page):
     page.click('#exCancel')
     page.wait_for_function("document.getElementById('toast').textContent.includes('stopped')", timeout=10000)
     assert page.locator('#exGo').is_enabled()
+
+def test_a_stall_mid_export_doesnt_get_into_the_video(page, tmp_path):
+    # The phone pausing mid-export (screen locked, another app, a slow frame) must not change the video's timing.
+    import subprocess
+    home(page); add(page, FIX / 'clip.webm', rows=1)
+    page.evaluate('''async () => { const S = await import('/js/store.js'); const [r] = await S.listReviews();
+        S.saveReview(r.id, { marks: [{ f: 0, type: 'note', text: 'n' }] }); await S.flush(); }''')
+    page.reload(); page.wait_for_selector('.rv-clip')
+    page.click('#exportNotes'); page.click('[data-flip="maya"]'); page.click('[data-flip="notes"]')
+    with page.expect_download(timeout=90000) as dl:
+        page.click('#exGo')
+        page.wait_for_function("/video, frame (1\\d|[2-9]\\d) /.test(document.getElementById('exLine')?.textContent || '')", timeout=30000, polling=20)
+        page.evaluate("() => { const t = performance.now(); while (performance.now() - t < 2500) {} }")
+    path = tmp_path / 'r.zip'; dl.value.save_as(path)
+    z = zipfile.ZipFile(path); name = [n for n in z.namelist() if ' - notes.' in n][0]
+    assert name.endswith('.mp4'), name
+    out = tmp_path / 'v.mp4'; out.write_bytes(z.read(name))
+    info = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-count_frames', '-show_entries',
+        'stream=nb_read_frames,duration', '-of', 'json', str(out)]))['streams'][0]
+    assert int(info['nb_read_frames']) == 72, info
+    assert abs(float(info['duration']) - 3.0) < 0.01, info

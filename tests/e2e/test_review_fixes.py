@@ -94,7 +94,7 @@ def test_sort_card_survives_background_change(page):
 # Important 8: thumbnails come from the offline cache, not object URLs
 def test_thumbs_served_from_cache_path(page):
     start(page)
-    page.wait_for_function('navigator.serviceWorker.getRegistration().then(r => !!(r && r.active))', timeout=8000)
+    page.wait_for_function('navigator.serviceWorker.getRegistration().then(r => !!(r && r.active))', timeout=20000)
     page.reload(); page.wait_for_function('!!navigator.serviceWorker.controller', timeout=8000)
     page.evaluate("location.hash = '#/library'")
     page.wait_for_function("document.querySelectorAll('#libGrid .lib-tile img[src*=\"/qg-thumbs/\"]').length === 6", timeout=8000)

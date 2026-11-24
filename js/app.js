@@ -10,7 +10,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.4.0';
+export const VERSION = '0.4.1';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -142,7 +142,7 @@ async function thumbOf(bmp) {
 }
 // Reads just enough of a clip for its card (size, rate, frames, first picture). Nothing is saved if it can't be read.
 async function probe(file) {
-  const media = await loadFrames(file, { log });
+  const media = await loadFrames(file, { log: () => {} }); // quiet: the player's log is for the clip that's open
   try {
     const f0 = await firstFrame(media);
     if (!f0) throw new Error(CANT_OPEN);
