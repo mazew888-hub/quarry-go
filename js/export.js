@@ -78,6 +78,9 @@ export async function deliver(file) {
   if (dl) { try { await dl.save({ filename: file.name, data: file }); log('saved'); } catch (e) { log('save: ' + (e.code || e.message)); } return; }
   if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia('(pointer: coarse)').matches) {
     const veil = document.getElementById('shareVeil');
+    const zip = /\.zip$/i.test(file.name);
+    document.getElementById('shareCap').textContent = zip ? 'Notes ready' : 'Video ready';
+    document.getElementById('shareBtn').textContent = zip ? 'Share zip' : 'Share video';
     document.getElementById('shareName').textContent = file.name;
     veil.style.display = 'flex';
     document.getElementById('shareBtn').onclick = async () => {

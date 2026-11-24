@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-<input id="file" type="file" accept="video/*,image/gif">
+<input id="file" type="file" accept="video/*,image/gif" multiple>
 
 <section id="reviews"></section>
 <section id="sort"></section>
@@ -143,8 +143,10 @@
   <div class="row"><span class="sp"></span><button class="btn" id="confirmNo">Cancel</button><button class="btn pri" id="confirmYes" style="background:var(--late)">Delete</button></div>
 </div></div>
 
-<div class="veil" id="shareVeil"><div class="sheet grain">
-  <div class="cap">Video ready</div>
+<div class="veil" id="exportVeil"></div>
+
+<div class="veil" id="shareVeil" style="z-index:11"><div class="sheet grain">
+  <div class="cap" id="shareCap">Video ready</div>
   <p id="shareName" style="margin:0 2px 16px;color:var(--mut);word-break:break-all"></p>
   <div class="row"><span class="sp"></span><button class="btn pri" id="shareBtn" style="height:48px;padding:0 24px">Share video</button></div>
 </div></div>

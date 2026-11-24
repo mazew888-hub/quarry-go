@@ -1,14 +1,16 @@
 // Quarry Go: boot, routing (#/ is Reviews, #/r/<id> is the player), saving and settings.
 import { loadFrames, CANT_OPEN } from './frames.js';
 import { openPlayer, log, status } from './player.js';
-import { renderReviews } from './reviews.js';
+import { renderHistory, renderDay } from './reviews.js';
+import { dayOf, dayInfo, dayTitle, today } from './days.js';
+import { openExport } from './pack.js';
 import * as S from './store.js';
 import * as G from './drive.js';
 import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.4.0';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -30,44 +32,68 @@ function confirmSheet(text) {
   });
 }
 
-// ---------- Reviews
-let player = null, pending = null; // pending: {id, media} just made, so it opens without decoding again
-let openSeq = 0;                     // only the newest open request may show its review
-const dropPending = () => { if (pending) { pending.media.cancel(); pending = null; } };
+// ---------- Reviews: the history (#/), one review = one day of videos (#/d/<day>), the player (#/r/<id>)
+let player = null;
+let openSeq = 0;                     // only the newest open request may show its screen
 const save = () => S.flush().catch(e => toast(e.message));
 let thumbUrls = [];
-async function showReviews() {
+const thumbUrl = r => { const u = URL.createObjectURL(r.thumb); thumbUrls.push(u); return u; };
+const freeThumbs = () => { for (const u of thumbUrls) URL.revokeObjectURL(u); thumbUrls = []; };
+async function leavePlayer() {
   openSeq++;
   if (player) { player.close(); player = null; }
-  dropPending(); $('reviews').classList.remove('busy');
-  hide('missing');
+  $('reviews').classList.remove('busy'); hide('missing'); hide('exportVeil');
   await save();
-  const list = await S.listReviews();
-  for (const u of thumbUrls) URL.revokeObjectURL(u); thumbUrls = [];
-  renderReviews($('reviews'), list, {
-    onOpen: id => { location.hash = `#/r/${id}`; },
-    onHold: id => cardSheet(list.find(r => r.id === id)),
-    onSettings: settings,
-  }, r => { const u = URL.createObjectURL(r.thumb); thumbUrls.push(u); return u; });
-  $('reviews').classList.add('show');
-  fileMode = { kind: 'new' };
 }
-
+async function showHistory() {
+  await leavePlayer(); const my = openSeq;
+  const list = await S.listReviews();
+  if (my !== openSeq) return;
+  freeThumbs();
+  renderHistory($('reviews'), list, {
+    onOpenDay: day => { location.hash = `#/d/${day}`; },
+    onHoldDay: day => deleteDay(day, list),
+    onSettings: settings,
+  }, thumbUrl);
+  $('reviews').classList.add('show'); $('reviews').scrollTop = 0;
+  fileMode = { kind: 'add', day: today() };
+}
+async function showDay(day) {
+  await leavePlayer(); const my = openSeq;
+  const list = await S.listReviews();
+  if (my !== openSeq) return;
+  const info = dayInfo(list, day);
+  freeThumbs();
+  renderDay($('reviews'), info, {
+    onBack: () => { location.hash = '#/'; },
+    onOpen: id => { location.hash = `#/r/${id}`; },
+    onHold: id => cardSheet(info.videos.find(r => r.id === id)),
+    onExport: () => openExport($('exportVeil'), info, { getClip: S.getClip, toast, log }),
+  }, thumbUrl);
+  $('reviews').classList.add('show');
+  fileMode = { kind: 'add', day };
+}
+const showCurrent = () => { const m = location.hash.match(/^#\/d\/(\d{4}-\d\d-\d\d)$/); return m ? showDay(m[1]) : showHistory(); };
+async function deleteDay(day, list) {
+  const vids = list.filter(v => dayOf(v) === day);
+  if (!vids.length || !await confirmSheet(`Delete the review for ${dayTitle(day)} (${vids.length} video${vids.length === 1 ? '' : 's'})?`)) return;
+  for (const v of vids) await S.deleteReview(v.id);
+  showCurrent();
+}
 function cardSheet(r) {
   $('renameIn').value = r.name; show('cardVeil');
   $('renameOk').onclick = async () => {
     const name = $('renameIn').value.trim(); hide('cardVeil');
-    if (name && name !== r.name) { S.saveReview(r.id, { name }); await S.flush(); showReviews(); }
+    if (name && name !== r.name) { S.saveReview(r.id, { name }); await S.flush(); showCurrent(); }
   };
   $('deleteOne').onclick = async () => {
     hide('cardVeil');
-    if (await confirmSheet(`Delete "${r.name}"?`)) { await S.deleteReview(r.id); showReviews(); }
+    if (await confirmSheet(`Delete "${r.name}"?`)) { await S.deleteReview(r.id); showCurrent(); }
   };
 }
-
 async function settings() {
   const [{ bytes }, list] = await Promise.all([S.usage(), S.listReviews()]);
-  $('spaceUsed').textContent = `${(bytes / 1e6).toFixed(1)} MB · ${list.length} review${list.length === 1 ? '' : 's'}`;
+  $('spaceUsed').textContent = `${(bytes / 1e6).toFixed(1)} MB · ${list.length} video${list.length === 1 ? '' : 's'}`;
   $('version').textContent = VERSION;
   const on = extraTabs();
   $('extraTabs').textContent = on ? 'On' : 'Off'; $('extraTabs').classList.toggle('on', on);
@@ -98,14 +124,13 @@ async function settings() {
   show('settingsVeil');
   $('deleteAll').onclick = async () => {
     hide('settingsVeil');
-    if (await confirmSheet('Delete all reviews?')) { await S.deleteAll(); showReviews(); }
+    if (await confirmSheet('Delete all reviews?')) { await S.deleteAll(); location.hash = '#/'; showHistory(); }
   };
 }
 
-// ---------- opening clips
-let fileMode = { kind: 'new' };
+// ---------- adding videos (several at once) and picking a missing clip again
+let fileMode = { kind: 'add', day: null };
 const baseName = f => (f.name || 'Clip').replace(/\.[^.]+$/, '') || 'Clip';
-
 async function firstFrame(media) {
   for (let i = 0; i < 200 && !media.frames[0]; i++) await new Promise(r => setTimeout(r, 50));
   return media.frames[0];
@@ -115,35 +140,43 @@ async function thumbOf(bmp) {
   c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
   return new Promise(r => c.toBlob(r, 'image/jpeg', 0.8));
 }
-async function open(file) {
-  // Everything is checked before anything is saved: a clip that can't be read leaves no review behind.
-  status('Opening…', 0);
+// Reads just enough of a clip for its card (size, rate, frames, first picture). Nothing is saved if it can't be read.
+async function probe(file) {
+  const media = await loadFrames(file, { log });
   try {
-    const media = await loadFrames(file, { log });
     const f0 = await firstFrame(media);
-    if (!f0) { media.cancel(); throw new Error(CANT_OPEN); }
-    return { media, thumb: await thumbOf(f0) };
-  } finally { status(''); }
+    if (!f0) throw new Error(CANT_OPEN);
+    return { fps: media.fps, frameCount: media.count, width: media.W, height: media.H, thumb: await thumbOf(f0) };
+  } finally { media.cancel(); }
 }
-
-$('file').onchange = async e => {
-  const file = e.target.files[0]; e.target.value = '';
-  if (!file) return;
-  const mode = fileMode;
-  let got;
-  try { got = await open(file); } catch (err) { toast(err.message); return; }
-  const { media, thumb } = got;
+async function addFiles(files, day) {
+  const failed = [];
+  $('reviews').classList.add('busy');
   try {
-    if (mode.kind === 'repick') {
-      await S.putClip(mode.id, file); S.saveReview(mode.id, { clipType: file.type, thumb }); await S.flush();
-      dropPending(); pending = { id: mode.id, media }; hide('missing'); openReview(mode.id);
-      return;
+    for (const [i, file] of files.entries()) {
+      status(files.length > 1 ? `Adding ${i + 1} of ${files.length}…` : 'Adding…', i / files.length);
+      try { await S.createReview({ name: baseName(file), fileName: file.name || '', day, ...await probe(file) }, file); }
+      catch (err) { failed.push(err.message === CANT_OPEN ? `${file.name || 'A clip'} can't be opened` : err.message); if (/space/i.test(err.message)) break; }
     }
-    const r = await S.createReview({ name: baseName(file), fps: media.fps, frameCount: media.count, width: media.W, height: media.H, thumb }, file);
-    dropPending(); pending = { id: r.id, media }; location.hash = `#/r/${r.id}`;
-  } catch (err) { media.cancel(); toast(err.message); }
+  } finally { status(''); $('reviews').classList.remove('busy'); }
+  if (failed.length) toast(failed.length === 1 ? failed[0] : `${failed.length} videos weren't added: ${failed[0]}`, 5000);
+}
+$('file').onchange = async e => {
+  const files = [...e.target.files]; e.target.value = '';
+  if (!files.length) return;
+  const mode = fileMode;
+  if (mode.kind === 'repick') {
+    let info;
+    try { status('Opening…', 0); info = await probe(files[0]); } catch (err) { toast(err.message); return; } finally { status(''); }
+    try { await S.putClip(mode.id, files[0]); S.saveReview(mode.id, { clipType: files[0].type, thumb: info.thumb }); await S.flush(); }
+    catch (err) { toast(err.message); return; }
+    hide('missing'); openReview(mode.id);
+    return;
+  }
+  const day = mode.day || today();
+  await addFiles(files, day);
+  if (location.hash !== `#/d/${day}`) location.hash = `#/d/${day}`; else showDay(day);
 };
-
 async function openReview(id) {
   const my = ++openSeq, stale = () => my !== openSeq;
   $('reviews').classList.add('busy'); // no second tap while this one opens
@@ -151,11 +184,10 @@ async function openReview(id) {
   if (stale()) return;
   if (!review) { location.hash = '#/'; return; }
   let media = null;
-  if (pending && pending.id === id) { media = pending.media; pending = null; } else dropPending();
-  if (!media) {
+  {
     const clip = await S.getClip(id);
     if (stale()) return;
-    if (!clip) { $('reviews').classList.remove('busy'); fileMode = { kind: 'repick', id }; $('reviews').classList.add('show'); show('missing'); return; }
+    if (!clip) { $('reviews').classList.remove('busy'); fileMode = { kind: 'repick', id, day: dayOf(review) }; $('reviews').classList.add('show'); show('missing'); return; }
     try { status('Opening…', 0); media = await loadFrames(clip, { log }); }
     catch (err) { status(''); if (!stale()) { toast(err.message); location.hash = '#/'; } return; }
     status('');
@@ -171,10 +203,10 @@ async function openReview(id) {
       // Notes, shapes, loops and retimes are written at once; playhead moves wait for the next save.
       if (Object.keys(patch).some(k => k !== 'pos')) save();
     },
-    onBack: () => { location.hash = '#/'; },
+    onBack: () => { location.hash = `#/d/${dayOf(review)}`; },
   });
 }
-$('missingBack').onclick = () => { location.hash = '#/'; showReviews(); };
+$('missingBack').onclick = () => { hide('missing'); const d = fileMode.day; location.hash = d ? `#/d/${d}` : '#/'; };
 
 // ---------- routing and lifecycle
 // ---------- tabs: Review, Sort, Library
@@ -207,7 +239,8 @@ function route() {
     if (!libTab) libTab = createLibrary($('library'), { phone, drive: G, toast });
     libTab.open();
   }
-  else { setTab('review'); showReviews(); }
+  else if (/^#\/d\/\d{4}-\d\d-\d\d$/.test(h)) { setTab('review'); showDay(h.slice(4)); }
+  else { setTab('review'); showHistory(); }
 }
 addEventListener('hashchange', route);
 addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') save(); });
@@ -224,20 +257,29 @@ async function testPlayer(q) {
     openPlayer($('player'), { media, name: name.replace(/\.[^.]+$/, ''), onChange: p => window.changes.push(p), onBack: () => {} });
   } catch (e) { toast(e.message); }
 }
-function sample() {
+function sample(q) {
   const thumb = (a, b) => { const c = document.createElement('canvas'); c.width = 320; c.height = 180; const x = c.getContext('2d');
     const g = x.createLinearGradient(0, 0, 320, 180); g.addColorStop(0, a); g.addColorStop(1, b); x.fillStyle = g; x.fillRect(0, 0, 320, 180);
     x.fillStyle = 'rgba(255,255,255,.85)'; x.beginPath(); x.arc(150, 95, 26, 0, 7); x.fill(); x.fillRect(146, 118, 8, 40); return c.toDataURL(); };
-  const now = Date.now();
-  const rs = [
-    { id: '1', name: 'Grunt_attack_combo_v3', updated: now - 6e5, frameCount: 96, marks: [{ type: 'note' }, { type: 'note' }, { type: 'note' }, { type: 'arrow' }], secs: [{}], thumb: 1, t: thumb('#4A7590', '#1D2024') },
-    { id: '2', name: 'Brute_hitreact_heavy', updated: now - 864e5 * 1.2, frameCount: 58, marks: [{ type: 'circle' }, { type: 'box' }], secs: [], thumb: 1, t: thumb('#8a6f5a', '#282C31') },
-    { id: '3', name: 'Archer_dodge_back', updated: now - 864e5 * 3, frameCount: 41, marks: [], secs: [], thumb: 1, t: thumb('#5a7a64', '#212429') },
-  ];
+  const C = [['#4A7590', '#1D2024'], ['#8a6f5a', '#282C31'], ['#5a7a64', '#212429'], ['#6b5a8a', '#2a2436'], ['#7a6656', '#2c2520'], ['#4f6a84', '#202a33']];
+  const now = Date.now(), dayAgo = n => dayOf(now - n * 864e5);
+  const names = ['grunt_attack_combo_v3', 'brute_hitreact_heavy_v2', 'archer_dodge_back_v5', 'brute_slam_v4', 'grunt_idle_v1', 'archer_shoot_v2'];
+  const marks = [[{ type: 'note' }, { type: 'note' }, { type: 'note' }, { type: 'draw' }, { type: 'arrow' }], [{ type: 'note' }], [{ type: 'draw' }, { type: 'box' }, { type: 'circle' }, { type: 'draw' }], [{ type: 'note' }, { type: 'note' }], [], []];
+  const rs = [];
+  const add = (day, n, notes) => { for (let i = 0; i < n; i++) rs.push({ id: day + i, day, created: i, name: names[i % 6], frameCount: [96, 58, 41, 80, 120, 64][i % 6],
+    marks: i < notes ? marks[i % 4] : [], secs: i === 1 ? [{ a: 0, b: 4, type: 'hold' }] : [], retimed: i === 1, thumb: 1, t: thumb(...C[(i + day.length) % 6]) }); };
+  add(dayAgo(0), 6, 4); add(dayAgo(2), 9, 9); add(dayAgo(5), 5, 2); add(dayAgo(8), 3, 3); add(dayAgo(13), 7, 0); add(dayAgo(25), 4, 4);
   $('reviews').classList.add('show');
-  renderReviews($('reviews'), rs, { onOpen() {}, onHold() {}, onSettings() {} }, r => r.t);
+  if (q.get('day') === 'today') {
+    const info = dayInfo(rs, dayAgo(0));
+    renderDay($('reviews'), info, { onBack() {}, onOpen() {}, onHold() {}, onExport() {} }, r => r.t);
+    if (q.get('sheet')) {
+      const veil = $('exportVeil');
+      openExport(veil, { ...info, videos: info.videos.map(v => ({ ...v, thumb: null })) }, { getClip: async () => null });
+      veil.querySelectorAll('.li .rv-th').forEach((el, i) => { el.innerHTML = `<img alt="" src="${info.videos.filter(v => v.marks.length || v.retimed)[i].t}">`; });
+    }
+  } else renderHistory($('reviews'), rs, { onOpenDay() {}, onHoldDay() {}, onSettings() {} }, r => r.t);
 }
-
 // Back from Google's sign-in page: take the token, put the address back.
 if (G.handleRedirect() && G.ready()) G.account().catch(e => log('google: ' + e.message));
 
@@ -257,7 +299,7 @@ async function sortSample(q) {
 const q = new URLSearchParams(location.search);
 if (local && q.get('test') === 'sortsample') sortSample(q);
 else if (local && q.get('test') === 'player') testPlayer(q);
-else if (local && q.get('test') === 'sample') sample();
+else if (local && q.get('test') === 'sample') sample(q);
 else {
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   if ('serviceWorker' in navigator) {

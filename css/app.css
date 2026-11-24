@@ -244,3 +244,57 @@ input[type=file]{display:none}
 #penRow .sw{width:27px;height:27px;flex:none}
 #penRow .sz{width:28px;height:30px;flex:none}
 #penRow .btn{height:30px;padding:0 9px;font-size:13px;flex:none}
+
+/* ---- review history and one review (a day of videos), like Quarry's review panel ---- */
+.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+#reviews .rv-head{justify-content:flex-start;gap:10px}
+#reviews .rv-head h1{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rv-head .key{width:44px;height:44px;padding:0;flex:none}
+.acts{display:flex;gap:10px}
+.acts .btn{flex:1;height:52px;font-size:16px}
+.btn:disabled{opacity:.45}
+.rv-cap{font-size:11px;font-weight:600;letter-spacing:2px;color:var(--mut);text-transform:uppercase;margin:22px 2px 10px}
+#reviews .rv-empty{margin-top:18px}
+.rv-day{width:100%;margin-bottom:10px;padding:8px 8px 10px}
+.rv-th3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.rv-th{display:block;aspect-ratio:16/9;border-radius:7px;background:var(--well);box-shadow:var(--pressed-sm);overflow:hidden}
+.rv-th img{width:100%;height:100%;object-fit:cover;display:block}
+.rv-day .rv-name{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:15px;padding:0 4px}
+.rv-day .rv-meta{display:flex;align-items:center;gap:6px;font-size:12px;padding:0 4px}
+.bd{font-size:10px;font-weight:600;letter-spacing:.3px;color:var(--mut);background:var(--well);box-shadow:var(--pressed-sm);border-radius:6px;padding:3px 6px;white-space:nowrap}
+.bd.acc{color:var(--acc-l)}
+.bd .d{display:inline-block;width:6px;height:6px;border-radius:3px;background:currentColor;margin-right:4px;vertical-align:1px}
+.rv-list{padding:2px 10px}
+.li{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px;-webkit-touch-callout:none}
+.li:last-child{border-bottom:0}
+.li[role=button]:active{opacity:.7}
+.li .rv-th{width:72px;flex:none}
+.li .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+.li .nm{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li .mt{font-size:12px;color:var(--mut);margin-top:3px;display:flex;gap:6px;align-items:center;font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.li .chev{color:var(--faint);display:flex}
+.li .wd{width:30px;color:var(--mut);font-size:12px;flex:none}
+
+/* ---- Export notes sheet ---- */
+#exportVeil{z-index:10}
+.ex-sheet{max-height:88vh;display:flex;flex-direction:column;touch-action:pan-y}
+.ex-sheet .cap{margin:2px 2px 10px}
+.ex-sheet .rv-cap{margin:14px 2px 8px}
+.ex-flip{margin:0}
+.ex-flip .chip{display:inline-flex;align-items:center;gap:6px}
+.ex-flip .chip .ic{width:16px;height:16px}
+.ex-list{overflow:auto;flex:0 1 auto;min-height:0}
+.ex-list .rv-th{width:64px}
+.tg{width:36px;height:36px;min-width:36px;padding:0;border-radius:9px;color:var(--faint);flex:none}
+.tg .ic{width:18px;height:18px}
+.tg.on{color:var(--acc-l);box-shadow:var(--selected)}
+.ex-foot{padding-top:16px}
+.ex-sw{display:flex;align-items:center;justify-content:space-between;font-size:13px;margin:0 2px 12px}
+.tog{appearance:none;border:0;width:44px;height:26px;border-radius:13px;background:var(--well);box-shadow:var(--pressed-sm);position:relative;flex:none;transition:background .2s}
+.tog::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:10px;background:#ECEEF1;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:left .2s}
+.tog.on{background:var(--acc)}.tog.on::after{left:21px}
+.ex-ln{font-size:12px;color:var(--mut);margin:0 2px 12px;line-height:1.45;min-height:17px}
+.ex-ln b{color:var(--ink);font-weight:500}
+.ex-bar{height:6px;background:var(--well);box-shadow:var(--pressed-sm);border-radius:3px;overflow:hidden;margin:-4px 2px 12px}
+.ex-bar i{display:block;height:100%;width:0;background:var(--acc);border-radius:3px}
+.ex-bar[hidden]{display:none}

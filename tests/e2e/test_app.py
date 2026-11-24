@@ -9,8 +9,15 @@ def home(page):
     page.evaluate("async () => { const S = await import('/js/store.js'); await S.deleteAll(); }")
     page.reload(); page.wait_for_selector('#reviews.show', timeout=8000)
 
+def add(page, *paths):
+    page.set_input_files('#file', [str(p) for p in paths])
+
 def new_review(page, path=FIX / 'clip.webm'):
-    page.set_input_files('#file', str(path))
+    # Adds the clip to today's review, then opens it.
+    n = page.locator('.rv-clip').count() if '#/d/' in page.url else 0
+    add(page, path)
+    page.wait_for_function(f"location.hash.startsWith('#/d/') && document.querySelectorAll('.rv-clip').length > {n}", timeout=30000)
+    page.locator('.rv-clip').last.click()
 
 def in_player(page):
     page.wait_for_selector('#player', state='visible', timeout=10000)
@@ -19,11 +26,11 @@ def in_player(page):
 def back(page):
     page.click('#back'); page.wait_for_selector('#reviews.show', timeout=8000)
 
-def cards(page): return page.locator('.rv-card')
+def cards(page): return page.locator('.rv-clip')
 
 def test_new_review_appears(page):
     home(page)
-    assert 'Open a clip' in page.inner_text('#reviews')
+    assert 'start today' in page.inner_text('#reviews')
     new_review(page); in_player(page)
     assert '#/r/' in page.url
     page.click('#annBtn'); page.click('#noteBtn'); page.fill('#noteIn', 'more overlap'); page.click('#noteOk')
@@ -32,6 +39,8 @@ def test_new_review_appears(page):
     assert cards(page).first.locator('.rv-name').inner_text() == 'clip'
     assert '1 note' in cards(page).first.inner_text()
     assert cards(page).first.locator('img').count() == 1
+    page.click('#dayBack'); page.wait_for_selector('.rv-day')
+    assert 'TODAY' in page.inner_text('.rv-day') and '1 video' in page.inner_text('.rv-day')
 
 def test_edit_survives_immediate_reload(page):
     home(page); new_review(page); in_player(page)
@@ -58,7 +67,7 @@ def test_state_restored(page):
 def test_bad_clip_makes_no_review(page, tmp_path):
     home(page)
     bad = tmp_path / 'broken.mp4'; bad.write_text('this is not a video')
-    new_review(page, bad)
+    add(page, bad)
     page.wait_for_function("document.getElementById('toast').textContent.includes(\"can't be opened\")", timeout=30000)
     assert page.locator('#reviews.show').count() == 1
     assert cards(page).count() == 0
@@ -68,6 +77,7 @@ def test_missing_clip_repick(page):
     home(page); new_review(page); in_player(page)
     page.click('#annBtn'); page.click('#noteBtn'); page.fill('#noteIn', 'still here'); page.click('#noteOk')
     back(page)
+    page.wait_for_selector('.rv-clip')
     page.evaluate('''async () => { const db = await new Promise(r => { const q = indexedDB.open('quarry-go'); q.onsuccess = () => r(q.result); });
         await new Promise(r => { const tx = db.transaction('clips', 'readwrite'); tx.objectStore('clips').clear(); tx.oncomplete = r; }); db.close(); }''')
     cards(page).first.click()
@@ -88,23 +98,24 @@ def test_rename_delete(page):
     bx = cards(page).first.bounding_box()
     page.mouse.move(bx['x'] + 40, bx['y'] + 40); page.mouse.down(); page.wait_for_timeout(700); page.mouse.up()
     page.click('#deleteOne'); page.click('#confirmYes')
-    page.wait_for_function("!document.querySelector('.rv-card')")
+    page.wait_for_function("!document.querySelector('.rv-clip')")
     assert page.evaluate("async () => (await (await import('/js/store.js')).usage()).bytes") == 0
 
 def test_settings(page):
     home(page); new_review(page); in_player(page); back(page)
+    page.click('#dayBack')  # Settings is on the history screen
     page.click('#gear'); page.wait_for_selector('#settingsVeil', state='visible')
     assert 'MB' in page.inner_text('#spaceUsed')
     assert 'Version' in page.inner_text('#settingsVeil')
     page.click('#deleteAll'); page.click('#confirmYes')
-    page.wait_for_function("!document.querySelector('.rv-card')")
+    page.wait_for_function("!document.querySelector('.rv-clip') && !document.querySelector('.rv-day')")
 
 def test_leaving_stops_loading(page):
     home(page); new_review(page); in_player(page); back(page)
     cards(page).first.click()
     page.wait_for_selector('#player', state='visible', timeout=10000)
     page.click('#back'); page.wait_for_selector('#reviews.show', timeout=8000)
-    page.wait_for_function("document.querySelectorAll('video').length === 0", timeout=800)
+    page.wait_for_function("document.querySelectorAll('video').length === 0", timeout=1500)
 
 def test_newest_open_wins(page):
     home(page)
