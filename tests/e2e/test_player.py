@@ -334,3 +334,33 @@ def test_old_sections_open_as_a_curve(page):
     assert page.inner_text('#viewBtn') == 'Retimed'
     page.click('#secBtn')
     step(page, 7); assert '· fr 6' in fr(page)     # played frame 8 shows the held video frame 6
+
+
+# ---------- drawing aids: onion skin and tracing paper
+RED_GHOST = "(r, g, b) => r > 50 && r < 200 && g < 45 && b < 60"   # the red pen faded over the black bar
+def black_bar_stroke(page):
+    page.mouse.move(18, 110); page.mouse.down()
+    for i in range(1, 16): page.mouse.move(18, 110 + i * 6)
+    page.mouse.up()
+
+def test_onion_skin_shows_nearby_drawings_faded(page):
+    open_clip(page); loaded(page)
+    step(page, 10); pen(page); black_bar_stroke(page); page.click('#annBtn')
+    step(page, 2)                                   # two frames on: the drawing (held 1 frame) is gone
+    assert not ink(page, RED_GHOST, box=(10, 50, 26, 140))
+    page.click('#more'); page.click('#onionBtn'); page.click('#moreVeil', position={'x': 10, 'y': 10})
+    assert ink(page, RED_GHOST, box=(10, 50, 26, 140))
+    page.click('#more'); page.click('#onionAfter [data-d="1"]'); assert page.inner_text('#onionAfter .n') == '3'
+    page.click('#onionBtn'); page.click('#moreVeil', position={'x': 10, 'y': 10})
+    assert not ink(page, RED_GHOST, box=(10, 50, 26, 140))
+
+def test_tracing_paper_lightens_the_video_and_is_saved(page):
+    open_clip(page); loaded(page)
+    dark = "(r, g, b) => r < 30 && g < 30 && b < 30"
+    assert ink(page, dark, box=(8, 120, 20, 130))
+    page.click('#more'); page.click('#paperBtn'); page.click('#moreVeil', position={'x': 10, 'y': 10})
+    assert not ink(page, dark, box=(8, 120, 20, 130))
+    assert ink(page, "(r, g, b) => r > 90 && g > 90 && b > 90", box=(8, 120, 20, 130))
+    assert [c['trace'] for c in page.evaluate('window.changes') if 'trace' in c][-1] == 0.5
+    page.click('#more'); page.click('#paperAmt [data-t="0.75"]')
+    assert [c['trace'] for c in page.evaluate('window.changes') if 'trace' in c][-1] == 0.75

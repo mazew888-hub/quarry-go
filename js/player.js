@@ -33,13 +33,16 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   // How long each frame's drawing holds. Reviews from before holds existed keep their 12 frames.
   let holds = r0.holds ? { ...r0.holds } : legacyHolds(marks);
   let pen = { color: '#FF3B5C', size: 2 };
+  // Drawing aids: tracing paper is kept with the review (Quarry keeps it with the video); onion skin is a preference.
+  let trace = r0.trace || 0, lastTrace = trace || 0.5, onion = { on: false, before: 2, after: 2 }, quietAids = false;
+  try { onion = { ...onion, ...JSON.parse(localStorage.getItem('qg_onion') || '{}') }; } catch {}
   try { pen = { ...pen, ...JSON.parse(localStorage.getItem('qg_pen') || '{}') }; } catch {}
   const undoStack = [];
   const remember = () => { undoStack.push({ marks: JSON.parse(JSON.stringify(marks)), holds: { ...holds }, warp: warp && warp.map(k => ({ ...k })) }); if (undoStack.length > 60) undoStack.shift(); };
   let seq = [0], segAt = [null], cutMarks = [], firstPos = new Int32Array(1), shown = null;
   let cur = 0, playing = false, tool = null, drag = null, zoom = 1, panX = 0, panY = 0;
   const changed = (...keys) => {
-    const o = {}; for (const k of keys) o[k] = { marks, warp: warp && { keys: warp }, retimed, inF, outF, rate, pos, holds }[k]; onChange(o);
+    const o = {}; for (const k of keys) o[k] = { marks, warp: warp && { keys: warp }, retimed, inF, outF, rate, pos, holds, trace }[k]; onChange(o);
     if (keys.includes('marks') || keys.includes('holds')) renderList();
   };
   const stage = $('stage');
@@ -83,7 +86,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   }
 
   // ---------- marks (drawn by render.js, shared with the review exporter)
-  const { drawMark, visible, compose } = renderer({ frames, W, H, state: () => ({ marks, holds, retimed, shown }) });
+  const { drawMark, visible, compose } = renderer({ frames, W, H, state: () => ({ marks, holds, retimed, shown, trace,
+    onion: onion.on && !playing && !quietAids ? onion : null }) });
 
   // ---------- drawing
   const HOLDZ = { type: 'hold' }, SLOWZ = { type: 'speed', r: 0.5 }, FASTZ = { type: 'speed', r: 2 };
@@ -249,7 +253,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   function openSheet(id) { $(id).style.display = 'flex'; showUi(true); }
   function closeSheets() { for (const v of document.querySelectorAll('.veil')) v.style.display = 'none'; poke(); }
   for (const v of document.querySelectorAll('.veil')) on(v, 'click', e => { if (e.target === v) closeSheets(); });
-  $('more').onclick = () => { stop(); renderNotes(); updateRetimeUi(); openSheet('moreVeil'); };
+  $('more').onclick = () => { stop(); renderNotes(); updateRetimeUi(); showAids(); openSheet('moreVeil'); };
   $('back').onclick = () => { stop(); onBack(); };
   $('reset').onclick = () => { zoom = 1; panX = panY = 0; draw(); closeSheets(); };
 
@@ -637,7 +641,25 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   };
 
   // ---------- export
-  const exportCtx = () => ({ frames, fps, W, H, marks, warpSeq: warped() ? TW.frameMap(warp, frames.length) : null, name, compose, closeSheets, stop, loading: () => media.loading });
+  // exports carry the tracing paper (as Quarry's do) but not the onion skin
+  const exportCompose = (...a) => { quietAids = true; try { compose(...a); } finally { quietAids = false; } };
+  const exportCtx = () => ({ frames, fps, W, H, marks, warpSeq: warped() ? TW.frameMap(warp, frames.length) : null, name, compose: exportCompose, closeSheets, stop, loading: () => media.loading });
+
+  // ---------- drawing aids, in More
+  function showAids() {
+    $('onionBtn').classList.toggle('on', onion.on); $('paperBtn').classList.toggle('on', trace > 0);
+    $('onionBefore').querySelector('.n').textContent = onion.before; $('onionAfter').querySelector('.n').textContent = onion.after;
+    for (const b of document.querySelectorAll('#paperAmt .chip')) b.classList.toggle('on', +b.dataset.t === (trace || lastTrace));
+  }
+  const saveOnion = () => { try { localStorage.setItem('qg_onion', JSON.stringify(onion)); } catch {} };
+  $('onionBtn').onclick = () => { onion.on = !onion.on; saveOnion(); showAids(); draw(); };
+  for (const [id, k] of [['onionBefore', 'before'], ['onionAfter', 'after']]) $(id).onclick = e => {
+    const d = +e.target.dataset.d; if (!d) return;
+    onion[k] = Math.max(k === 'before' ? 1 : 0, Math.min(5, onion[k] + d)); onion.on = true; saveOnion(); showAids(); draw();
+  };
+  const setTrace = t => { trace = t; if (t > 0) lastTrace = t; showAids(); draw(); changed('trace'); };
+  $('paperBtn').onclick = () => setTrace(trace > 0 ? 0 : lastTrace);
+  $('paperAmt').onclick = e => { const t = +e.target.dataset.t; if (t) setTrace(t); };
   $('export').onclick = () => exportVideo(warped() ? 'retimed' : 'notes', exportCtx());
   $('exportBoth').onclick = () => exportVideo('both', exportCtx());
 

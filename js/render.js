@@ -1,7 +1,7 @@
 // Drawing a review's frame with its notes and marks, apart from the player so videos that aren't open
 // can be exported too. state() gives the review's current {marks, holds, retimed, shown}: shown is the
 // set of video frames the time warp plays (null when it plays them all), so marks on frames it skips stay hidden.
-import { isDrawn, drawingAt } from './draw.js';
+import { isDrawn, drawingAt, drawingStarts } from './draw.js';
 
 export const HOLD = 12; // frames a note stays on screen (drawings use their own holds)
 
@@ -44,8 +44,22 @@ export function renderer({ frames, W, H, state }) {
     return marks.filter(m => (isDrawn(m) ? m.f === s : f >= m.f && f < m.f + HOLD) && !(ret && shown && !shown.has(m.f)));
   };
   function pic(f) { if (frames[f]) return frames[f]; for (let d = 1; d < frames.length; d++) { if (frames[f - d]) return frames[f - d]; if (frames[f + d]) return frames[f + d]; } return null; }
+  // Tracing paper (state().trace, 0..1): a sheet of white over the video, under the notes, as Quarry draws it.
+  // Onion skin (state().onion = {before, after}, or null): the drawings either side of this frame's, fading out.
   function compose(c, f, withNotes = true, ret) {
     const p = pic(f); if (p) c.drawImage(p, 0, 0); else { c.fillStyle = '#1D2024'; c.fillRect(0, 0, W, H); }
+    const st = state();
+    if (st.trace > 0) { c.save(); c.fillStyle = `rgba(255,255,255,${Math.min(0.9, st.trace * 0.85)})`; c.fillRect(0, 0, W, H); c.restore(); }
+    if (st.onion) {
+      const starts = drawingStarts(st.marks), here = drawingAt(st.marks, st.holds, f);
+      const before = starts.filter(s => s < (here ?? f + 1) && s !== here).slice(-st.onion.before).reverse();
+      const after = starts.filter(s => s > f && s !== here).slice(0, st.onion.after);
+      for (const [list] of [[before], [after]]) list.forEach((s, i) => {
+        c.save(); c.globalAlpha = 0.45 / (i + 1);
+        for (const m of st.marks) if (isDrawn(m) && m.f === s && !(ret && st.shown && !st.shown.has(m.f))) drawMark(c, m);
+        c.restore();
+      });
+    }
     for (const m of visible(f, ret)) if (withNotes || m.type !== 'note') drawMark(c, m);
   }
   return { drawMark, visible, compose, pic };

@@ -104,7 +104,7 @@ export function openExport(veil, info, { getClip, toast = () => {}, log = () => 
             if (stop) break;
             const marks = v.marks || [], holds = v.holds || legacyHolds(marks), retimed = isRetimed(v);
             const seq = retimed ? frameMap(warpOf(v), media.count) : Array.from({ length: media.count }, (_, j) => j), shown = retimed ? new Set(seq) : null;
-            const { compose } = renderer({ frames: media.frames, W: media.W, H: media.H, state: () => ({ marks, holds, retimed, shown }) });
+            const { compose } = renderer({ frames: media.frames, W: media.W, H: media.H, state: () => ({ marks, holds, retimed, shown, trace: v.trace || 0, onion: null }) });
             if (p.has('video')) {
               const { blob, ext } = await recordVideo({
                 W: media.W, H: media.H, fps: media.fps, total: seq.length, draw: (c, j) => compose(c, seq[j], true),
