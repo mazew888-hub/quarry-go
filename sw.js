@@ -1,7 +1,7 @@
 // Offline: the app's own files are cached on install and served from the cache.
 // Keep VERSION equal to VERSION in js/app.js (a test checks): changing it changes this file,
 // which is how an installed copy finds out there's an update.
-const VERSION = '0.8.1';
+const VERSION = '0.9.0';
 const CACHE = `quarry-go-${VERSION}`;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',

@@ -19,9 +19,23 @@ export function renderer({ frames, W, H, state }) {
       c.lineTo(m.x2 - L*Math.cos(a+0.45), m.y2 - L*Math.sin(a+0.45)); c.closePath(); c.fill();
     } else if (m.type === 'draw') {
       // freehand: smoothed through the midpoints of the points the finger left
-      const p = m.pts; c.beginPath(); c.moveTo(p[0][0], p[0][1]);
-      for (let i = 1; i < p.length - 1; i++) c.quadraticCurveTo(p[i][0], p[i][1], (p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2);
-      c.lineTo(p[p.length - 1][0], p[p.length - 1][1]); c.stroke();
+      const p = m.pts, w = c.lineWidth;
+      if (p[0].length > 2) {
+        // Apple Pencil pressure: each point carries a width factor; draw the curve piece by piece
+        const mid = i => [(p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2];
+        let at = [p[0][0], p[0][1]];
+        for (let i = 1; i < p.length; i++) {
+          const end = i < p.length - 1 ? mid(i) : [p[i][0], p[i][1]];
+          c.lineWidth = Math.max(0.5, w * ((p[i - 1][2] ?? 1) + (p[i][2] ?? 1)) / 2);
+          c.beginPath(); c.moveTo(at[0], at[1]);
+          if (i < p.length - 1) c.quadraticCurveTo(p[i][0], p[i][1], end[0], end[1]); else c.lineTo(end[0], end[1]);
+          c.stroke(); at = end;
+        }
+      } else {
+        c.beginPath(); c.moveTo(p[0][0], p[0][1]);
+        for (let i = 1; i < p.length - 1; i++) c.quadraticCurveTo(p[i][0], p[i][1], (p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2);
+        c.lineTo(p[p.length - 1][0], p[p.length - 1][1]); c.stroke();
+      }
     } else if (m.type === 'circle') {
       // grows from where you touched: that point is the centre, the drag sets the radius
       c.beginPath(); c.arc(m.x1, m.y1, Math.hypot(m.x2-m.x1, m.y2-m.y1), 0, Math.PI*2); c.stroke();

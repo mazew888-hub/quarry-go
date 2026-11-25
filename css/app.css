@@ -6,17 +6,18 @@
 
 /* Planner A2 look, dark mode ("one light logic"): page darkest, raised lighter and lit from above,
    sunken darker. Rubik. Blue-teal accent; selection is an underglow, fill means "press me". */
-:root{--page:#E2DED6;--board:#E2DED6;--surf:#E2DED6;--well:#E2DED6;--ink:#33312D;--mut:#6E6A63;--faint:#9C978F;
-  /* soft clay, light: warm stone everything is shaped from; lit from the top left. Quarry red accent. */
-  --acc:#E8344F;--acc-l:#E8344F;--glow:rgba(232,52,79,.25);--glow2:rgba(232,52,79,.12);--late:#E8344F;
-  --hi:rgba(255,255,255,.85);--lo:rgba(140,128,110,.40);
-  --raised:-3px -3px 8px var(--hi),4px 4px 9px var(--lo);
-  --raised-lg:-6px -6px 14px var(--hi),7px 7px 16px var(--lo);
-  --pressed:inset 4px 4px 10px var(--lo),inset -4px -4px 10px var(--hi);
-  --pressed-sm:inset 2px 2px 5px var(--lo),inset -2px -2px 5px var(--hi);
-  --selected:inset 2px 2px 5px var(--lo),inset -2px -2px 5px var(--hi);
-  --ruler:rgba(0,0,0,.07);--tick:rgba(0,0,0,.10);--tick2:rgba(0,0,0,.22);--rulerTxt:#6E6A63;
-  --stage:#1F2125;
+:root{--page:#1E2024;--board:#2A2D33;--surf:#2A2D33;--well:#24272C;--ink:#EEF0F3;--mut:#9CA3AD;--faint:#6F7680;
+  /* dark glass: dark cards over a near-black canvas; coral accent, mint playhead, blue curve */
+  --acc:#FF4D67;--acc-l:#FF4D67;--glow:rgba(255,77,103,.28);--glow2:rgba(255,77,103,.14);--late:#FF4D67;
+  --mint:#7FD4B0;--blue:#7FB2FF;
+  --hi:rgba(255,255,255,.06);--lo:rgba(0,0,0,.55);
+  --raised:-2px -2px 6px var(--hi),3px 4px 9px var(--lo);
+  --raised-lg:-4px -4px 12px var(--hi),6px 7px 16px var(--lo);
+  --pressed:inset 4px 4px 10px var(--lo),inset -3px -3px 8px var(--hi);
+  --pressed-sm:inset 2px 2px 5px var(--lo),inset -2px -2px 4px var(--hi);
+  --selected:inset 2px 2px 5px var(--lo),inset -2px -2px 4px var(--hi);
+  --ruler:rgba(255,255,255,.06);--tick:rgba(255,255,255,.10);--tick2:rgba(255,255,255,.22);--rulerTxt:#9CA3AD;
+  --stage:#101114;
   --emb:none}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--page);color:var(--ink);font:15px/1.4 "Rubik",-apple-system,system-ui,sans-serif;
@@ -290,7 +291,7 @@ html{min-height:calc(100% + env(safe-area-inset-top))}
 .pip{width:22px;height:22px;border-radius:50%;box-shadow:var(--pressed-sm);display:grid;place-items:center;flex:none}
 .pip i{width:8px;height:8px;border-radius:50%;background:var(--acc)}
 .dock{position:fixed;left:0;right:0;bottom:0;z-index:7;padding:30px 18px calc(env(safe-area-inset-bottom) + 18px);
-  background:linear-gradient(180deg,rgba(226,222,214,0),var(--page) 34%);pointer-events:none}
+  background:linear-gradient(180deg,rgba(30,32,36,0),var(--page) 34%);pointer-events:none}
 .tray{display:flex;gap:8px;padding:6px;border-radius:30px;box-shadow:var(--pressed);pointer-events:auto;max-width:520px;margin:0 auto}
 .tray .btn{flex:1;height:48px;border-radius:24px;font:500 14px Rubik;letter-spacing:.4px}
 body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 58px);padding-bottom:12px}
@@ -299,18 +300,18 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 
 /* the rail shows icons only; the words stay for screen readers */
 
-.veil{background:rgba(60,55,48,.30)}
+.veil{background:rgba(0,0,0,.35)}
 .veil{-webkit-backdrop-filter:blur(10px) saturate(.9);backdrop-filter:blur(10px) saturate(.9)}
 
 /* ======== the player: a dark full-screen canvas with light cards floating over it ======== */
-#player{position:fixed;inset:0;display:none;background:#17181B;overflow:hidden}
+#player{position:fixed;inset:0;display:none;background:var(--stage);overflow:hidden}
 #player.open{display:block}
 #player .ic{width:22px;height:22px}
 #player .btn{-webkit-touch-callout:none}
 #player .btn:active{transform:scale(.97)}
 #player [hidden]{display:none!important}
 .fcard{position:absolute;z-index:4;background:var(--surf);border-radius:22px;box-shadow:0 10px 28px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.3)}
-#stage{position:absolute;inset:0;background:#17181B;overflow:hidden}
+#stage{position:absolute;inset:0;background:var(--stage);overflow:hidden}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 #noteChip{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 78px);transform:translateX(-50%);max-width:calc(100% - 24px);display:none;padding:7px 12px;border-radius:12px;z-index:3;
   background:rgba(20,22,26,.6);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:#ECEEF1;font-size:13px;line-height:1.35}
@@ -343,11 +344,11 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 #penRow #clearBtn{height:34px;padding:0 12px;font-size:13px;border-radius:17px}
 /* size and opacity: frosted sliders on the left edge, only while drawing */
 .esl{position:absolute;z-index:4;left:max(10px,env(safe-area-inset-left));width:28px;height:130px;border-radius:14px;touch-action:none;
-  background:rgba(226,222,214,.2);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.28)}
+  background:rgba(42,45,51,.35);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.28)}
 #sizeSl{top:calc(env(safe-area-inset-top) + 92px)}#opSl{top:calc(env(safe-area-inset-top) + 236px)}
 .esl i{position:absolute;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.35);top:calc(var(--v,.5) * (100% - 26px) + 3px)}
 #slBub{position:absolute;z-index:5;left:calc(max(10px,env(safe-area-inset-left)) + 40px);width:96px;height:96px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
-  background:rgba(226,222,214,.25);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.28);pointer-events:none}
+  background:rgba(42,45,51,.45);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.28);pointer-events:none}
 #slBub span{font:500 12px Rubik,system-ui;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4)}
 #slBub b{display:block;border-radius:50%}
 /* the bottom card */
@@ -423,9 +424,72 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 #dock.rt #wInfo{flex:1}
 /* sideways: frosted, see-through cards so the video shows through */
 @media (orientation:landscape) and (max-height:600px){
-  #player .fcard{background:rgba(226,222,214,.42);-webkit-backdrop-filter:blur(16px) saturate(1.1);backdrop-filter:blur(16px) saturate(1.1);
+  #player .fcard{background:rgba(42,45,51,.5);-webkit-backdrop-filter:blur(16px) saturate(1.1);backdrop-filter:blur(16px) saturate(1.1);
     box-shadow:0 6px 18px rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.22)}
   #player .fcard .btn:not(.pri):not(.on){background:rgba(255,255,255,.18);box-shadow:none}
-  #tray::after,#ioMenu::before{background:rgba(226,222,214,.42)}
+  #tray::after,#ioMenu::before{background:rgba(42,45,51,.5)}
 }
 #player .lane{background:none;box-shadow:none;padding:0;border-radius:0}
+/* retime keys: Sooner, Key, Later in one row; the rest below (phone: all under the ruler) */
+#dock #wPanel{order:1}#dock #bot{order:2}#dock #wTop{order:3}#dock #wRows{order:4}#dock #tp{order:5}#dock #pNotes{order:0}
+#wTop{display:flex;gap:6px}
+#wTop .btn{flex:1;height:44px;border-radius:15px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:13px;box-shadow:var(--raised)}
+#wTop #wKey{background:var(--acc);color:#fff;box-shadow:0 3px 8px var(--glow)}
+#wTop .ic{width:20px;height:20px}
+#side,#sideTab{display:none}
+
+/* ======== iPad: a side panel on the right holds the modes and their tools; the video and the
+   bottom card take the rest. A tab tucks the panel away for watching. ======== */
+@media (min-width:900px) and (min-height:600px){
+  #player{--sideW:310px}
+  #side{display:block;position:absolute;z-index:3;top:calc(env(safe-area-inset-top) + 14px);bottom:calc(env(safe-area-inset-bottom) + 14px);right:max(14px,env(safe-area-inset-right));width:var(--sideW);
+    background:var(--surf);border-radius:26px;box-shadow:0 10px 28px rgba(0,0,0,.45)}
+  #sideTab{display:grid;place-items:center;position:absolute;z-index:6;top:50%;margin-top:-36px;right:calc(max(14px,env(safe-area-inset-right)) + var(--sideW));width:22px;height:72px;padding:0;
+    border-radius:12px 0 0 12px;background:var(--surf);color:var(--mut);box-shadow:-4px 0 10px rgba(0,0,0,.3)}
+  #sideTab .ic{width:18px;height:18px}
+  #top{right:auto;width:440px}
+  #dock{right:calc(max(14px,env(safe-area-inset-right)) + var(--sideW) + 14px);left:max(14px,env(safe-area-inset-left));bottom:calc(env(safe-area-inset-bottom) + 14px)}
+  /* the mode tabs across the top of the panel */
+  #modes{top:calc(env(safe-area-inset-top) + 28px);bottom:auto!important;right:calc(max(14px,env(safe-area-inset-right)) + 14px);width:calc(var(--sideW) - 28px);
+    flex-direction:row;padding:5px;border-radius:22px;box-shadow:var(--pressed-sm);background:none}
+  #modes .mk{flex:1;width:auto;height:42px;border-radius:18px;display:flex;align-items:center;justify-content:center;gap:7px;color:var(--mut)}
+  #modes .mk span{position:static;width:auto;height:auto;clip:auto;font-size:14px;font-weight:500}
+  #modes .mk.on span{color:#fff}
+  /* each mode's tools stack in the panel under the tabs */
+  #tray{position:absolute;top:calc(env(safe-area-inset-top) + 96px);bottom:auto!important;right:calc(max(14px,env(safe-area-inset-right)) + 14px);width:calc(var(--sideW) - 28px);
+    grid-template-columns:repeat(5,1fr);gap:8px;padding:0;background:none;box-shadow:none}
+  #tray::after{display:none}
+  #tray .rk,#tray .slot .rk{width:auto;height:50px;border-radius:16px;box-shadow:var(--raised)}
+  #tray #colorBtn{display:none}
+  #penRow{display:flex!important;position:absolute;top:calc(env(safe-area-inset-top) + 222px);bottom:auto!important;right:calc(max(14px,env(safe-area-inset-right)) + 14px);width:calc(var(--sideW) - 28px);
+    background:none;box-shadow:none;padding:0;flex-wrap:wrap;gap:12px}
+  #player:not(.drawing) #penRow{display:none!important}
+  #penRow .sw{width:36px;height:36px}
+  #penRow #clearBtn{flex-basis:100%;height:46px;border-radius:23px;box-shadow:var(--raised)}
+  #pNotes{position:fixed;top:calc(env(safe-area-inset-top) + 96px);bottom:calc(env(safe-area-inset-bottom) + 28px);right:calc(max(14px,env(safe-area-inset-right)) + 14px);width:calc(var(--sideW) - 28px);max-height:none}
+  #pNotes #noteBtn{order:-1;height:50px;border-radius:25px}
+  #wRows{position:fixed;top:calc(env(safe-area-inset-top) + 96px);right:calc(max(14px,env(safe-area-inset-right)) + 14px);width:calc(var(--sideW) - 28px);gap:10px}
+  #wRows .wg{flex-wrap:wrap;gap:8px}
+  #wRows .btn,#wRows .slot .rk{flex:1 1 40%;height:48px;font-size:13px}
+  #wRows .gap{display:none}
+  #dock #wTop{order:0}
+  #wTop .btn{height:56px;border-radius:18px;font-size:16px}
+  #wPanel .wBox{height:min(24vh,220px)}
+  /* tucked away: the panel and its tools go; the video and the bottom card take the width */
+  #player.tucked #side,#player.tucked #modes,#player.tucked #tray,#player.tucked #penRow,#player.tucked #pNotes,#player.tucked #wRows{display:none!important}
+  #player.tucked #sideTab{right:0}
+  #player.tucked #sideTab .ic{transform:rotate(180deg)}
+  #player.tucked #dock{right:max(14px,env(safe-area-inset-right))}
+  .ui.hide{opacity:1;pointer-events:auto}
+}
+@media (min-width:900px) and (min-height:600px){
+  #dock.rt #wPanel{padding-top:0}
+  #dock.rt #bot .readout{left:auto;right:14px;top:22px}
+  #dock.rt #wCap,#dock.rt #wInfo{display:none}
+  #dock.rt #wTop{margin-right:120px}
+}
+.prs{display:none}
+@media (min-width:900px) and (min-height:600px){
+  .prs{display:flex;flex-direction:column;gap:8px;flex-basis:100%;font-size:12px;color:var(--mut)}
+  .prs input{width:100%;accent-color:var(--acc)}
+}

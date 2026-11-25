@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <title>Quarry Go</title>
-<meta name="theme-color" content="#E2DED6">
+<meta name="theme-color" content="#1E2024">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -30,6 +30,8 @@
     <button class="btn" id="viewBtn" style="display:none">Retimed</button>
     <button class="btn key" id="fsBtn" style="display:none" aria-label="Full screen"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
   </header>
+  <!-- iPad: a side panel holds the modes and their tools; a tab tucks it away -->
+  <div id="side"></div><button class="btn" id="sideTab" aria-label="Hide or show the panel"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
   <!-- the modes, low on the right by the thumb: Draw, Note, Retime -->
   <div class="ui fcard" id="modes">
     <button class="btn mk" id="annBtn" aria-label="Draw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 7l3 3"/></svg><span>Draw</span></button>
@@ -48,6 +50,7 @@
     <button class="sw" data-color="#4FA3FF" style="--c:#4FA3FF" aria-label="Blue"></button>
     <button class="sw" data-color="#ECEEF1" style="--c:#ECEEF1" aria-label="White"></button>
     <button class="sw" data-color="#111111" style="--c:#111111" aria-label="Black"></button>
+    <label class="prs" id="prsRow"><span>Pencil pressure</span><input type="range" id="prsIn" min="0" max="1" step="0.05" aria-label="How much Pencil pressure changes the line"></label>
     <button class="btn" id="clearBtn" style="color:var(--late)">Clear frame</button>
   </div>
   <!-- Draw: size and opacity, frosted sliders on the left edge -->
@@ -68,9 +71,10 @@
       <div class="readout"><span class="cap" id="wCap" hidden>Time warp</span><span id="wInfo"></span><button id="rangeChip" style="display:none" aria-label="Clear loop"><span id="rangeTxt"></span><span class="x">✕</span></button><span class="sp"></span><span id="tc"></span><span id="fr">1 / 1</span></div>
       <div class="lane"><canvas id="scrub"></canvas><canvas id="drawLane" aria-label="Drawings: drag a bar's end to change how long it holds"></canvas></div>
     </div>
+    <div id="wTop" hidden><button class="btn" id="wLeft" aria-label="Everything after the playhead a frame sooner"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6l-6 6 6 6"/></svg><span>Sooner</span></button><button class="btn" id="wKey"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l6 9-6 9-6-9z"/></svg>Key</button><button class="btn" id="wRight" aria-label="Everything after the playhead a frame later"><span>Later</span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6l6 6-6 6"/></svg></button></div>
     <div id="wRows" hidden>
-      <div class="wg"><button class="btn" id="wKey"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l6 9-6 9-6-9z"/></svg>Key</button><i class="gap"></i><button class="btn" id="wLeft" aria-label="Everything after the playhead a frame sooner"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6l-6 6 6 6"/></svg></button><button class="btn" id="wRight" aria-label="Everything after the playhead a frame later"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6l6 6-6 6"/></svg></button><i class="gap"></i><button class="btn" id="wUp" aria-label="Selected key a frame later in the video"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg></button><button class="btn" id="wDown" aria-label="Selected key a frame sooner in the video"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10l6 6 6-6"/></svg></button></div>
-      <div class="wg"><button class="btn" id="wFrame">Frame</button><button class="btn" id="wTan"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18C8 18 8 6 13 6s5 12 8 12"/><circle cx="13" cy="6" r="2"/></svg><span>Linear</span></button><button class="btn" id="wDel"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/></svg><span>Delete</span></button><button class="btn" id="wShape"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l5-8 4 4 7-12"/></svg><span>Shape</span></button><span class="slot" id="warpUndoSlot"></span></div>
+      <div class="wg"><button class="btn" id="wUp" aria-label="Selected key a frame later in the video"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg></button><button class="btn" id="wDown" aria-label="Selected key a frame sooner in the video"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10l6 6 6-6"/></svg></button><i class="gap"></i><button class="btn" id="wFrame">Frame</button></div>
+      <div class="wg"><button class="btn" id="wTan"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18C8 18 8 6 13 6s5 12 8 12"/><circle cx="13" cy="6" r="2"/></svg><span>Linear</span></button><button class="btn" id="wDel"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/></svg><span>Delete</span></button><button class="btn" id="wShape"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l5-8 4 4 7-12"/></svg><span>Shape</span></button><span class="slot" id="warpUndoSlot"></span></div>
     </div>
     <div class="ui" id="tp">
       <button class="btn" id="stepBack" aria-label="Previous frame"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6M7 6v12"/></svg></button><button class="btn pri" id="play" aria-label="Play">▶︎</button><button class="btn" id="stepFwd" aria-label="Next frame"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6M17 6v12"/></svg></button><button class="btn num" id="rateBtn">1×</button><button class="btn" id="more" aria-label="More"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></svg></button>

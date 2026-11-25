@@ -32,7 +32,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   let inF = r0.inF ?? null, outF = r0.outF ?? null, rate = r0.rate || 1, pos = r0.pos || 0;
   // How long each frame's drawing holds. Reviews from before holds existed keep their 12 frames.
   let holds = r0.holds ? { ...r0.holds } : legacyHolds(marks);
-  let pen = { color: '#FF3B5C', size: 2, alpha: 1 };
+  let pen = { color: '#FF3B5C', size: 2, alpha: 1, pressure: 0.6 };
   const penPx = () => pen.px ?? PEN_SIZES[pen.size] ?? 4.5;   // the stroke's on-screen width: the size slider sets it
   // Drawing aids: tracing paper is kept with the review (Quarry keeps it with the video); onion skin is a preference.
   let trace = r0.trace || 0, lastTrace = trace || 0.5, onion = { on: false, before: 2, after: 2 }, quietAids = false;
@@ -67,24 +67,27 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   // (between the header and the bottom card upright; the whole screen sideways). Pinch to zoom in or
   // out and drag it anywhere, like Procreate; double-tap fits it back.
   const sideways = () => matchMedia('(orientation:landscape) and (max-height:600px)').matches;
-  let area = { top: 0, bottom: 0 };
+  let area = { top: 0, bottom: 0, right: 0 };
+  const isPad = () => matchMedia('(min-width:900px) and (min-height:600px)').matches;
   function sizeAll() {
     const d = devicePixelRatio || 1;
     const sr = stage.getBoundingClientRect();
     cv.width = Math.max(1, sr.width * d); cv.height = Math.max(1, sr.height * d);
-    if (sideways()) area = { top: 0, bottom: 0 };
+    if (sideways()) area = { top: 0, bottom: 0, right: 0 };
     else {
       const tb = $('top').getBoundingClientRect(), db = $('dock').getBoundingClientRect();
-      area = { top: Math.max(0, tb.bottom - sr.top + 8), bottom: Math.max(0, sr.bottom - db.top + 8) };
+      area = { top: Math.max(0, tb.bottom - sr.top + 8), bottom: Math.max(0, sr.bottom - db.top + 8), right: 0 };
+      // iPad: the side panel takes the right, unless it's tucked away
+      if (isPad() && !$('player').classList.contains('tucked')) area.right = Math.max(0, sr.right - $('side').getBoundingClientRect().left + 8);
     }
     const r = sc.getBoundingClientRect(); sc.width = r.width * d; sc.height = r.height * d;
     const lr = lane.getBoundingClientRect(); lane.width = lr.width * d; lane.height = lr.height * d;
     if (!$('wPanel').hidden) sizeCurve();
   }
   function view() {
-    const d = devicePixelRatio || 1, ah = Math.max(40 * d, cv.height - (area.top + area.bottom) * d);
-    const fit = Math.min(cv.width / W, ah / H), s = fit * zoom;
-    return { d, s, ox: (cv.width - W * s) / 2 + panX * d, oy: area.top * d + (ah - H * s) / 2 + panY * d };
+    const d = devicePixelRatio || 1, ah = Math.max(40 * d, cv.height - (area.top + area.bottom) * d), aw = Math.max(40 * d, cv.width - (area.right || 0) * d);
+    const fit = Math.min(aw / W, ah / H), s = fit * zoom;
+    return { d, s, ox: (aw - W * s) / 2 + panX * d, oy: area.top * d + (ah - H * s) / 2 + panY * d };
   }
   function clampPan() {   // keep at least a quarter of the picture on screen
     const d = devicePixelRatio || 1, v = view(), pw = W * v.s / d, ph = H * v.s / d, cw = cv.width / d, ch = cv.height / d;
@@ -103,7 +106,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     cur = seq[pos] ?? 0;
     if (mode === 'note') $('noteBtnTxt').textContent = `Add note at ${cur + 1}`;
     const v = view();
-    cx.setTransform(1, 0, 0, 1, 0, 0); cx.fillStyle = '#17181B'; cx.fillRect(0, 0, cv.width, cv.height);
+    cx.setTransform(1, 0, 0, 1, 0, 0); cx.fillStyle = '#101114'; cx.fillRect(0, 0, cv.width, cv.height);
     cv.dataset.pic = [v.ox, v.oy, W * v.s, H * v.s].map(n => Math.round(n / v.d)).join(',');   // where the picture sits (for tests)
     cx.setTransform(v.s, 0, 0, v.s, v.ox, v.oy);
     cx.imageSmoothingQuality = zoom > 2 ? 'low' : 'high';
@@ -153,8 +156,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     if (inF !== null || outF !== null) {
       // the loop: shade outside it, a red bracket along it, a drag handle at each end
       const a0 = E(lo()), a1 = E(hi() + 1);
-      sx.fillStyle = 'rgba(60,50,40,.16)'; sx.fillRect(0, 0, a0, h); sx.fillRect(a1, 0, w - a1, h);
-      sx.fillStyle = '#E8344F'; sx.fillRect(a0, 0, a1 - a0, 2 * d); sx.fillRect(a0, h - 2 * d, a1 - a0, 2 * d);
+      sx.fillStyle = 'rgba(0,0,0,.32)'; sx.fillRect(0, 0, a0, h); sx.fillRect(a1, 0, w - a1, h);
+      sx.fillStyle = '#FF4D67'; sx.fillRect(a0, 0, a1 - a0, 2 * d); sx.fillRect(a0, h - 2 * d, a1 - a0, 2 * d);
       for (const x of [a0, a1]) r(x - 4 * d, 0, 8 * d, h, 4 * d);
     }
     sx.fillStyle = '#E8908C'; for (const m of marks) { const p = firstPos[m.f]; if (p >= 0 && !(retimed && shown && !shown.has(m.f))) r(X(p) - 1.5 * d, h / 2 + 7 * d, 3 * d, 7 * d, 1.5 * d); }
@@ -162,7 +165,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     // handle: a plain round knob on the track
     // the playhead: Quarry's green block over the current frame's cell
     { const cw = Math.max(cell, 8 * d), x0 = Math.max(0, Math.min(w - cw, E(pos) + cell / 2 - cw / 2));
-      sx.fillStyle = '#509B7C'; r(x0, 0, cw, h, 3 * d); }
+      sx.fillStyle = '#7FD4B0'; r(x0, 0, cw, h, 3 * d); }
     drawLane();
   }
 
@@ -345,7 +348,9 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   const toVideo = (x, y) => { const v = view(), d = v.d, b = box(); return [((x - b.left) * d - v.ox) / v.s, ((y - b.top) * d - v.oy) / v.s]; };
   const stepBy = n => { const a = lo(), len = hi() - a + 1; pos = a + (((pos - a + n) % len) + len) % len; };
   // two fingers tapped together: undo; three: redo (as in Procreate)
-  let multi = null;
+  let multi = null, pencilSeen = false, penPressure = false;
+  // pressure to a width factor: harder presses thicken the line, as much as the Pressure setting says
+  const pf = e => { const a = pen.pressure ?? 0.6, p = Math.min(1, (e.pressure || 0.5) * 1.6); return Math.round((1 - a + a * p * 1.4) * 100) / 100; };
   on(cv, 'pointerdown', e => {
     try { cv.setPointerCapture(e.pointerId); } catch {}
     pts.set(e.pointerId, [e.clientX, e.clientY]);
@@ -358,13 +363,19 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     }
     tapStart = { x: e.clientX, y: e.clientY, t: performance.now(), f: pos };
     sliding = false;
-    if (tool) {
+    // Apple Pencil draws any time (the pen, or the shape or eraser picked); once it has been used,
+    // fingers only scrub, pinch and move, like Procreate.
+    const isPen = e.pointerType === 'pen'; if (isPen) pencilSeen = true;
+    const tool_ = isPen ? (tool || 'draw') : (pencilSeen ? null : tool);
+    penPressure = isPen && pen.pressure > 0;
+    if (tool_) {
+      const tool = tool_; tapStart = null;
       stop(); const [x, y] = toVideo(e.clientX, e.clientY);
       const v = view(), toVid = px => px * v.d / v.s;   // on-screen px to picture px at this zoom
       if (tool === 'erase') { remember(); erasing = { path: [[x, y]], r: toVid(ERASER), hit: false }; eraseAt(); return; }
       // Drawing on a frame where an earlier drawing still holds adds to that drawing.
       const s = drawingAt(marks, holds, cur), f = s ?? cur, style = { color: pen.color, size: Math.round(toVid(penPx()) * 10) / 10, ...(pen.alpha < 1 ? { alpha: Math.round(pen.alpha * 100) / 100 } : {}) };
-      drag = tool === 'draw' ? { f, type: 'draw', pts: [[x, y]], ...style } : { f, type: tool, x1: x, y1: y, x2: x, y2: y, ...style };
+      drag = tool === 'draw' ? { f, type: 'draw', pts: [penPressure ? [x, y, pf(e)] : [x, y]], ...style } : { f, type: tool, x1: x, y1: y, x2: x, y2: y, ...style };
     }
   });
   on(cv, 'pointermove', e => {
@@ -381,7 +392,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     if (erasing) { erasing.path.push(toVideo(e.clientX, e.clientY)); eraseAt(); return; }
     if (drag) {
       const [x, y] = toVideo(e.clientX, e.clientY);
-      if (drag.type === 'draw') { const l = drag.pts[drag.pts.length - 1]; if (Math.hypot(x - l[0], y - l[1]) * view().s / (devicePixelRatio || 1) > 2) drag.pts.push([Math.round(x * 10) / 10, Math.round(y * 10) / 10]); }
+      if (drag.type === 'draw') { const l = drag.pts[drag.pts.length - 1]; if (Math.hypot(x - l[0], y - l[1]) * view().s / (devicePixelRatio || 1) > 2) drag.pts.push(penPressure ? [Math.round(x * 10) / 10, Math.round(y * 10) / 10, pf(e)] : [Math.round(x * 10) / 10, Math.round(y * 10) / 10]); }
       else [drag.x2, drag.y2] = [x, y];
       draw(); return;
     }
@@ -455,8 +466,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   function setTray(open) {   // Draw mode: the tool card beside the Draw key, the edge sliders
     if (open) { setWarpMode(false); setNoteMode(false); undoTo('drawUndoSlot'); mode = 'draw'; } else if (mode === 'draw') mode = null;
     $('tray').hidden = !open; $('sizeSl').hidden = !open; $('opSl').hidden = !open;
-    if (!open) $('penRow').hidden = true;
-    $('annBtn').classList.toggle('on', open);
+    if (!open || isPad()) $('penRow').hidden = !open;   // iPad: the colours sit in the panel while drawing
+    $('annBtn').classList.toggle('on', open); $('player').classList.toggle('drawing', open);
     fitDock();
   }
   function setNoteMode(open) {
@@ -471,6 +482,10 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   };
   $('noteMode').onclick = () => { const open = $('pNotes').hidden; if (tool) pick(null); setNoteMode(open); };
   $('colorBtn').onclick = () => { $('penRow').hidden = !$('penRow').hidden; };
+  $('prsIn').value = pen.pressure ?? 0.6;
+  $('prsIn').oninput = () => { pen.pressure = +$('prsIn').value; savePen(); };
+  // iPad: tuck the side panel away for watching, and back
+  $('sideTab').onclick = () => { $('player').classList.toggle('tucked'); fitDock(); };
   // the bottom card's height places the mode pill and the tool cards just above it
   function fitDock() { requestAnimationFrame(() => { $('player').style.setProperty('--dockH', $('dock').offsetHeight + 'px'); sizeAll(); clampPan(); draw(); }); }
   $('drawBtn').onclick = () => pick('draw'); $('arrowBtn').onclick = () => pick('arrow'); $('boxBtn').onclick = () => pick('box'); $('circleBtn').onclick = () => pick('circle');
@@ -595,7 +610,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   let selKey = -1, wView = null;           // the selected key; the curve's view (null = the whole curve)
   function setWarpMode(open) {
     if (open) { setTray(false); setNoteMode(false); undoTo('warpUndoSlot'); mode = 'retime'; } else if (mode === 'retime') mode = null;
-    $('wRows').hidden = !open; $('wPanel').hidden = !open; $('wCap').hidden = !open; $('wInfo').hidden = !open;
+    $('wRows').hidden = !open; $('wTop').hidden = !open; $('wPanel').hidden = !open; $('wCap').hidden = !open; $('wInfo').hidden = !open;
     $('secBtn').classList.toggle('on', open); $('dock').classList.toggle('rt', open);
     fitDock();
     if (open) {
@@ -654,16 +669,16 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     wx.clearRect(0, 0, w, h);
     // grid every 10 or 50 frames
     const stepX = (v.x1 - v.x0) > 150 ? 50 : (v.x1 - v.x0) > 30 ? 10 : 5;
-    wx.strokeStyle = 'rgba(0,0,0,.06)'; wx.lineWidth = d;
+    wx.strokeStyle = 'rgba(255,255,255,.05)'; wx.lineWidth = d;
     for (let x = Math.ceil(v.x0 / stepX) * stepX; x < v.x1; x += stepX) { wx.beginPath(); wx.moveTo(CX(v, x), 0); wx.lineTo(CX(v, x), h); wx.stroke(); }
     for (let y = Math.ceil(v.y0 / stepX) * stepX; y < v.y1; y += stepX) { wx.beginPath(); wx.moveTo(0, CY(v, y)); wx.lineTo(w, CY(v, y)); wx.stroke(); }
-    wx.strokeStyle = 'rgba(0,0,0,.16)'; wx.setLineDash([4 * d, 4 * d]);
+    wx.strokeStyle = 'rgba(255,255,255,.14)'; wx.setLineDash([4 * d, 4 * d]);
     wx.beginPath(); wx.moveTo(CX(v, 0), CY(v, 0)); wx.lineTo(CX(v, frames.length - 1), CY(v, frames.length - 1)); wx.stroke(); wx.setLineDash([]);
     // In-Out range
     if (inF != null || outF != null) { wx.fillStyle = 'rgba(74,117,144,.18)'; wx.fillRect(CX(v, lo()), 0, CX(v, hi()) - CX(v, lo()), h); }
     // the curve
     const last = warp[warp.length - 1].x;
-    wx.strokeStyle = '#86B0C2'; wx.lineWidth = 2.5 * d; wx.beginPath();
+    wx.strokeStyle = '#7FB2FF'; wx.lineWidth = 2.5 * d; wx.beginPath();
     const steps = Math.min(800, Math.max(60, Math.round(w / d)));
     for (let i = 0; i <= steps; i++) {
       const x = Math.max(0, v.x0) + (Math.min(last, v.x1) - Math.max(0, v.x0)) * i / steps, px = CX(v, x), py = CY(v, f(x));
@@ -671,11 +686,11 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     }
     wx.stroke();
     // playhead
-    wx.strokeStyle = '#33312D'; wx.lineWidth = 1.5 * d; wx.beginPath(); wx.moveTo(CX(v, pos), 0); wx.lineTo(CX(v, pos), h); wx.stroke();
+    wx.strokeStyle = '#7FD4B0'; wx.lineWidth = 2 * d; wx.beginPath(); wx.moveTo(CX(v, pos), 0); wx.lineTo(CX(v, pos), h); wx.stroke();
     // keys: stepped as squares, flat as bars, smooth and linear as dots (linear hollow)
     warp.forEach((k, i) => {
       const px = CX(v, k.x), py = CY(v, k.y), on = i === selIndex(), r = (on ? 7 : 5) * d;
-      wx.fillStyle = on ? '#FFD166' : '#ECEEF1'; wx.strokeStyle = wx.fillStyle; wx.lineWidth = 2 * d;
+      wx.fillStyle = on ? '#FF4D67' : '#EEF0F3'; wx.strokeStyle = wx.fillStyle; wx.lineWidth = 2 * d;
       if (k.t === 'step') wx.fillRect(px - r, py - r, r * 2, r * 2);
       else if (k.t === 'flat') { wx.fillRect(px - r * 1.4, py - r * 0.5, r * 2.8, r); }
       else { wx.beginPath(); wx.arc(px, py, r, 0, Math.PI * 2); k.t === 'linear' ? (wx.fillStyle = '#1D2024', wx.fill(), wx.stroke()) : wx.fill(); }

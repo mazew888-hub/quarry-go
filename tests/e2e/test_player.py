@@ -11,7 +11,7 @@ def open_clip(page, clip='clip.webm', extra=''):
 def loaded(page):
     page.wait_for_function("document.getElementById('log2').textContent.includes('loaded in')", timeout=30000)
 
-def step(page, k, x=370):
+def step(page, k, x=300):  # right third of the canvas, clear of the mode pill
     for _ in range(k): page.mouse.click(x, VY)
 
 def fr(page): return page.inner_text('#fr')
@@ -465,3 +465,32 @@ def test_reset_span_and_reset_curve_keep_the_keys(page):
     keys = warp_keys(page)                                  # every key kept on its frame, all at real time
     assert len(keys) >= 3 and all(k['t'] == 'linear' for k in keys)
     assert len({round(k['y'] - k['x']) for k in keys}) == 1
+
+# ---------- iPad: side panel, Apple Pencil
+def pencil_stroke(page, y, kind='pen', pressures=(0.2, 0.5, 0.9, 0.6)):
+    page.evaluate("""([y, kind, ps]) => { const cv = document.getElementById('cv');
+        const ev = (t, x, p) => cv.dispatchEvent(new PointerEvent(t, { pointerId: 7, pointerType: kind, pressure: p, clientX: x, clientY: y, bubbles: true }));
+        ev('pointerdown', 200, ps[0]); ps.forEach((p, i) => ev('pointermove', 240 + i * 50, p)); ev('pointerup', 500, 0); }""", [y, kind, list(pressures)])
+
+def test_ipad_side_panel_holds_the_modes_and_tucks_away(page):
+    page.set_viewport_size({'width': 1194, 'height': 834})
+    open_clip(page); loaded(page)
+    side = page.locator('#side').bounding_box(); assert side['x'] > 800
+    page.click('#annBtn'); assert page.locator('#penRow').is_visible() and page.locator('#prsIn').is_visible()
+    assert page.locator('#drawBtn').bounding_box()['x'] > side['x']            # the tools sit in the panel
+    page.click('#secBtn'); assert page.locator('#wKey').is_visible() and page.locator('#wUp').bounding_box()['x'] > side['x']
+    pic = lambda: int(page.get_attribute('#cv', 'data-pic').split(',')[2])
+    w = pic(); page.click('#sideTab')
+    assert not page.locator('#side').is_visible() and pic() >= w               # tucked: the video gets the room
+    page.click('#sideTab'); assert page.locator('#side').is_visible()
+
+def test_pencil_draws_any_time_with_pressure_and_fingers_then_navigate(page):
+    page.set_viewport_size({'width': 1194, 'height': 834})
+    open_clip(page); loaded(page)
+    pencil_stroke(page, 300)                                                    # no mode on: the Pencil still draws
+    m = last(page, 'marks')[-1]
+    assert m['type'] == 'draw' and len(m['pts'][0]) == 3
+    ws = [p[2] for p in m['pts']]; assert max(ws) > min(ws)                     # harder presses, wider line
+    page.click('#annBtn')
+    pencil_stroke(page, 340, kind='touch', pressures=(0.5, 0.5, 0.5, 0.5))      # after the Pencil, a finger doesn't draw
+    assert len(last(page, 'marks')) == 1
