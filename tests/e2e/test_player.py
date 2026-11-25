@@ -364,3 +364,15 @@ def test_tracing_paper_lightens_the_video_and_is_saved(page):
     assert [c['trace'] for c in page.evaluate('window.changes') if 'trace' in c][-1] == 0.5
     page.click('#more'); page.click('#paperAmt [data-t="0.75"]')
     assert [c['trace'] for c in page.evaluate('window.changes') if 'trace' in c][-1] == 0.75
+
+def test_tap_either_side_of_the_graph_playhead_steps(page):
+    open_clip(page); loaded(page); page.click('#secBtn')
+    scrub_to(page, 30, 72); assert fr(page).startswith('31')
+    bx = page.locator('#wCurve').bounding_box(), 
+    bx = bx[0]; y = bx['y'] + 12                       # along the top, away from the keys
+    page.mouse.click(bx['x'] + bx['width'] * 0.85, y); assert fr(page).startswith('32')
+    page.mouse.click(bx['x'] + bx['width'] * 0.85, y); assert fr(page).startswith('33')
+    page.mouse.click(bx['x'] + bx['width'] * 0.10, y); assert fr(page).startswith('32')
+    # a drag still scrubs to where the finger is
+    page.mouse.move(bx['x'] + bx['width'] * 0.2, y); page.mouse.down(); page.mouse.move(bx['x'] + bx['width'] * 0.8, y, steps=8); page.mouse.up()
+    assert int(fr(page).split(' ')[0]) > 50

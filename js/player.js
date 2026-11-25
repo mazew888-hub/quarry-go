@@ -585,18 +585,26 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     warp.forEach((k, i) => { const dd = Math.hypot(CX(p.v, k.x) - p.px, CY(p.v, k.y) - p.py); if (dd < bd) { bd = dd; best = i; } });
     wc.setPointerCapture(e.pointerId);
     if (best >= 0) { selKey = best; wDrag = { i: best, moved: false, x0: e.clientX, y0: e.clientY }; pos = Math.min(seq.length - 1, warp[best].x); draw(); drawCurve(); changed('pos'); }
-    else { wDrag = { scrub: true }; selKey = -1; pos = Math.max(0, Math.min(seq.length - 1, Math.round(p.x))); draw(); drawCurve(); changed('pos'); }
+    // anywhere else: a tap steps a frame towards that side of the playhead; a drag scrubs
+    else wDrag = { scrub: true, moved: false, x0: e.clientX, y0: e.clientY, side: p.x < pos ? -1 : 1 };
   });
   on(wc, 'pointermove', e => {
     if (!wDrag) return; const p = wPoint(e);
-    if (wDrag.scrub) { pos = Math.max(0, Math.min(seq.length - 1, Math.round(p.x))); draw(); drawCurve(); return; }
+    if (wDrag.scrub) {
+      if (!wDrag.moved && Math.hypot(e.clientX - wDrag.x0, e.clientY - wDrag.y0) < 8) return;
+      wDrag.moved = true; selKey = -1; pos = Math.max(0, Math.min(seq.length - 1, Math.round(p.x))); draw(); drawCurve(); return;
+    }
     if (!wDrag.moved && Math.hypot(e.clientX - wDrag.x0, e.clientY - wDrag.y0) < 6) return;
     if (!wDrag.moved) { remember(); wDrag.moved = true; }
     warp = TW.moveKey(warp, wDrag.i, p.x, p.y, frames.length); retimed = true; rebuild();
     pos = Math.min(warp[wDrag.i].x, seq.length - 1); updateRetimeUi(); draw(); drawCurve();
   });
-  const wEnd = () => { if (wDrag && wDrag.moved) changed('warp', 'retimed', 'pos'); else if (wDrag && wDrag.scrub) changed('pos'); wDrag = null; };
-  on(wc, 'pointerup', wEnd); on(wc, 'pointercancel', wEnd);
+  const wEnd = () => {
+    if (wDrag && wDrag.scrub) { if (!wDrag.moved) { stop(); stepBy(wDrag.side); draw(); } changed('pos'); }
+    else if (wDrag && wDrag.moved) changed('warp', 'retimed', 'pos');
+    wDrag = null;
+  };
+  on(wc, 'pointerup', wEnd); on(wc, 'pointercancel', () => { if (wDrag && wDrag.moved) wEnd(); wDrag = null; });
 
   // Shape: Hold, Cut or a speed over In-Out (played frames), as keys on the curve
   let range = null;
