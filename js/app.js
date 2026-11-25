@@ -10,7 +10,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.6.1';
+export const VERSION = '0.6.2';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -32,12 +32,28 @@ function confirmSheet(text) {
   });
 }
 
+// ---------- iPhone home-screen fixes
+// iOS can lay out a home-screen web app about one status bar short of the screen, leaving a dead band at the
+// bottom (a WebKit bug, fixed in Safari 26.1 for some layouts). Where that happens, size the app to the screen
+// itself. Turned sideways, the notch is only on one side: say which, so controls hug the other edge.
+function fitScreen() {
+  const root = document.documentElement, standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const landscape = innerWidth > innerHeight, full = landscape ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+  const short = full - innerHeight;
+  root.style.setProperty('--appH', standalone && short > 8 && short < 90 ? `${full}px` : '100%');
+  const angle = (screen.orientation && screen.orientation.angle) ?? window.orientation ?? 0;
+  root.classList.toggle('notch-l', landscape && (angle === 90));
+  root.classList.toggle('notch-r', landscape && (angle === 270 || angle === -90));
+}
+fitScreen();
+addEventListener('resize', fitScreen); addEventListener('orientationchange', () => setTimeout(fitScreen, 350));
+
 // ---------- Reviews: the history (#/), one review = one day of videos (#/d/<day>), the player (#/r/<id>)
 let player = null;
 let openSeq = 0;                     // only the newest open request may show its screen
 const save = () => S.flush().catch(e => toast(e.message));
 let thumbUrls = [];
-const thumbUrl = r => { const u = URL.createObjectURL(r.thumb); thumbUrls.push(u); return u; };
+const thumbUrl = r => { const u = URL.createObjectURL(S.thumbBlob(r.thumb)); thumbUrls.push(u); return u; };
 const freeThumbs = () => { for (const u of thumbUrls) URL.revokeObjectURL(u); thumbUrls = []; };
 async function leavePlayer() {
   openSeq++;
@@ -57,6 +73,7 @@ async function showHistory() {
   }, thumbUrl);
   $('reviews').classList.add('show'); $('reviews').scrollTop = 0;
   fileMode = { kind: 'add', day: today() };
+  repairThumbs(list);
 }
 async function showDay(day) {
   await leavePlayer(); const my = openSeq;
@@ -72,6 +89,25 @@ async function showDay(day) {
   }, thumbUrl);
   $('reviews').classList.add('show');
   fileMode = { kind: 'add', day };
+  repairThumbs(info.videos);
+}
+// Old previews (stored as pictures) become bytes; missing or broken ones are made again from the video.
+const repairing = new Set();
+async function repairThumbs(list) {
+  let fixed = 0;
+  for (const r of list) {
+    if (r.thumb instanceof ArrayBuffer && r.thumb.byteLength) continue;
+    if (repairing.has(r.id)) continue; repairing.add(r.id);
+    let thumb = null;
+    if (r.thumb instanceof Blob) { try { const b = await r.thumb.arrayBuffer(); if (b.byteLength) thumb = b; } catch { /* broken: make it again */ } }
+    if (!thumb) {
+      try { const clip = await S.getClip(r.id); if (clip) thumb = (await probe(clip)).thumb; } catch (e) { log(`preview for ${r.name}: ${e.message}`); }
+    }
+    if (thumb) { S.saveReview(r.id, { thumb }); fixed++; }
+  }
+  if (!fixed) return;
+  await save();
+  if (!player && !$('missing').classList.contains('show') && location.hash.match(/^#\/(d\/[\d-]+)?$|^$/)) showCurrent();
 }
 const showCurrent = () => { const m = location.hash.match(/^#\/d\/(\d{4}-\d\d-\d\d)$/); return m ? showDay(m[1]) : showHistory(); };
 async function deleteDay(day, list) {
@@ -138,7 +174,8 @@ async function firstFrame(media) {
 async function thumbOf(bmp) {
   const c = document.createElement('canvas'); c.width = 320; c.height = Math.round(320 * bmp.height / bmp.width);
   c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-  return new Promise(r => c.toBlob(r, 'image/jpeg', 0.8));
+  const jpg = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.8));
+  return jpg.arrayBuffer();  // bytes, not a picture object: see thumbBlob in store.js
 }
 // Reads just enough of a clip for its card (size, rate, frames, first picture). Nothing is saved if it can't be read.
 async function probe(file) {

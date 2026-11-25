@@ -145,3 +145,25 @@ def test_a_stall_mid_export_doesnt_get_into_the_video(page, tmp_path):
         'stream=nb_read_frames,duration', '-of', 'json', str(out)]))['streams'][0]
     assert int(info['nb_read_frames']) == 72, info
     assert abs(float(info['duration']) - 3.0) < 0.01, info
+
+def test_previews_are_kept_as_bytes_and_survive_saves(page):
+    # iPhone can break a stored picture when its record is saved again (WebKit), so previews are kept as bytes
+    home(page); add(page, FIX / 'clip.webm', rows=1)
+    kind = page.evaluate("async () => { const [r] = await (await import('/js/store.js')).listReviews(); return Object.prototype.toString.call(r.thumb); }")
+    assert kind == '[object ArrayBuffer]', kind
+    page.locator('.rv-clip').first.click()
+    page.wait_for_function("document.getElementById('log2').textContent.includes('loaded in')", timeout=30000)
+    page.click('#back'); page.wait_for_selector('.rv-clip img')
+    assert page.evaluate("() => { const i = document.querySelector('.rv-clip img'); return i.complete && i.naturalWidth > 0; }")
+
+def test_missing_or_old_previews_are_rebuilt(page):
+    home(page); add(page, FIX / 'clip.webm', FIX / 'mixed.gif', rows=2)
+    # one review with no preview (as if it broke), one with an old-style picture
+    page.evaluate('''async () => { const S = await import('/js/store.js'); const rs = await S.listReviews();
+        const a = rs.find(r => r.name === 'clip'), b = rs.find(r => r.name === 'mixed');
+        S.saveReview(a.id, { thumb: null });
+        S.saveReview(b.id, { thumb: new Blob([new Uint8Array(b.thumb)], { type: 'image/jpeg' }) }); await S.flush(); }''')
+    page.reload(); page.wait_for_selector('.rv-clip')
+    page.wait_for_function("[...document.querySelectorAll('.rv-clip img')].length === 2 && [...document.querySelectorAll('.rv-clip img')].every(i => i.complete && i.naturalWidth > 0)", timeout=30000)
+    kinds = page.evaluate("async () => (await (await import('/js/store.js')).listReviews()).map(r => Object.prototype.toString.call(r.thumb))")
+    assert kinds == ['[object ArrayBuffer]'] * 2, kinds

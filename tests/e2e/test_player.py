@@ -376,3 +376,15 @@ def test_tap_either_side_of_the_graph_playhead_steps(page):
     # a drag still scrubs to where the finger is
     page.mouse.move(bx['x'] + bx['width'] * 0.2, y); page.mouse.down(); page.mouse.move(bx['x'] + bx['width'] * 0.8, y, steps=8); page.mouse.up()
     assert int(fr(page).split(' ')[0]) > 50
+
+def test_rotating_keeps_the_video_in_shape(page):
+    # the video canvas's pixels always match its box after turning the phone, both ways
+    open_clip(page); loaded(page)
+    def fits():
+        return page.evaluate('''() => { const c = document.getElementById('cv'), r = c.getBoundingClientRect(), d = devicePixelRatio;
+            return Math.abs(c.width - r.width * d) < 2 && Math.abs(c.height - r.height * d) < 2; }''')
+    for vp in [(844, 390), (390, 844), (844, 390)]:
+        page.set_viewport_size({'width': vp[0], 'height': vp[1]})
+        page.wait_for_function('''() => { const c = document.getElementById('cv'), r = c.getBoundingClientRect(), d = devicePixelRatio;
+            return Math.abs(c.width - r.width * d) < 2 && Math.abs(c.height - r.height * d) < 2; }''', timeout=3000)
+        assert fits()

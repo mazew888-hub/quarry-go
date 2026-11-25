@@ -354,3 +354,13 @@ input[type=file]{display:none}
 .aid .chip{height:30px;padding:0 10px;font-size:12px}
 .aid .al{flex:1 1 calc(100% - 64px)}
 .aid .al + .stp,.aid .al + .chips{margin-left:54px}
+
+/* ---- iPhone home-screen fixes (see fitScreen in app.js) ---- */
+html{min-height:calc(100% + env(safe-area-inset-top))}
+#player,#reviews{bottom:auto;height:var(--appH,100%)}
+@media (orientation:landscape) and (max-height:600px){
+  /* the notch is on one side only: keep its margin there, let the rail sit near the other edge */
+  .notch-l #rail{margin-right:8px}
+  .notch-r #top{padding-left:12px}.notch-r #bot{padding-left:14px}.notch-r #tp{padding-left:14px}
+  .notch-l #penRow{left:max(12px,env(safe-area-inset-left))}
+}

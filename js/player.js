@@ -357,6 +357,12 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   };
   on(cv, 'pointerup', up); on(cv, 'pointercancel', up);
   on(window, 'resize', () => { sizeAll(); clampPan(); draw(); });
+  // iPhone reports a rotation before it has laid the screen out again: size the canvases whenever their boxes
+  // actually change, and once more after the turn settles, so the video never draws stretched.
+  const ro = new ResizeObserver(() => { sizeAll(); clampPan(); draw(); });
+  for (const el of [stage, sc, lane, $('wCurve')]) ro.observe(el);
+  ac.signal.addEventListener('abort', () => ro.disconnect());
+  on(window, 'orientationchange', () => setTimeout(() => { sizeAll(); clampPan(); draw(); }, 350));
 
   // ---------- note chip: a note on this frame shows at the top edge, only while paused
   const chipHidden = new Set();

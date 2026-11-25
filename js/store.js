@@ -22,6 +22,9 @@ function db() {
 const req = rq => new Promise((res, rej) => { rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error); });
 const done = tx => new Promise((res, rej) => { tx.oncomplete = () => res(); tx.onerror = tx.onabort = () => rej(tx.error || new DOMException('aborted', 'AbortError')); });
 const isFull = e => e && (e.name === 'QuotaExceededError' || /quota/i.test(e.message || ''));
+// Previews are kept as plain bytes: on iPhone a stored picture (Blob) can come back broken once its record
+// has been saved again (WebKit), which is what happened to the preview of a video just watched.
+export const thumbBlob = t => t instanceof Blob ? t : new Blob([t], { type: 'image/jpeg' });
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
 export async function createReview(meta, clip) {

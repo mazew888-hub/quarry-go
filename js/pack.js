@@ -7,6 +7,7 @@ import { legacyHolds } from './draw.js';
 import { renderer } from './render.js';
 import { recordVideo, deliver } from './export.js';
 import { zipParts } from './zip.js';
+import { thumbBlob } from './store.js';
 import { quarryNotes, timeWarpPy, mayaDropHead, stamp, hasNotes, isRetimed, folderFor, warpOf, NOTES_EXT } from './handback.js';
 import { ICONS } from './reviews.js';
 
@@ -38,7 +39,7 @@ export function openExport(veil, info, { getClip, toast = () => {}, log = () => 
   const close = () => { if (running) { stop = true; return; } veil.style.display = 'none'; veil.classList.remove('show'); };
 
   let urls = [];
-  const thumb = v => { const u = URL.createObjectURL(v.thumb); urls.push(u); return u; };
+  const thumb = v => { const u = URL.createObjectURL(thumbBlob(v.thumb)); urls.push(u); return u; };
   function render() {
     for (const u of urls) URL.revokeObjectURL(u); urls = [];
     const vids = shown(), count = vids.reduce((n, v) => n + filesFor(v, picks.get(v.id)).length, 0);
