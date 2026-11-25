@@ -130,15 +130,16 @@ async function recordRealtime({ W, H, fps, total, draw, onFrame = () => {}, stop
 
 // Hands a finished file to the person. Inside Claude (testing): the downloads capability. Installed on a
 // phone: the Share sheet, after a fresh tap (iOS only opens it straight after one). Otherwise a download.
-export async function deliver(file) {
+// text: { cap, btn, hint } for the share sheet (defaults: a notes zip or a video).
+export async function deliver(file, text = {}) {
   const dl = window.claude ? await window.claude.use('downloads').catch(() => null) : null;
   if (dl) { try { await dl.save({ filename: file.name, data: file }); log('saved'); } catch (e) { log('save: ' + (e.code || e.message)); } return; }
   if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia('(pointer: coarse)').matches) {
     const veil = document.getElementById('shareVeil');
     const zip = /\.zip$/i.test(file.name);
-    document.getElementById('shareCap').textContent = zip ? 'Notes ready' : 'Video ready';
-    document.getElementById('shareBtn').textContent = zip ? 'Share zip' : 'Share video';
-    document.getElementById('shareName').textContent = file.name;
+    document.getElementById('shareCap').textContent = text.cap || (zip ? 'Notes ready' : 'Video ready');
+    document.getElementById('shareBtn').textContent = text.btn || (zip ? 'Share zip' : 'Share video');
+    document.getElementById('shareName').textContent = text.hint ? `${file.name}\n\n${text.hint}` : file.name;
     veil.style.display = 'flex';
     document.getElementById('shareBtn').onclick = async () => {
       veil.style.display = 'none';

@@ -9,6 +9,8 @@ export const ICONS = {
   back: icon('<path d="M15 5l-7 7 7 7"/>'),
   plus: icon('<path d="M12 5v14M5 12h14"/>'),
   chev: icon('<path d="M9 6l6 6-6 6"/>'),
+  recv: icon('<path d="M12 3v12M7 10l5 5 5-5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/>'),
+  send: icon('<path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/>'),
   share: icon('<path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/>'),
   video: icon('<rect x="2" y="5" width="20" height="14" rx="3"/><path d="M10 9.5l4.5 2.5-4.5 2.5z"/>'),
   notes: icon('<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h5"/>'),
@@ -35,7 +37,7 @@ export function renderHistory(root, videos, h, thumbUrl, now = Date.now()) {
   const th = v => `<span class="rv-th">${v.thumb ? `<img alt="" src="${thumbUrl(v)}">` : ''}</span>`;
   root.innerHTML = `
     <header class="rv-head"><h1>Reviews</h1><button class="btn rv-gear" id="gear" aria-label="Settings">${GEAR}</button></header>
-    <div class="acts"><label class="btn pri" id="newReview" for="file">${ICONS.plus}New review</label></div>
+    <div class="acts"><label class="btn pri" id="newReview" for="file">${ICONS.plus}New review</label><label class="btn" id="receive" for="handoffFile">${ICONS.recv}Receive</label></div>
     ${!videos.length ? `<div class="rv-empty"><p>Pick videos from Photos or Files to start today's review. Videos stay on this phone.</p></div>` : ''}
     ${week.length ? `<div class="rv-cap">This week</div>${week.map(d => `
       <button class="rv-card rv-day" data-day="${d.day}">
@@ -64,7 +66,7 @@ const ring = (n, of) => {
   return `<div class="ring" aria-label="${n} of ${of} with notes"><svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="18" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="3"/>${n ? `<circle cx="22" cy="22" r="18" fill="none" stroke="var(--acc)" stroke-width="3" stroke-linecap="round" stroke-dasharray="${len.toFixed(1)} 200" transform="rotate(-90 22 22)"/>` : ''}</svg><b>${n}<small>/${of}</small></b></div>`;
 };
 
-// info: dayInfo(); handlers: { onBack(), onOpen(id), onHold(id), onExport() }. Add videos is a label for the picker.
+// info: dayInfo(); handlers: { onBack(), onOpen(id), onHold(id), onExport(), onSend() }. Add videos is a label for the picker.
 export function renderDay(root, info, h, thumbUrl) {
   root.innerHTML = `
     <header class="rv-head day-head"><button class="btn key" id="dayBack" aria-label="Back">${ICONS.back}</button>
@@ -75,10 +77,12 @@ export function renderDay(root, info, h, thumbUrl) {
         <span class="tx"><span class="nm rv-name">${esc(v.name)}</span><span class="mt">${v.frameCount} fr ${badges(v)}</span></span>
       </div>`).join('')}</div>`
     : `<div class="rv-empty"><p>No videos in this review yet. Add some from Photos or Files.</p></div>`}
-    <div class="dock"><div class="tray"><label class="btn" id="addVideos" for="file">${ICONS.plus}Add videos</label>
-      <button class="btn pri" id="exportNotes"${info.count ? '' : ' disabled'}>${ICONS.share}Export notes</button></div></div>`;
+    <div class="dock"><div class="tray"><label class="btn" id="addVideos" for="file">${ICONS.plus}Add</label>
+      <button class="btn" id="sendDay"${info.count ? '' : ' disabled'}>${ICONS.send}Send</button>
+      <button class="btn pri" id="exportNotes"${info.count ? '' : ' disabled'}>${ICONS.share}Export</button></div></div>`;
   root.querySelector('#dayBack').onclick = () => h.onBack();
   root.querySelector('#exportNotes').onclick = () => h.onExport();
+  root.querySelector('#sendDay').onclick = () => h.onSend();
   for (const el of root.querySelectorAll('.rv-clip')) pressable(el, () => h.onOpen(el.dataset.id), () => h.onHold(el.dataset.id));
 }
 

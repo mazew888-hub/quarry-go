@@ -16,6 +16,7 @@
 </head>
 <body>
 <input id="file" type="file" accept="video/*,image/gif" multiple>
+<input id="handoffFile" type="file" accept="application/zip,.zip">
 
 <section id="reviews"></section>
 <section id="sort"></section>
@@ -177,7 +178,7 @@
 
 <div class="veil" id="shareVeil" style="z-index:11"><div class="sheet grain">
   <div class="cap" id="shareCap">Video ready</div>
-  <p id="shareName" style="margin:0 2px 16px;color:var(--mut);word-break:break-all"></p>
+  <p id="shareName" style="margin:0 2px 16px;color:var(--mut);overflow-wrap:anywhere;white-space:pre-line"></p>
   <div class="row"><span class="sp"></span><button class="btn pri" id="shareBtn" style="height:48px;padding:0 24px">Share video</button></div>
 </div></div>
 

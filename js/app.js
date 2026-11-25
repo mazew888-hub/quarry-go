@@ -5,13 +5,15 @@ import { renderHistory, renderDay } from './reviews.js';
 import { dayOf, dayInfo, dayTitle, today } from './days.js';
 import { videoNames } from './names.js';
 import { openExport } from './pack.js';
+import { deliver } from './export.js';
+import { packHandoff, readHandoff, mergePlan } from './handoff.js';
 import * as S from './store.js';
 import * as G from './drive.js';
 import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.0';
+export const VERSION = '0.9.1';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -98,6 +100,7 @@ async function showDay(day) {
     onOpen: id => { location.hash = `#/r/${id}`; },
     onHold: id => cardSheet(info.videos.find(r => r.id === id)),
     onExport: () => openExport($('exportVeil'), info, { getClip: S.getClip, toast, log }),
+    onSend: () => sendDay(info),
   }, thumbUrl);
   $('reviews').classList.add('show');
   fileMode = { kind: 'add', day };
@@ -176,6 +179,46 @@ async function settings() {
   };
 }
 
+// ---------- handoff: send a day's videos to another device (AirDrop), receive them there
+async function sendDay(info) {
+  if (!info.videos.length) return;
+  await save();
+  $('reviews').classList.add('busy');
+  let file;
+  try {
+    const fresh = await Promise.all(info.videos.map(v => S.getReview(v.id)));
+    file = await packHandoff(fresh.filter(Boolean), S.getClip, new Date(),
+      (r, i) => status(`Packing ${i + 1} of ${fresh.length}…`, i / fresh.length));
+    log(`handoff ${file.name}: ${(file.size / 1e6).toFixed(1)} MB`);
+  } catch (e) { toast(e.message, 5000); return; }
+  finally { status(''); $('reviews').classList.remove('busy'); }
+  await deliver(file, { cap: 'Ready to send', btn: 'Send', hint: 'Pick AirDrop, then your other device. There, open Quarry Go and tap Receive.' });
+}
+$('handoffFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  await save();
+  $('reviews').classList.add('busy');
+  let plan, days;
+  try {
+    status('Reading…', 0);
+    const got = await readHandoff(f);
+    plan = mergePlan(await S.listReviews(), got.reviews);
+    const todo = [...plan.add, ...plan.update];
+    for (const [i, r] of todo.entries()) {
+      status(`Adding ${i + 1} of ${todo.length}…`, i / todo.length);
+      await S.putReceived(r, await got.clip(r.id));
+    }
+    days = [...new Set(got.reviews.map(dayOf))];
+  } catch (err) { toast(err.message, 5000); return; }
+  finally { status(''); $('reviews').classList.remove('busy'); }
+  const n = (k, w) => `${k} ${w}${k === 1 ? '' : 's'}`, parts = [];
+  if (plan.add.length) parts.push(`added ${n(plan.add.length, 'video')}`);
+  if (plan.update.length) parts.push(`updated ${plan.update.length}`);
+  toast(parts.length ? parts.join(', ').replace(/^./, c => c.toUpperCase()) + '.' : 'Already up to date: nothing newer in that file.', 4500);
+  const go = days.length === 1 ? `#/d/${days[0]}` : '#/';
+  if (location.hash !== go) location.hash = go; else showCurrent();
+};
 // ---------- adding videos (several at once) and picking a missing clip again
 let fileMode = { kind: 'add', day: null };
 const baseName = f => (f.name || 'Clip').replace(/\.[^.]+$/, '') || 'Clip';

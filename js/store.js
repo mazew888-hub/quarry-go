@@ -62,6 +62,16 @@ export async function putClip(id, blob) {
   try { tx.objectStore('clips').put(blob, id); await done(tx); } catch (e) { throw friendlySaveError(e); }
 }
 
+// A review received from another device: kept exactly as it came (its own edit time), with its video.
+export async function putReceived(review, clip) {
+  const d = await db(); const tx = d.transaction(['reviews', 'clips'], 'readwrite'), finished = done(tx);
+  try {
+    tx.objectStore('reviews').put(review);
+    if (clip) tx.objectStore('clips').put(clip, review.id);
+    await finished;
+  } catch (e) { try { tx.abort(); } catch {} await finished.catch(() => {}); throw friendlySaveError(e); }
+}
+
 // Saves are merged per review and written 300ms after the last change; flush() writes them now.
 const pending = new Map(); let timer = 0;
 export function saveReview(id, patch) {
