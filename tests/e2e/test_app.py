@@ -162,3 +162,15 @@ def test_old_review_drawings_keep_12_frames(page):
     assert seen()
     page.mouse.click(370, 170)
     assert not seen()
+
+def test_videos_from_photos_with_code_names_become_video_1_2(page, tmp_path):
+    import shutil
+    home(page)
+    a = tmp_path / 'adf40401c68e605028d78a3d8c0b1e2f.webm'; b = tmp_path / 'ec22deccd6b1bf84d30dd0a4bdd9aa11.webm'
+    shutil.copy(FIX / 'clip.webm', a); shutil.copy(FIX / 'clip.webm', b)
+    add(page, a)
+    page.wait_for_function("document.querySelectorAll('.rv-clip').length === 1", timeout=30000)
+    add(page, b, FIX / 'clip.webm')
+    page.wait_for_function("document.querySelectorAll('.rv-clip').length === 3", timeout=30000)
+    names = sorted(page.locator('.rv-name').all_inner_texts())
+    assert names == ['Video 1', 'Video 2', 'clip'], names

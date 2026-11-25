@@ -3,6 +3,7 @@ import { loadFrames, CANT_OPEN } from './frames.js';
 import { openPlayer, log, status } from './player.js';
 import { renderHistory, renderDay } from './reviews.js';
 import { dayOf, dayInfo, dayTitle, today } from './days.js';
+import { videoNames } from './names.js';
 import { openExport } from './pack.js';
 import * as S from './store.js';
 import * as G from './drive.js';
@@ -10,7 +11,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.6.3';
+export const VERSION = '0.6.4';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -61,10 +62,20 @@ async function leavePlayer() {
   $('reviews').classList.remove('busy'); hide('missing'); hide('exportVeil');
   await save();
 }
+// Videos picked from Photos arrive with made-up code names: they become Video 1, 2, 3... in their day.
+async function nameCodes(list) {
+  const byDay = new Map(); for (const r of list) { const d = dayOf(r); byDay.set(d, [...(byDay.get(d) || []), r]); }
+  let n = 0;
+  for (const day of byDay.values()) for (const [id, name] of Object.entries(videoNames(day))) {
+    list.find(r => r.id === id).name = name; S.saveReview(id, { name }); n++;
+  }
+  if (n) await save();
+}
 async function showHistory() {
   await leavePlayer(); const my = openSeq;
   const list = await S.listReviews();
   if (my !== openSeq) return;
+  await nameCodes(list);
   freeThumbs();
   renderHistory($('reviews'), list, {
     onOpenDay: day => { location.hash = `#/d/${day}`; },
@@ -79,6 +90,7 @@ async function showDay(day) {
   await leavePlayer(); const my = openSeq;
   const list = await S.listReviews();
   if (my !== openSeq) return;
+  await nameCodes(list);
   const info = dayInfo(list, day);
   freeThumbs();
   renderDay($('reviews'), info, {
