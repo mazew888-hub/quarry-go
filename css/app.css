@@ -6,15 +6,17 @@
 
 /* Planner A2 look, dark mode ("one light logic"): page darkest, raised lighter and lit from above,
    sunken darker. Rubik. Blue-teal accent; selection is an underglow, fill means "press me". */
-:root{--page:#3A3E46;--board:#3A3E46;--surf:#3A3E46;--well:#3A3E46;--ink:#ECEEF1;--mut:#AEB4BC;--faint:#868C95;
-  /* soft clay, dark: one slate everything is shaped from; lit from the top left. Quarry red accent. */
-  --acc:#F2445F;--acc-l:#F2445F;--glow:rgba(242,68,95,.28);--glow2:rgba(242,68,95,.14);--late:#F2445F;
-  --hi:rgba(255,255,255,.10);--lo:rgba(10,12,16,.45);
+:root{--page:#E2DED6;--board:#E2DED6;--surf:#E2DED6;--well:#E2DED6;--ink:#33312D;--mut:#6E6A63;--faint:#9C978F;
+  /* soft clay, light: warm stone everything is shaped from; lit from the top left. Quarry red accent. */
+  --acc:#E8344F;--acc-l:#E8344F;--glow:rgba(232,52,79,.25);--glow2:rgba(232,52,79,.12);--late:#E8344F;
+  --hi:rgba(255,255,255,.85);--lo:rgba(140,128,110,.40);
   --raised:-3px -3px 8px var(--hi),4px 4px 9px var(--lo);
   --raised-lg:-6px -6px 14px var(--hi),7px 7px 16px var(--lo);
   --pressed:inset 4px 4px 10px var(--lo),inset -4px -4px 10px var(--hi);
   --pressed-sm:inset 2px 2px 5px var(--lo),inset -2px -2px 5px var(--hi);
   --selected:inset 2px 2px 5px var(--lo),inset -2px -2px 5px var(--hi);
+  --ruler:rgba(0,0,0,.07);--tick:rgba(0,0,0,.10);--tick2:rgba(0,0,0,.22);--rulerTxt:#6E6A63;
+  --stage:#1F2125;
   --emb:none}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--page);color:var(--ink);font:15px/1.4 "Rubik",-apple-system,system-ui,sans-serif;
@@ -392,7 +394,7 @@ html{min-height:calc(100% + env(safe-area-inset-top))}
 .pip{width:22px;height:22px;border-radius:50%;box-shadow:var(--pressed-sm);display:grid;place-items:center;flex:none}
 .pip i{width:8px;height:8px;border-radius:50%;background:var(--acc)}
 .dock{position:fixed;left:0;right:0;bottom:0;z-index:7;padding:30px 18px calc(env(safe-area-inset-bottom) + 18px);
-  background:linear-gradient(180deg,rgba(58,62,70,0),var(--page) 34%);pointer-events:none}
+  background:linear-gradient(180deg,rgba(226,222,214,0),var(--page) 34%);pointer-events:none}
 .tray{display:flex;gap:8px;padding:6px;border-radius:30px;box-shadow:var(--pressed);pointer-events:auto;max-width:520px;margin:0 auto}
 .tray .btn{flex:1;height:48px;border-radius:24px;font:500 14px Rubik;letter-spacing:.4px}
 body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 58px);padding-bottom:12px}
@@ -416,3 +418,6 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 #rail .rk svg~span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 #rail .rk svg{width:24px;height:24px}
 #rail{background:none!important;box-shadow:none!important}
+
+#stage{background:var(--stage)}
+.veil{background:rgba(60,55,48,.30)}

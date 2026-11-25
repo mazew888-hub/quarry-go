@@ -415,3 +415,22 @@ def test_mp4_frames_come_from_the_decoder_in_display_order(page):
             scrub_to(page, i, 30); page.wait_for_timeout(30); seen.append(lum(page))
         # the picture brightens frame by frame (8 levels a frame): every frame in its place, B-frames included
         assert all(b > a for a, b in zip(seen[2:], seen[3:])), seen
+
+def test_reset_span_and_reset_curve_keep_the_keys(page):
+    open_clip(page); loaded(page)
+    page.click('#secBtn')
+    step(page, 12); page.click('#inBtn'); step(page, 11); page.click('#outBtn')
+    page.click('#wShape'); page.click('#secRates [data-r="0.5"]')
+    assert '/ 84' in fr(page)
+    page.click('#rangeChip')
+    scrub_to(page, 20, 84)                                  # inside the slowed span
+    page.click('#wShape'); page.click('#secSpan')
+    assert '/ 72' in fr(page)                               # that span plays at real time again
+    n = len(warp_keys(page)); assert n >= 3                 # its keys are still there
+    scrub_to(page, 40, 72); page.click('#inBtn'); scrub_to(page, 45, 72); page.click('#outBtn')
+    page.click('#wShape'); page.click('#secHold'); page.click('#rangeChip')
+    assert any(k['t'] == 'step' for k in warp_keys(page))
+    page.click('#wShape'); page.click('#secReset')
+    keys = warp_keys(page)                                  # every key kept on its frame, all at real time
+    assert len(keys) >= 3 and all(k['t'] == 'linear' for k in keys)
+    assert len({round(k['y'] - k['x']) for k in keys}) == 1

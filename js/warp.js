@@ -150,6 +150,40 @@ export function speedRange(keys, a, b, r) {
   return out;
 }
 
+// ---------- reset: the keys stay, the curve goes back to real time
+// The span around played frame x (between the keys either side of it) plays at real time: its end key
+// keeps its video frame and slides to where that frame plays at 1x, and every later key slides with it,
+// so the rest of the curve keeps its shape. A hold (or a span that runs backwards) closes up into one key.
+// Both keys of the span become plain linear keys. null when there's nothing to change.
+export function resetSpan(keys, x) {
+  if (keys.length < 2) return null;
+  let i = keys.length - 2; while (i > 0 && keys[i].x > x) i--;
+  const a = keys[i], b = keys[i + 1], dy = Math.round(b.y - a.y);
+  const out = keys.map(k => ({ ...k }));
+  if (dy <= 0) {   // closes up: the span's end key goes, its start key takes its place in time
+    const shift = a.x - b.x;
+    out[i] = { x: a.x, y: b.y, t: 'linear' };
+    out.splice(i + 1, 1);
+    for (let j = i + 1; j < out.length; j++) out[j].x += shift;
+    return out;
+  }
+  const shift = a.x + dy - b.x;
+  if (shift === 0 && a.t === 'linear' && b.t === 'linear') return null;
+  out[i].t = 'linear'; out[i + 1].t = 'linear';
+  for (let j = i + 1; j < out.length; j++) out[j].x += shift;
+  return out;
+}
+// Every span at real time: each key keeps its video frame and sits where that frame plays at 1x.
+export function resetAll(keys) {
+  const out = [{ x: keys[0].x, y: keys[0].y, t: 'linear' }];
+  for (const k of keys.slice(1)) {
+    const p = out[out.length - 1], dy = Math.round(k.y - p.y);
+    if (dy <= 0) { p.y = k.y; continue; }   // a hold or a step back closes up
+    out.push({ x: p.x + dy, y: k.y, t: 'linear' });
+  }
+  return out;
+}
+
 // Rows for Quarry's Maya time warp code: (x, y relative to the first key; in and out slopes; tangent types).
 export function mayaRows(keys) {
   const s = slopes(keys), type = t => ({ linear: 'linear', flat: 'flat', step: 'step', smooth: 'fixed' }[t] || 'linear');

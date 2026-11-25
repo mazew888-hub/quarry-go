@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <title>Quarry Go</title>
-<meta name="theme-color" content="#1D2024">
+<meta name="theme-color" content="#E2DED6">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -118,7 +118,8 @@
       <div class="opt" id="secHold">Hold</div><div class="opt" id="secCut" style="color:var(--late)">Cut</div><div class="opt" id="secClear">1× again</div>
     </div>
   </div>
-  <div class="opts" style="margin-top:10px;grid-template-columns:1fr"><div class="opt" id="secReset">Reset the whole time warp</div></div>
+  <div class="opts" style="margin-top:10px;grid-template-columns:repeat(2,minmax(0,1fr))"><div class="opt" id="secSpan">Reset this span</div><div class="opt" id="secReset">Reset the curve</div></div>
+  <div class="opts" style="margin-top:10px;grid-template-columns:1fr"><div class="opt" id="secClearAll" style="color:var(--late)">Remove all keys</div></div>
   <div id="secMsg" style="color:var(--mut);display:none;padding:4px 2px 8px">Set In and Out around the frames you want to shape first. Hold freezes them, Cut takes them out, a speed plays them faster or slower.</div>
 </div></div>
 

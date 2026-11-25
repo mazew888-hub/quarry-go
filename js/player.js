@@ -105,7 +105,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     if (!playing) markList();
     if (!$('wPanel').hidden) drawCurve();
     const got = media.loading ? frames.reduce((n, x) => n + (x ? 1 : 0), 0) : 0;
-    $('tc').textContent = `${(pos / fps).toFixed(2)}s · ${fps} fps${zoom > 1.01 ? ' · ' + zoom.toFixed(1) + '× zoom' : ''}${media.loading ? ` · loading ${Math.round(got / frames.length * 100)}%` : ''}`;
+    // only what's worth a glance: the zoom when zoomed in, and loading while frames come in (no seconds or fps)
+    $('tc').textContent = [zoom > 1.01 ? zoom.toFixed(1) + '× zoom' : '', media.loading ? `loading ${Math.round(got / frames.length * 100)}%` : ''].filter(Boolean).join(' · ');
     const hasR = inF !== null || outF !== null;
     $('rangeTxt').textContent = hasR ? `Loop ${lo() + 1}–${hi() + 1}` : ''; $('rangeChip').style.display = hasR ? '' : 'none';
     $('inBtn').lastElementChild.textContent = inF !== null ? `In ${inF + 1}` : 'In'; $('inBtn').classList.toggle('on', inF !== null);
@@ -117,14 +118,15 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     sx.clearRect(0, 0, w, h);
     const r = (x, y, ww, hh, rr) => { sx.beginPath(); sx.roundRect ? sx.roundRect(x, y, ww, hh, rr) : sx.rect(x, y, ww, hh); sx.fill(); };
     // Quarry's timeline: a dark frame ruler, a tick at every frame (where they fit) and numbers spaced to read
-    sx.fillStyle = 'rgba(10,12,16,.32)'; r(0, 0, w, h, 6 * d);
+    const cs = getComputedStyle(sc), cv = (k, f) => cs.getPropertyValue(k).trim() || f;   // ruler colours follow the theme
+    sx.fillStyle = cv('--ruler', 'rgba(10,12,16,.32)'); r(0, 0, w, h, 6 * d);
     const cell = w / n, every = [1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000].find(k => k * cell >= 30 * d) || 1000;
-    sx.fillStyle = 'rgba(255,255,255,.07)';
+    sx.fillStyle = cv('--tick', 'rgba(255,255,255,.07)');
     if (cell >= 4 * d) for (let p = 1; p < n; p++) sx.fillRect(Math.round(E(p)), h - 6 * d, Math.max(1, d / 2), 6 * d);
     sx.font = `500 ${9 * d}px Rubik,system-ui`; sx.textAlign = 'left'; sx.textBaseline = 'alphabetic';
     for (let p = 0; p < n; p += every) {
-      sx.fillStyle = 'rgba(255,255,255,.16)'; sx.fillRect(Math.round(E(p)), h - 12 * d, Math.max(1, d / 2), 12 * d);
-      if (E(p) + 3 * d + sx.measureText(String(p + 1)).width < w - 2 * d) { sx.fillStyle = 'rgba(236,238,241,.42)'; sx.fillText(String(p + 1), E(p) + 3 * d, h - 4 * d); }
+      sx.fillStyle = cv('--tick2', 'rgba(255,255,255,.16)'); sx.fillRect(Math.round(E(p)), h - 12 * d, Math.max(1, d / 2), 12 * d);
+      if (E(p) + 3 * d + sx.measureText(String(p + 1)).width < w - 2 * d) { sx.fillStyle = cv('--rulerTxt', 'rgba(236,238,241,.42)'); sx.fillText(String(p + 1), E(p) + 3 * d, h - 4 * d); }
     }
     // retime sections: slow darker blue, fast lighter blue, hold pale, cut coral (a thin mark once it's gone)
     for (let p = 0; p < n;) {
@@ -537,7 +539,11 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     setWarp(TW.setTangent(warp, i, t), { sel: i });
   };
   $('wDel').onclick = () => { const i = selIndex(); const k = i >= 0 && TW.deleteKey(warp, i); if (k) setWarp(k, { sel: -1 }); };
-  $('secReset').onclick = () => { closeSheets(); inF = outF = null; setWarp(TW.identity(frames.length), { sel: -1 }); };
+  // Reset this span: the span around the playhead plays at real time, later keys slide to keep their shape
+  $('secSpan').onclick = () => { closeSheets(); const k = TW.resetSpan(warp, pos); if (k) setWarp(k, { sel: -1 }); else status('This span already plays at real time', 0), setTimeout(() => status(''), 1600); };
+  // Reset the curve: every key stays on its video frame, all at real time, plain linear
+  $('secReset').onclick = () => { closeSheets(); setWarp(TW.resetAll(warp), { sel: -1 }); };
+  $('secClearAll').onclick = () => { closeSheets(); inF = outF = null; setWarp(TW.identity(frames.length), { sel: -1 }); };
   $('wFrame').onclick = () => { wView = wView ? null : TW.frameView(warp, pos); drawCurve(); };
 
   // the curve: played frames across, video frames up; the faint diagonal is the original timing
@@ -555,10 +561,10 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     wx.clearRect(0, 0, w, h);
     // grid every 10 or 50 frames
     const stepX = (v.x1 - v.x0) > 150 ? 50 : (v.x1 - v.x0) > 30 ? 10 : 5;
-    wx.strokeStyle = 'rgba(255,255,255,.05)'; wx.lineWidth = d;
+    wx.strokeStyle = 'rgba(0,0,0,.06)'; wx.lineWidth = d;
     for (let x = Math.ceil(v.x0 / stepX) * stepX; x < v.x1; x += stepX) { wx.beginPath(); wx.moveTo(CX(v, x), 0); wx.lineTo(CX(v, x), h); wx.stroke(); }
     for (let y = Math.ceil(v.y0 / stepX) * stepX; y < v.y1; y += stepX) { wx.beginPath(); wx.moveTo(0, CY(v, y)); wx.lineTo(w, CY(v, y)); wx.stroke(); }
-    wx.strokeStyle = 'rgba(255,255,255,.12)'; wx.setLineDash([4 * d, 4 * d]);
+    wx.strokeStyle = 'rgba(0,0,0,.16)'; wx.setLineDash([4 * d, 4 * d]);
     wx.beginPath(); wx.moveTo(CX(v, 0), CY(v, 0)); wx.lineTo(CX(v, frames.length - 1), CY(v, frames.length - 1)); wx.stroke(); wx.setLineDash([]);
     // In-Out range
     if (inF != null || outF != null) { wx.fillStyle = 'rgba(74,117,144,.18)'; wx.fillRect(CX(v, lo()), 0, CX(v, hi()) - CX(v, lo()), h); }
@@ -572,7 +578,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     }
     wx.stroke();
     // playhead
-    wx.strokeStyle = '#ECEEF1'; wx.lineWidth = 1.5 * d; wx.beginPath(); wx.moveTo(CX(v, pos), 0); wx.lineTo(CX(v, pos), h); wx.stroke();
+    wx.strokeStyle = '#33312D'; wx.lineWidth = 1.5 * d; wx.beginPath(); wx.moveTo(CX(v, pos), 0); wx.lineTo(CX(v, pos), h); wx.stroke();
     // keys: stepped as squares, flat as bars, smooth and linear as dots (linear hollow)
     warp.forEach((k, i) => {
       const px = CX(v, k.x), py = CY(v, k.y), on = i === selIndex(), r = (on ? 7 : 5) * d;

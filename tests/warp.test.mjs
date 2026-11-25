@@ -127,3 +127,37 @@ test('frame keys: the view spans the 3 keys before the playhead and the 3 after,
   const flat = frameView(holdRange(identity(40), 0, 39), 5);
   assert.ok(flat.y1 - flat.y0 >= 4, 'a flat stretch still gets some height');
 });
+
+// ---------- reset: keys stay, the curve goes back to real time
+import { resetSpan, resetAll } from '../js/warp.js';
+const K = (x, y, t = 'linear') => ({ x, y, t });
+
+test('resetting a slowed span plays it at real time and slides the later keys sooner, shape kept', () => {
+  // frames 0-10 at real time, 10-30 shows 10-20 (half speed), then real time again
+  const keys = [K(0, 0), K(10, 10, 'smooth'), K(30, 20, 'flat'), K(40, 30, 'smooth'), K(50, 40)];
+  const out = resetSpan(keys, 15);
+  assert.deepEqual(out, [K(0, 0), K(10, 10), K(20, 20), K(30, 30, 'smooth'), K(40, 40)]);
+});
+test('resetting a sped-up span stretches it and slides the later keys later', () => {
+  const keys = [K(0, 0), K(5, 20), K(15, 30)];
+  assert.deepEqual(resetSpan(keys, 2), [K(0, 0), K(20, 20), K(30, 30)]);
+});
+test('resetting a hold takes the hold out: its two keys become one and the rest close up', () => {
+  const keys = [K(0, 0), K(10, 10, 'step'), K(20, 10), K(30, 20)];
+  assert.deepEqual(resetSpan(keys, 12), [K(0, 0), K(10, 10), K(20, 20)]);
+});
+test('a playhead on or past the last key resets the last span', () => {
+  const keys = [K(0, 0), K(10, 5)];
+  assert.deepEqual(resetSpan(keys, 10), [K(0, 0), K(5, 5)]);
+});
+test('a span already at real time with plain keys is left alone', () => {
+  assert.equal(resetSpan([K(0, 0), K(10, 10)], 3), null);
+});
+
+test('resetting the whole curve keeps every key on its video frame, at real time, plain linear', () => {
+  const keys = [K(0, 0), K(10, 10, 'step'), K(20, 10), K(30, 15, 'smooth'), K(40, 40, 'flat')];
+  assert.deepEqual(resetAll(keys), [K(0, 0), K(10, 10), K(15, 15), K(40, 40)]);
+});
+test('a curve that starts past frame 0 keeps that start', () => {
+  assert.deepEqual(resetAll([K(0, 6), K(4, 30)]), [K(0, 6), K(24, 30)]);
+});
