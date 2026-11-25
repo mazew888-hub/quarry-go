@@ -11,7 +11,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.6.4';
+export const VERSION = '0.6.5';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -244,7 +244,7 @@ async function openReview(id) {
     const clip = await S.getClip(id);
     if (stale()) return;
     if (!clip) { $('reviews').classList.remove('busy'); fileMode = { kind: 'repick', id, day: dayOf(review) }; $('reviews').classList.add('show'); show('missing'); return; }
-    try { status('Opening…', 0); media = await loadFrames(clip, { log }); }
+    try { status('Opening…', 0); media = await loadFrames(clip, { log, fps: review.fps }); }
     catch (err) { status(''); if (!stale()) { toast(err.message); location.hash = '#/'; } return; }
     status('');
     if (stale()) { media.cancel(); return; }

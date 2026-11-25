@@ -1,6 +1,7 @@
 // Loads every frame of a clip into memory, so scrubbing and any play rate are exact.
 // Returns as soon as the size and frame rate are known; frames fill in while the player is in use.
 import { decodeGif, scanGif, gifTimeline } from './gif.js';
+import { demux } from './demux.js';
 
 export const CANT_OPEN = "This clip can't be opened here";
 const tooLong = n => `This clip is too long to hold on the phone (${n} frames)`;
@@ -8,10 +9,68 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 const MAX_W = 960;
 
 // The returned media has cancel(): it stops loading and frees every frame. Call it when the clip is left.
-export async function loadFrames(blob, { maxBytes = 900e6, log = () => {} } = {}) {
+// fps: the clip's rate if already known (measured when it was added), which saves measuring it again.
+export async function loadFrames(blob, { maxBytes = 900e6, log = () => {}, fps = 0 } = {}) {
   const head = new Uint8Array(await blob.slice(0, 6).arrayBuffer());
   const isGif = blob.type === 'image/gif' || String.fromCharCode(...head).startsWith('GIF8');
-  return isGif ? loadGif(blob, maxBytes, log) : loadVideo(blob, maxBytes, log);
+  if (isGif) return loadGif(blob, maxBytes, log);
+  const fast = await loadDecoded(blob, maxBytes, log).catch(e => { if (e.message.startsWith('This clip is too long')) throw e; log('decoder: ' + e.message); return null; });
+  return fast || loadVideo(blob, maxBytes, log, fps);
+}
+
+// The fast way, where the phone has a video decoder (WebCodecs): read the file's pictures straight out
+// of the MP4/MOV and decode them all at once, rather than playing or seeking a <video> to each frame.
+// Returns null when it can't (no decoder, a format or codec it doesn't take), before anything is shown.
+async function loadDecoded(blob, maxBytes, log) {
+  if (!('VideoDecoder' in window) || !('EncodedVideoChunk' in window)) return null;
+  const buf = await blob.arrayBuffer();
+  const v = demux(buf); if (!v || !v.samples.length) return null;
+  const config = { codec: v.codec, codedWidth: v.width, codedHeight: v.height, description: v.description };
+  try { if (!(await VideoDecoder.isConfigSupported(config)).supported) return null; } catch { return null; }
+  const scale = Math.min(1, MAX_W / v.width);
+  const W = Math.round(v.width * scale), H = Math.round(v.height * scale), count = v.samples.length;
+  if (count * W * H * 4 > maxBytes) throw new Error(tooLong(count));
+  const us = x => Math.round(x * 1e6 / v.timescale);
+  const order = new Map([...v.samples].map(x => us(x.pts)).sort((a, b) => a - b).map((t, i) => [t, i]));
+  const m = media(v.fps, count, W, H);
+  const t0 = performance.now(), pending = [];
+  let failed = null, got = 0, first;
+  const firstOut = new Promise(r => { first = r; });
+  const dec = new VideoDecoder({
+    output: f => {
+      const i = order.get(f.timestamp);
+      if (m.cancelled || i == null) { f.close(); return; }
+      pending.push(createImageBitmap(f, { resizeWidth: W, resizeHeight: H, resizeQuality: 'medium' })
+        .then(b => { if (m.cancelled || m.frames[i]) { b.close && b.close(); return; } m.frames[i] = b; got++; first(true); m.onFrame && m.onFrame(); })
+        .catch(e => { failed = failed || e; })
+        .finally(() => f.close()));
+    },
+    error: e => { failed = e; first(false); },
+  });
+  dec.configure(config);
+  m.cleanup = () => { try { if (dec.state !== 'closed') dec.close(); } catch {} };
+  const feed = (async () => {
+    for (const x of v.samples) {
+      if (m.cancelled || failed) return;
+      dec.decode(new EncodedVideoChunk({ type: x.key ? 'key' : 'delta', timestamp: us(x.pts), data: new Uint8Array(buf, x.offset, x.size) }));
+      while (dec.decodeQueueSize > 6 && !m.cancelled && !failed) await wait(2);
+    }
+    if (!m.cancelled && !failed) await dec.flush();
+  })();
+  // only show the player once a picture has really come out; otherwise go the slow way
+  const ok = await Promise.race([firstOut, feed.then(() => got > 0), wait(4000).then(() => false)]);
+  if (!ok || failed) { m.cancel(); log('decoder: no pictures, using the video player instead'); return null; }
+  m.done = (async () => {
+    try { await feed; } catch (e) { failed = failed || e; }
+    await Promise.all(pending);
+    m.cleanup(); m.cleanup = () => {};
+    if (m.cancelled) return;
+    // a picture the decoder didn't give back shows the one before it
+    for (let i = 0; i < count; i++) if (!m.frames[i]) m.frames[i] = m.frames[i - 1] || m.frames.find(Boolean) || null;
+    m.loading = false; m.onFrame && m.onFrame();
+    log(`${v.width}x${v.height}, ${v.fps} fps, ${count} frames (${v.codec}), loaded in ${((performance.now() - t0) / 1000).toFixed(1)}s${failed ? ' — decoder: ' + failed.message : ''}`);
+  })();
+  return m;
 }
 
 function media(fps, count, W, H) {
@@ -102,13 +161,13 @@ async function detectFps(v, log) {
   return [12, 15, 23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60].reduce((a, b) => Math.abs(b - raw) < Math.abs(a - raw) ? b : a, 24);
 }
 
-async function loadVideo(blob, maxBytes, log) {
+async function loadVideo(blob, maxBytes, log, knownFps = 0) {
   const url = URL.createObjectURL(blob);
   let v;
   try { v = await vid(url); } catch (e) { URL.revokeObjectURL(url); throw e; }
   const quit = () => { URL.revokeObjectURL(url); v.remove(); };
   log(`opened: ${v.videoWidth}x${v.videoHeight}, ${(v.duration || 0).toFixed(2)}s`);
-  const fps = await detectFps(v, log);
+  const fps = knownFps || await detectFps(v, log);   // measuring plays the clip: skipped when the rate is known
   const dur = v.duration;
   if (!v.videoWidth || !isFinite(dur)) { quit(); throw new Error(CANT_OPEN); }
   const count = Math.max(1, Math.round(dur * fps));

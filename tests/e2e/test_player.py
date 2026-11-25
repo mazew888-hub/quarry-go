@@ -399,3 +399,19 @@ def test_leaving_the_player_stops_an_export(page):
     page.wait_for_timeout(4500)                      # longer than the whole export would take
     assert not page.locator('#status').is_visible()
     assert 'exported' not in page.inner_text('#log2')
+
+def lum(page):
+    return page.evaluate('''() => { const c = document.getElementById('cv'), x = c.getContext('2d');
+        const d = x.getImageData(c.width * 0.75, c.height * 0.75, 1, 1).data; return d[0]; }''')
+
+def test_mp4_frames_come_from_the_decoder_in_display_order(page):
+    for clip in ('ramp.mp4', 'ramp.mov'):
+        open_clip(page, clip); loaded(page)
+        log = page.inner_text('#log2')
+        assert 'avc1' in log and '30 frames' in log, log
+        assert fr(page).endswith('/ 30')
+        seen = []
+        for i in range(30):
+            scrub_to(page, i, 30); page.wait_for_timeout(30); seen.append(lum(page))
+        # the picture brightens frame by frame (8 levels a frame): every frame in its place, B-frames included
+        assert all(b > a for a, b in zip(seen[2:], seen[3:])), seen

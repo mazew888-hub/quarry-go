@@ -99,7 +99,7 @@ export function openExport(veil, info, { getClip, toast = () => {}, log = () => 
           const clip = await getClip(v.id);
           if (!clip) throw new Error('its clip is missing from this phone');
           step('loading frames');
-          const media = await loadFrames(clip, { log });
+          const media = await loadFrames(clip, { log, fps: v.fps });
           try {
             while (media.loading && !stop) { step(`loading frames ${media.frames.filter(Boolean).length} / ${media.count}`); await sleep(150); }
             if (stop) break;
