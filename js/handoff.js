@@ -23,7 +23,7 @@ export async function packHandoff(reviews, getClip, when = new Date(), onStep = 
     if (clip) {
       item.clip = `clips/${r.id}.${EXT[clip.type] || EXT[r.clipType] || 'bin'}`;
       item.clipType = clip.type || r.clipType || '';
-      entries.push({ name: item.clip, data: await bytes(clip) });
+      entries.push({ name: item.clip, data: clip });   // the saved video itself: nothing is copied
     }
     list.push(item);
   }

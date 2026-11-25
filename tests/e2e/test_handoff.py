@@ -51,3 +51,13 @@ def test_receiving_again_repairs_a_broken_video(page, tmp_path):
     page.set_input_files('#handoffFile', str(z))
     page.wait_for_function("document.getElementById('toast').textContent.includes('Fixed 1 video')", timeout=30000)
     cards(page).first.click(); in_player(page)
+
+def test_receive_several_files_at_once(page, tmp_path):
+    home(page); new_review(page); in_player(page); back(page)
+    z1 = send(page, tmp_path, 'a.zip')
+    new_review(page); in_player(page); back(page)
+    z2 = send(page, tmp_path, 'b.zip')
+    wipe(page)
+    page.set_input_files('#handoffFile', [str(z1), str(z2)])
+    page.wait_for_function("document.querySelectorAll('.rv-clip').length === 2", timeout=30000)
+    assert 'Added 2 videos' in page.inner_text('#toast')

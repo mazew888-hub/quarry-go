@@ -47,3 +47,10 @@ test('the handoff file name says which day it is', async () => {
   assert.equal(f.name, 'Quarry Go handoff 2026-11-24.zip');
   assert.ok(HANDOFF_JSON);
 });
+
+test('packing never reads the videos, so Send is instant', async () => {
+  class Untouched extends Blob { arrayBuffer() { throw new Error('read the video'); } }
+  const f = await packHandoff([rv('a', 1)], async () => new Untouched([new Uint8Array([7, 7, 7])], { type: 'video/mp4' }));
+  const got = await readHandoff(f);
+  assert.deepEqual([...new Uint8Array(await (await got.clip('a')).arrayBuffer())], [7, 7, 7]);
+});

@@ -13,7 +13,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.2';
+export const VERSION = '0.9.3';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -104,6 +104,7 @@ async function showDay(day) {
   }, thumbUrl);
   $('reviews').classList.add('show');
   fileMode = { kind: 'add', day };
+  prepareSend(day, info.videos.map(v => v.id));
   repairThumbs(info.videos);
 }
 // Old previews (stored as pictures) become bytes; missing or broken ones are made again from the video.
@@ -180,19 +181,41 @@ async function settings() {
 }
 
 // ---------- handoff: send a day's videos to another device (AirDrop), receive them there
-async function sendDay(info) {
+// The handoff file is made as soon as a day is shown (it only points at the saved videos, so it's quick),
+// which lets Send open the share sheet straight away: iOS only allows that right on the tap.
+let prepared = null;
+async function prepareSend(day, ids) {
+  prepared = { day, file: null };
+  const mine = prepared;
+  try {
+    const fresh = (await Promise.all(ids.map(id => S.getReview(id)))).filter(Boolean);
+    if (fresh.length) mine.file = await packHandoff(fresh, S.getClip);
+  } catch (e) { log('handoff: ' + e.message); }
+}
+const RECEIVE_HINT = 'On the other device: Quarry Go → Receive.';
+function shareNow(file) {
+  if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia('(pointer: coarse)').matches) {
+    navigator.share({ files: [file] }).then(() => toast(RECEIVE_HINT, 5000))
+      .catch(e => { if (e.name !== 'AbortError') toast(e.message); });
+  } else deliver(file);
+}
+function sendDay(info) {
   if (!info.videos.length) return;
+  if (prepared && prepared.day === info.day && prepared.file) { shareNow(prepared.file); return; }
+  sendDaySlow(info);
+}
+async function sendDaySlow(info) {
   await save();
   $('reviews').classList.add('busy');
   let file;
   try {
-    const fresh = await Promise.all(info.videos.map(v => S.getReview(v.id)));
-    file = await packHandoff(fresh.filter(Boolean), S.getClip, new Date(),
-      (r, i) => status(`Packing ${i + 1} of ${fresh.length}…`, i / fresh.length));
+    status('Getting ready…', 0);
+    const fresh = (await Promise.all(info.videos.map(v => S.getReview(v.id)))).filter(Boolean);
+    file = await packHandoff(fresh, S.getClip);
     log(`handoff ${file.name}: ${(file.size / 1e6).toFixed(1)} MB`);
   } catch (e) { toast(e.message, 5000); return; }
   finally { status(''); $('reviews').classList.remove('busy'); }
-  await deliver(file, { cap: 'Ready to send', btn: 'Send', hint: 'Pick AirDrop, then your other device. There, open Quarry Go and tap Receive.' });
+  await deliver(file, { cap: 'Ready to send', btn: 'Send', hint: `Pick AirDrop, then your other device. ${RECEIVE_HINT}` });
 }
 async function sameClip(a, b) {
   if (!a || a.size !== b.size) return false;
@@ -202,34 +225,40 @@ async function sameClip(a, b) {
   } catch { return false; }
 }
 $('handoffFile').onchange = async e => {
-  const f = e.target.files[0]; e.target.value = '';
-  if (!f) return;
+  const files = [...e.target.files]; e.target.value = '';
+  if (!files.length) return;
   await save();
   $('reviews').classList.add('busy');
-  let plan, days, fixed = 0;
+  let added = 0, updated = 0, fixed = 0; const days = new Set(), bad = [];
   try {
-    status('Reading…', 0);
-    const got = await readHandoff(f);
-    plan = mergePlan(await S.listReviews(), got.reviews);
-    const todo = [...plan.add, ...plan.update];
-    for (const [i, r] of todo.entries()) {
-      status(`Adding ${i + 1} of ${todo.length}…`, i / todo.length);
-      await S.putReceived(r, await got.clip(r.id));
+    for (const [k, f] of files.entries()) {
+      const of = files.length > 1 ? ` (file ${k + 1} of ${files.length})` : '';
+      try {
+        status('Reading…' + of, 0);
+        const got = await readHandoff(f);
+        const plan = mergePlan(await S.listReviews(), got.reviews), todo = [...plan.add, ...plan.update];
+        for (const [i, r] of todo.entries()) {
+          status(`Adding ${i + 1} of ${todo.length}…${of}`, i / todo.length);
+          await S.putReceived(r, await got.clip(r.id));
+        }
+        // a video this device already has but whose saved copy differs (a broken earlier receive) is put back
+        for (const r of plan.skip) {
+          const theirs = await got.clip(r.id); if (!theirs) continue;
+          if (!await sameClip(await S.getClip(r.id).catch(() => null), theirs)) { await S.putClip(r.id, theirs); fixed++; }
+        }
+        added += plan.add.length; updated += plan.update.length;
+        for (const r of got.reviews) days.add(dayOf(r));
+      } catch (err) { bad.push(err.message); if (/space/i.test(err.message)) break; }
     }
-    // a video this device already has but whose saved copy differs (a broken earlier receive) is put back
-    for (const r of plan.skip) {
-      const theirs = await got.clip(r.id); if (!theirs) continue;
-      if (!await sameClip(await S.getClip(r.id).catch(() => null), theirs)) { await S.putClip(r.id, theirs); fixed++; }
-    }
-    days = [...new Set(got.reviews.map(dayOf))];
-  } catch (err) { toast(err.message, 5000); return; }
-  finally { status(''); $('reviews').classList.remove('busy'); }
+  } finally { status(''); $('reviews').classList.remove('busy'); }
   const n = (k, w) => `${k} ${w}${k === 1 ? '' : 's'}`, parts = [];
-  if (plan.add.length) parts.push(`added ${n(plan.add.length, 'video')}`);
-  if (plan.update.length) parts.push(`updated ${plan.update.length}`);
+  if (added) parts.push(`added ${n(added, 'video')}`);
+  if (updated) parts.push(`updated ${updated}`);
   if (fixed) parts.push(`fixed ${n(fixed, 'video')}`);
-  toast(parts.length ? parts.join(', ').replace(/^./, c => c.toUpperCase()) + '.' : 'Already up to date: nothing newer in that file.', 4500);
-  const go = days.length === 1 ? `#/d/${days[0]}` : '#/';
+  const msg = parts.length ? parts.join(', ').replace(/^./, c => c.toUpperCase()) + '.' : days.size ? 'Already up to date: nothing newer in that file.' : '';
+  toast([msg, bad[0]].filter(Boolean).join(' '), 5000);
+  if (!days.size) return;
+  const go = days.size === 1 ? `#/d/${[...days][0]}` : '#/';
   if (location.hash !== go) location.hash = go; else showCurrent();
 };
 // ---------- adding videos (several at once) and picking a missing clip again
