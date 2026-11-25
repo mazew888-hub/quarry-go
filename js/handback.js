@@ -2,14 +2,15 @@
 // model.dart, maya_export.dart and engine/maya_drop.py): a .quarrynotes file, a Maya time warp .py and
 // the Maya image-plane .py. Pure functions; the exporter renders the pictures.
 import { holdOf, legacyHolds, isDrawn } from './draw.js';
+import { fromSections, identity, isIdentity, mayaRows } from './warp.js';
 
 export const NOTES_EXT = 'quarrynotes';
 const RED = '#FF3B5C';
 export const stemOf = name => { const s = String(name || ''); const dot = s.lastIndexOf('.'); return dot > 0 ? s.slice(0, dot) : s; };
 // The folder a video's files go in, in the zip (Quarry's folderFor: no characters Windows refuses).
 export const folderFor = r => String(r.name || 'Clip').replace(/[<>:"/\\|?*]/g, '-').trim() || 'Clip';
-export const hasNotes = r => (r.marks || []).length > 0 || (!!r.retimed && (r.secs || []).length > 0);
-export const isRetimed = r => !!r.retimed && (r.secs || []).length > 0;
+export const isRetimed = r => { const k = !!r.retimed && warpOf(r); return !!k && !isIdentity(k, r.frameCount || (k[k.length - 1].y + 1)); };
+export const hasNotes = r => (r.marks || []).length > 0 || isRetimed(r);
 
 const round = v => Math.round(v * 100) / 100;
 const argb = hex => (0xFF000000 | parseInt(String(hex || RED).replace('#', '').slice(0, 6), 16)) >>> 0;
@@ -50,34 +51,19 @@ export function quarryNotes(r, { now = new Date(), id = () => (crypto.randomUUID
   };
 }
 
-// ---------- time warp: the retime as keys on Maya's time warp curve (output frame → source frame)
-export function warpKeys(n, secs) {
-  const keys = [];
-  const put = (x, y, step = false) => {
-    const last = keys[keys.length - 1];
-    if (last && last.x === x) { last.y = y; last.step = step; } else keys.push({ x, y, step });
-  };
-  let o = 0, f = 0, tail = null;
-  for (const z of [...secs].sort((a, b) => a.a - b.a)) {
-    if (z.a > f) { put(o, f); o += z.a - f; f = z.a; tail = { x: o - 1, y: f - 1 }; }
-    if (z.type === 'cut') { if (o > 0) put(o - 1, f - 1, true); f = z.b + 1; continue; }
-    const len = z.b - z.a + 1;
-    if (z.type === 'hold') { put(o, z.a); put(o + len - 1, z.a, true); o += len; tail = { x: o - 1, y: z.a }; }
-    else { const m = Math.max(1, Math.round(len / z.r)); put(o, z.a); o += m; tail = { x: o - 1, y: z.a + (m - 1) * len / m }; }
-    f = z.b + 1;
-  }
-  if (f < n) { put(o, f); o += n - f; put(o - 1, n - 1); }
-  else if (tail && tail.x > keys[keys.length - 1].x) put(tail.x, tail.y);
-  if (!keys.length) keys.push({ x: 0, y: 0, step: false });
-  return keys;
+// ---------- time warp: the review's curve (or, for reviews from before time warp, its old sections)
+export function warpOf(r) {
+  if (r.warp && r.warp.keys && r.warp.keys.length) return r.warp.keys;
+  if ((r.secs || []).length) return fromSections(r.frameCount, r.secs);
+  return null;
 }
+export const warpKeys = (n, secs) => fromSections(n, secs).map(k => ({ x: k.x, y: k.y, step: k.t === 'step' }));
 
 const num = v => { let s = v.toFixed(5); if (s.includes('.')) s = s.replace(/\.?0+$/, ''); return s === '-0' ? '0' : s; };
 
-// Quarry's mayaTimeWarpCode, with linear keys (stepped where a hold ends or a cut jumps).
+// Quarry's mayaTimeWarpCode: the curve's keys with their tangents (smooth keys go in as fixed slopes).
 function timeWarpCode(keys, fps) {
-  const x0 = keys[0].x, y0 = keys[0].y;
-  const rows = keys.map(k => `(${num(k.x - x0)},${num(k.y - y0)},0,0,"linear","${k.step ? 'step' : 'linear'}",${k.step ? 0 : 1})`);
+  const rows = mayaRows(keys).map(k => `(${num(k.x)},${num(k.y)},${num(k.in)},${num(k.out)},"${k.it}","${k.ot}",${k.unified})`);
   return [
     'import maya.cmds as c, math',
     `K=[${rows.join(',')}]`,
@@ -134,7 +120,7 @@ export function timeWarpPy(r) {
     '#',
     '# Made by Quarry Go. Nothing is sent anywhere.',
     '',
-    `_CODE = ${JSON.stringify(timeWarpCode(warpKeys(r.frameCount, r.secs || []), r.fps))}`,
+    `_CODE = ${JSON.stringify(timeWarpCode(warpOf(r) || identity(r.frameCount), r.fps))}`,
     '', '',
     'def _run():',
     '    exec(_CODE, {"__name__": "quarry_time_warp"})',

@@ -71,6 +71,13 @@ test('quarrynotes: reviews from before holds keep their 12 frames', () => {
   const j = quarryNotes({ ...review, holds: undefined });
   assert.equal(j.annotations[0].hold, 12);
 });
+test('time warp .py from a curve: smooth keys go in with their slopes', () => {
+  const py = timeWarpPy({ name: 'g', fps: 24, frameCount: 20, retimed: true,
+    warp: { keys: [{ x: 0, y: 0, t: 'linear' }, { x: 10, y: 5, t: 'smooth' }, { x: 20, y: 19, t: 'flat' }] } });
+  const code = JSON.parse(py.match(/^_CODE = (.*)$/m)[1]);
+  assert.match(code, /\(10,5,0\.95,0\.95,"fixed","fixed",1\)/);
+  assert.match(code, /\(20,19,0,0,"flat","flat",1\)/);
+});
 test('hasNotes: marks or an applied retime', () => {
   assert.equal(hasNotes({ marks: [], secs: [] }), false);
   assert.equal(hasNotes({ marks: [{ type: 'note' }], secs: [] }), true);
@@ -116,7 +123,7 @@ test('time warp .py: Quarry\'s Maya file with relative keys', () => {
   assert.match(py, /^# -\*- coding: utf-8 -\*-\n# QUARRY TIME WARP: grunt\.mp4\n/);
   assert.match(py, /def onMayaDroppedPythonFile\(\*args\):/);
   const code = JSON.parse(py.match(/^_CODE = (.*)$/m)[1]);
-  assert.match(code, /^import maya\.cmds as c, math\nK=\[\(0,0,0,0,"linear","linear",1\),/);
+  assert.match(code, /^import maya\.cmds as c, math\nK=\[\(0,0,1,1,"linear","linear",1\),/);
   assert.match(code, /\(9,5,0,0,"linear","step",0\)/); // the held frame, then a jump
   assert.match(code, /\nF=24\n/);
 });
