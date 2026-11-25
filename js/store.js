@@ -21,7 +21,9 @@ function db() {
 }
 const req = rq => new Promise((res, rej) => { rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error); });
 const done = tx => new Promise((res, rej) => { tx.oncomplete = () => res(); tx.onerror = tx.onabort = () => rej(tx.error || new DOMException('aborted', 'AbortError')); });
-const isFull = e => e && (e.name === 'QuotaExceededError' || /quota/i.test(e.message || ''));
+// iPhone (WebKit) often reports a full phone as a bare UnknownError rather than QuotaExceededError.
+const isFull = e => e && (e.name === 'QuotaExceededError' || e.name === 'UnknownError' || /quota|space/i.test(e.message || ''));
+export const friendlySaveError = (e, msg = FULL) => isFull(e) ? new Error(msg) : e;
 // Previews are kept as plain bytes: on iPhone a stored picture (Blob) can come back broken once its record
 // has been saved again (WebKit), which is what happened to the preview of a video just watched.
 export const thumbBlob = t => t instanceof Blob ? t : new Blob([t], { type: 'image/jpeg' });
@@ -43,7 +45,7 @@ export async function createReview(meta, clip) {
   } catch (e) {
     try { tx.abort(); } catch {}
     await finished.catch(() => {});
-    throw isFull(e) ? new Error(FULL) : e;
+    throw friendlySaveError(e);
   }
   return review;
 }
@@ -57,7 +59,7 @@ export async function getReview(id) { const d = await db(); return (await req(d.
 export async function getClip(id) { const d = await db(); return (await req(d.transaction('clips').objectStore('clips').get(id))) ?? null; }
 export async function putClip(id, blob) {
   const d = await db(); const tx = d.transaction('clips', 'readwrite');
-  try { tx.objectStore('clips').put(blob, id); await done(tx); } catch (e) { throw isFull(e) ? new Error(FULL) : e; }
+  try { tx.objectStore('clips').put(blob, id); await done(tx); } catch (e) { throw friendlySaveError(e); }
 }
 
 // Saves are merged per review and written 300ms after the last change; flush() writes them now.
@@ -78,7 +80,8 @@ export async function flush() {
     try { await write(batch); }
     catch (e) {
       for (const [id, patch] of batch) pending.set(id, { ...patch, ...(pending.get(id) || {}) });
-      throw new Error("Couldn't save your last change. It will be tried again.");
+      throw isFull(e) ? new Error("Couldn't save your last change: the phone is out of space. Free some up and it will be tried again.")
+        : new Error("Couldn't save your last change. It will be tried again.");
     }
   }
 }

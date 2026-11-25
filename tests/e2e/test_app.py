@@ -88,6 +88,19 @@ def test_missing_clip_repick(page):
     assert 'still here' in page.inner_text('#notes')
     assert page.evaluate("async () => { const S = await import('/js/store.js'); const [r] = await S.listReviews(); return !!(await S.getClip(r.id)); }")
 
+def test_repicked_clip_of_another_length_takes_its_frame_count(page):
+    home(page); new_review(page); in_player(page); back(page)
+    page.wait_for_selector('.rv-clip')
+    page.evaluate('''async () => { const db = await new Promise(r => { const q = indexedDB.open('quarry-go'); q.onsuccess = () => r(q.result); });
+        await new Promise(r => { const tx = db.transaction('clips', 'readwrite'); tx.objectStore('clips').clear(); tx.oncomplete = r; }); db.close(); }''')
+    cards(page).first.click()
+    page.wait_for_selector('#missing.show', timeout=8000)
+    page.set_input_files('#file', str(FIX / 'mixed.gif'))
+    in_player(page)
+    assert page.inner_text('#fr').endswith('/ 7')
+    r = page.evaluate("async () => { const S = await import('/js/store.js'); await S.flush(); const [r] = await S.listReviews(); return r; }")
+    assert r['frameCount'] == 7 and r['fileName'] == 'mixed.gif'
+
 def test_rename_delete(page):
     home(page); new_review(page); in_player(page); back(page)
     bx = cards(page).first.bounding_box()

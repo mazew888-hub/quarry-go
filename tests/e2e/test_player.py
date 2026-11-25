@@ -388,3 +388,14 @@ def test_rotating_keeps_the_video_in_shape(page):
         page.wait_for_function('''() => { const c = document.getElementById('cv'), r = c.getBoundingClientRect(), d = devicePixelRatio;
             return Math.abs(c.width - r.width * d) < 2 && Math.abs(c.height - r.height * d) < 2; }''', timeout=3000)
         assert fits()
+
+def test_leaving_the_player_stops_an_export(page):
+    from test_app import home, new_review, in_player, back
+    page.add_init_script("window.__slowExport = 40")   # ms per frame, so the export is still going when we leave
+    home(page); new_review(page); in_player(page)
+    page.click('#more'); page.click('#export')
+    page.wait_for_function("document.getElementById('stxt').textContent.startsWith('Exporting')", timeout=10000)
+    back(page)
+    page.wait_for_timeout(4500)                      # longer than the whole export would take
+    assert not page.locator('#status').is_visible()
+    assert 'exported' not in page.inner_text('#log2')

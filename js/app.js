@@ -10,7 +10,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.6.2';
+export const VERSION = '0.6.3';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -205,7 +205,14 @@ $('file').onchange = async e => {
   if (mode.kind === 'repick') {
     let info;
     try { status('Opening…', 0); info = await probe(files[0]); } catch (err) { toast(err.message); return; } finally { status(''); }
-    try { await S.putClip(mode.id, files[0]); S.saveReview(mode.id, { clipType: files[0].type, thumb: info.thumb }); await S.flush(); }
+    try {
+      // the new clip may be a different length or size: the review takes all of its details, and an
+      // in/out range that no longer fits is cleared
+      const old = await S.getReview(mode.id), fit = f => f != null && f < info.frameCount ? f : null;
+      await S.putClip(mode.id, files[0]);
+      S.saveReview(mode.id, { clipType: files[0].type, fileName: files[0].name || '', ...info, inF: fit(old?.inF), outF: fit(old?.outF) });
+      await S.flush();
+    }
     catch (err) { toast(err.message); return; }
     hide('missing'); openReview(mode.id);
     return;

@@ -657,7 +657,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   // ---------- export
   // exports carry the tracing paper (as Quarry's do) but not the onion skin
   const exportCompose = (...a) => { quietAids = true; try { compose(...a); } finally { quietAids = false; } };
-  const exportCtx = () => ({ frames, fps, W, H, marks, warpSeq: warped() ? TW.frameMap(warp, frames.length) : null, name, compose: exportCompose, closeSheets, stop, loading: () => media.loading });
+  const exportCtx = () => ({ frames, fps, W, H, marks, warpSeq: warped() ? TW.frameMap(warp, frames.length) : null, name, compose: exportCompose, closeSheets, stop, loading: () => media.loading, left: () => ac.signal.aborted });
 
   // ---------- drawing aids, in More
   function showAids() {

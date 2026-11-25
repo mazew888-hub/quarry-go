@@ -4,7 +4,7 @@ import { log, status } from './player.js';
 import { roundRect } from './render.js';
 
 export async function exportVideo(kind, ctx) {
-  const { frames, fps, W, H, warpSeq, name, compose, closeSheets, stop, loading } = ctx;  // warpSeq: the time warp's frames, or null
+  const { frames, fps, W, H, warpSeq, name, compose, closeSheets, stop, loading, left = () => false } = ctx;  // left(): the player was closed  // warpSeq: the time warp's frames, or null
   stop(); closeSheets();
   if (loading()) { status('Still loading frames. Try again in a moment.', 0); setTimeout(() => status(''), 2200); return; }
   const both = kind === 'both', ret = kind !== 'notes';
@@ -29,10 +29,12 @@ export async function exportVideo(kind, ctx) {
           oc.setTransform(1, 0, 0, 1, 0, 0); tag(oc, w2 + gap, 'Retimed');
         } else compose(oc, rseq[i], true, warped);
       },
-      onFrame: (i, t) => status(`Exporting frame ${i} / ${t}`, i / t),
+      onFrame: (i, t) => { if (!left()) status(`Exporting frame ${i} / ${t}`, i / t); },
+      stopped: left,
     });
   } catch (e) { status(e.message, 0); setTimeout(() => status(''), 2500); return; }
   const { blob, ext, how } = made;
+  if (!blob) { status(''); log('export stopped: the player was closed'); return; }
   const file = new File([blob], `${name} - ${both ? 'before and after' : warped ? 'retimed' : 'notes'}.${ext}`, { type: blob.type });
   log(`exported ${file.name}: ${(blob.size / 1e6).toFixed(1)} MB in ${((performance.now() - t0) / 1000).toFixed(1)}s (${how})`);
   status('');
@@ -93,6 +95,7 @@ async function encodeVideo({ W, H, fps, total, draw, onFrame = () => {}, stopped
       onFrame(i + 1, total);
       while (enc.encodeQueueSize > 3) await sleep(4);
       if (i % 8 === 7) await sleep(0); // let the screen update
+      if (window.__slowExport) await sleep(window.__slowExport);   // tests only
     }
     await enc.flush();
     if (failed) throw failed;
@@ -112,6 +115,7 @@ async function recordRealtime({ W, H, fps, total, draw, onFrame = () => {}, stop
   let t0 = performance.now(), base = 0;
   for (let i = 0; i < total; i++) {
     if (stopped()) { rec.stop(); await done; return { blob: null, ext: '', how: 'stopped' }; }
+    if (window.__slowExport) await sleep(window.__slowExport);   // tests only
     if (document.hidden) { // off screen: pause, and carry on from here when it's back
       rec.pause(); while (document.hidden && !stopped()) await sleep(200); rec.resume(); t0 = performance.now(); base = i;
     }
