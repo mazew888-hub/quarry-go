@@ -116,6 +116,16 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     const w = sc.width, h = sc.height, d = devicePixelRatio || 1, n = seq.length, X = f => w * (f + 0.5) / n, E = p => w * p / n;
     sx.clearRect(0, 0, w, h);
     const r = (x, y, ww, hh, rr) => { sx.beginPath(); sx.roundRect ? sx.roundRect(x, y, ww, hh, rr) : sx.rect(x, y, ww, hh); sx.fill(); };
+    // Quarry's timeline: a dark frame ruler, a tick at every frame (where they fit) and numbers spaced to read
+    sx.fillStyle = 'rgba(10,12,16,.32)'; r(0, 0, w, h, 6 * d);
+    const cell = w / n, every = [1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000].find(k => k * cell >= 30 * d) || 1000;
+    sx.fillStyle = 'rgba(255,255,255,.07)';
+    if (cell >= 4 * d) for (let p = 1; p < n; p++) sx.fillRect(Math.round(E(p)), h - 6 * d, Math.max(1, d / 2), 6 * d);
+    sx.font = `500 ${9 * d}px Rubik,system-ui`; sx.textAlign = 'left'; sx.textBaseline = 'alphabetic';
+    for (let p = 0; p < n; p += every) {
+      sx.fillStyle = 'rgba(255,255,255,.16)'; sx.fillRect(Math.round(E(p)), h - 12 * d, Math.max(1, d / 2), 12 * d);
+      if (E(p) + 3 * d + sx.measureText(String(p + 1)).width < w - 2 * d) { sx.fillStyle = 'rgba(236,238,241,.42)'; sx.fillText(String(p + 1), E(p) + 3 * d, h - 4 * d); }
+    }
     // retime sections: slow darker blue, fast lighter blue, hold pale, cut coral (a thin mark once it's gone)
     for (let p = 0; p < n;) {
       const z = segAt[p]; let q = p; while (q < n && segAt[q] === z) q++;
@@ -133,14 +143,12 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
       sx.fillStyle = 'rgba(74,117,144,.30)'; r(X(lo()) - 3 * d, h / 2 - 11 * d, X(hi()) - X(lo()) + 6 * d, 22 * d, 6 * d);
       sx.fillStyle = '#86B0C2'; for (const f of [lo(), hi()]) r(X(f) - 2 * d, h / 2 - 13 * d, 4 * d, 26 * d, 2 * d);
     }
-    sx.fillStyle = 'rgba(255,255,255,.08)'; r(0, h / 2 - 3 * d, w, 6 * d, 3 * d);
-    sx.fillStyle = '#ECEEF1'; r(0, h / 2 - 3 * d, X(pos), 6 * d, 3 * d);
     sx.fillStyle = '#E8908C'; for (const m of marks) { const p = firstPos[m.f]; if (p >= 0 && !(retimed && shown && !shown.has(m.f))) r(X(p) - 1.5 * d, h / 2 + 7 * d, 3 * d, 7 * d, 1.5 * d); }
     if (media.loading) { sx.fillStyle = '#6FBF8E'; for (let p = 0; p < n;) { const has = !!frames[seq[p]]; let q = p; while (q < n && !!frames[seq[q]] === has) q++; if (has) sx.fillRect(E(p), h - 3 * d, E(q) - E(p), 2 * d); p = q; } }
     // handle: a plain round knob on the track
-    const hx = Math.max(11 * d, Math.min(w - 11 * d, X(pos)));
-    sx.save(); sx.shadowColor = 'rgba(0,0,0,.5)'; sx.shadowBlur = 6 * d; sx.shadowOffsetY = 2 * d;
-    sx.fillStyle = '#ECEEF1'; sx.beginPath(); sx.arc(hx, h / 2, 10 * d, 0, Math.PI * 2); sx.fill(); sx.restore();
+    // the playhead: Quarry's green block over the current frame's cell
+    { const cw = Math.max(cell, 8 * d), x0 = Math.max(0, Math.min(w - cw, E(pos) + cell / 2 - cw / 2));
+      sx.fillStyle = '#509B7C'; r(x0, 0, cw, h, 3 * d); }
     drawLane();
   }
 

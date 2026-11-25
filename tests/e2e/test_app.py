@@ -37,7 +37,7 @@ def test_new_review_appears(page):
     back(page)
     assert cards(page).count() == 1
     assert cards(page).first.locator('.rv-name').inner_text() == 'clip'
-    assert '1 note' in cards(page).first.inner_text()
+    assert cards(page).first.locator('.pip').get_attribute('title') == '1 note'   # a red dot marks videos with notes
     assert cards(page).first.locator('img').count() == 1
     page.click('#dayBack'); page.wait_for_selector('.rv-day')
     assert 'TODAY' in page.inner_text('.rv-day') and '1 video' in page.inner_text('.rv-day')

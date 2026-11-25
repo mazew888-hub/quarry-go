@@ -55,23 +55,28 @@ export function renderHistory(root, videos, h, thumbUrl, now = Date.now()) {
 
 function badges(v) {
   const notes = v.marks.filter(m => m.type === 'note').length, drawn = v.marks.length - notes;
-  return [notesBadge(notes, notes === 1 ? ' note' : ' notes'), drawn ? `<span class="bd">${plural(drawn, 'drawing')}</span>` : '',
-    isRetimed(v) ? '<span class="bd">Retimed</span>' : ''].join('');
+  return [isRetimed(v) ? '<span class="bd red">Retimed</span>' : '',
+    notes || drawn ? `<span class="pip" title="${notes ? plural(notes, 'note') : plural(drawn, 'drawing')}"><i></i></span>` : ''].join('');
 }
+// a ring: how many of the day's videos have notes
+const ring = (n, of) => {
+  const c = 2 * Math.PI * 18, len = of ? c * n / of : 0;
+  return `<div class="ring" aria-label="${n} of ${of} with notes"><svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="18" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="3"/>${n ? `<circle cx="22" cy="22" r="18" fill="none" stroke="var(--acc)" stroke-width="3" stroke-linecap="round" stroke-dasharray="${len.toFixed(1)} 200" transform="rotate(-90 22 22)"/>` : ''}</svg><b>${n}<small>/${of}</small></b></div>`;
+};
 
 // info: dayInfo(); handlers: { onBack(), onOpen(id), onHold(id), onExport() }. Add videos is a label for the picker.
 export function renderDay(root, info, h, thumbUrl) {
   root.innerHTML = `
-    <header class="rv-head"><button class="btn key" id="dayBack" aria-label="Back">${ICONS.back}</button><h1>${info.title}</h1></header>
-    <div class="acts"><label class="btn" id="addVideos" for="file">${ICONS.plus}Add videos</label>
-      <button class="btn pri" id="exportNotes"${info.count ? '' : ' disabled'}>${ICONS.share}Export notes</button></div>
-    <div class="rv-cap">${plural(info.count, 'video')}${info.withNotes ? ` · ${info.withNotes} with notes` : ''}</div>
-    ${info.count ? `<div class="list rv-list">${info.videos.map(v => `
-      <div class="li rv-clip" data-id="${esc(v.id)}" role="button">
+    <header class="rv-head day-head"><button class="btn key" id="dayBack" aria-label="Back">${ICONS.back}</button>
+      <div class="ttl"><h1>${info.title}</h1><div class="rv-cap">${plural(info.count, 'video')}</div></div>${info.count ? ring(info.withNotes, info.count) : ''}</header>
+    ${info.count ? `<div class="rv-cards">${info.videos.map(v => `
+      <div class="rv-clip" data-id="${esc(v.id)}" role="button">
         <span class="rv-th">${v.thumb ? `<img alt="" src="${thumbUrl(v)}">` : ''}</span>
         <span class="tx"><span class="nm rv-name">${esc(v.name)}</span><span class="mt">${v.frameCount} fr ${badges(v)}</span></span>
       </div>`).join('')}</div>`
-    : `<div class="rv-empty"><p>No videos in this review yet. Add some from Photos or Files.</p></div>`}`;
+    : `<div class="rv-empty"><p>No videos in this review yet. Add some from Photos or Files.</p></div>`}
+    <div class="dock"><div class="tray"><label class="btn" id="addVideos" for="file">${ICONS.plus}Add videos</label>
+      <button class="btn pri" id="exportNotes"${info.count ? '' : ' disabled'}>${ICONS.share}Export notes</button></div></div>`;
   root.querySelector('#dayBack').onclick = () => h.onBack();
   root.querySelector('#exportNotes').onclick = () => h.onExport();
   for (const el of root.querySelectorAll('.rv-clip')) pressable(el, () => h.onOpen(el.dataset.id), () => h.onHold(el.dataset.id));
