@@ -56,7 +56,7 @@ def test_state_restored(page):
     page.click('#inBtn')
     for _ in range(11): page.mouse.click(370, 170)
     page.click('#outBtn')
-    page.click('#secBtn'); page.click('#secRates [data-r="0.5"]')
+    page.click('#secBtn'); page.click('#wShape'); page.click('#secRates [data-r="0.5"]'); page.click('#secBtn')
     page.click('#rateBtn'); page.click('#rateList [data-r="0.25"]')
     back(page); cards(page).first.click(); in_player(page)
     assert page.inner_text('#viewBtn') == 'Retimed'

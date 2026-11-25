@@ -1,6 +1,6 @@
 // Drawing a review's frame with its notes and marks, apart from the player so videos that aren't open
-// can be exported too. state() gives the review's current {marks, holds, secs, retimed}.
-import { isCut } from './retime.js';
+// can be exported too. state() gives the review's current {marks, holds, retimed, shown}: shown is the
+// set of video frames the time warp plays (null when it plays them all), so marks on frames it skips stay hidden.
 import { isDrawn, drawingAt } from './draw.js';
 
 export const HOLD = 12; // frames a note stays on screen (drawings use their own holds)
@@ -38,10 +38,10 @@ export function renderer({ frames, W, H, state }) {
   }
   // Notes show for HOLD frames; drawn marks show while their frame's drawing holds.
   const visible = (f, ret) => {
-    const { marks, holds, secs, retimed } = state();
+    const { marks, holds, retimed, shown } = state();
     if (ret === undefined) ret = retimed;
     const s = drawingAt(marks, holds, f);
-    return marks.filter(m => (isDrawn(m) ? m.f === s : f >= m.f && f < m.f + HOLD) && !(ret && isCut(secs, m.f)));
+    return marks.filter(m => (isDrawn(m) ? m.f === s : f >= m.f && f < m.f + HOLD) && !(ret && shown && !shown.has(m.f)));
   };
   function pic(f) { if (frames[f]) return frames[f]; for (let d = 1; d < frames.length; d++) { if (frames[f - d]) return frames[f - d]; if (frames[f + d]) return frames[f + d]; } return null; }
   function compose(c, f, withNotes = true, ret) {

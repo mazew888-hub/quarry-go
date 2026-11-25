@@ -35,16 +35,35 @@
     <div class="lane"><canvas id="scrub"></canvas><canvas id="drawLane" aria-label="Drawings: drag a bar's end to change how long it holds"></canvas></div>
   </div>
   <div id="pBody">
+    <div id="wPanel" hidden>
+      <div class="wHead"><span class="cap" id="wCap">Time warp</span><span class="sp"></span><span id="wInfo"></span></div>
+      <div class="wBox"><canvas id="wCurve" aria-label="Time warp curve: played frames across, video frames up"></canvas></div>
+      <div class="wRow">
+        <button class="btn" id="wKey"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l6 9-6 9-6-9z"/></svg>Key</button>
+        <button class="btn" id="wLeft" aria-label="Everything after the playhead a frame sooner"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6l-6 6 6 6"/></svg></button>
+        <button class="btn" id="wRight" aria-label="Everything after the playhead a frame later"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6l6 6-6 6"/></svg></button>
+        <button class="btn" id="wUp" aria-label="Selected key a frame later in the video"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg></button>
+        <button class="btn" id="wDown" aria-label="Selected key a frame sooner in the video"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10l6 6 6-6"/></svg></button>
+        <button class="btn" id="wFrame">Frame</button>
+      </div>
+    </div>
     <div id="pNotes"><div class="cap" id="pNotesCap">Notes</div><div class="list" id="pList"></div></div>
     <div id="rail">
       <button class="btn rk" id="annBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 7l3 3"/></svg><span>Draw</span></button>
+      <button class="btn rk" id="secBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Retime</span></button>
       <i class="rsep"></i>
-      <div class="rg" id="railView">
-        <button class="btn rk" id="secBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Retime</span></button>
+      <div class="rg" id="ioView" style="flex:none">
         <button class="btn rk io" id="inBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4v16M8 12h12M15 7l5 5-5 5"/></svg><span>In</span></button>
         <button class="btn rk io" id="outBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4v16M16 12H4M9 7l-5 5 5 5"/></svg><span>Out</span></button>
+      </div>
+      <div class="rg" id="railView">
         <i class="rgrow"></i>
         <button class="btn rk" id="fsBtn" style="display:none" aria-label="Full screen"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      </div>
+      <div class="rg" id="wTray" hidden>
+        <button class="btn rk" id="wTan"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18C8 18 8 6 13 6s5 12 8 12"/><circle cx="13" cy="6" r="2"/></svg><span>Linear</span></button>
+        <button class="btn rk" id="wDel"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/></svg><span>Delete</span></button>
+        <button class="btn rk" id="wShape"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l5-8 4 4 7-12"/></svg><span>Shape</span></button>
       </div>
       <div class="rg" id="tray" hidden>
         <button class="btn rk" id="drawBtn" aria-label="Draw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c3-6 5 2 8-3s4-7 7-4 2 6 3 6"/></svg></button>
@@ -96,10 +115,11 @@
       <div class="row"><span class="sp"></span><button class="btn pri" id="secCustomOk">Set speed</button></div>
     </div>
     <div class="opts" style="margin-top:10px;grid-template-columns:repeat(3,minmax(0,1fr))">
-      <div class="opt" id="secHold">Hold</div><div class="opt" id="secCut" style="color:var(--late)">Cut</div><div class="opt" id="secClear">Clear</div>
+      <div class="opt" id="secHold">Hold</div><div class="opt" id="secCut" style="color:var(--late)">Cut</div><div class="opt" id="secClear">1× again</div>
     </div>
   </div>
-  <div id="secMsg" style="color:var(--mut);display:none;padding:4px 2px 8px">Set In and Out around the frames you want to retime, or put the playhead on a section to change it.</div>
+  <div class="opts" style="margin-top:10px;grid-template-columns:1fr"><div class="opt" id="secReset">Reset the whole time warp</div></div>
+  <div id="secMsg" style="color:var(--mut);display:none;padding:4px 2px 8px">Set In and Out around the frames you want to shape first. Hold freezes them, Cut takes them out, a speed plays them faster or slower.</div>
 </div></div>
 
 <div class="veil" id="noteVeil"><div class="sheet grain">

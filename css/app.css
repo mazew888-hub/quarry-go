@@ -320,3 +320,24 @@ input[type=file]{display:none}
   #penRow{left:max(12px,env(safe-area-inset-left));right:auto;bottom:auto;top:max(8px,env(safe-area-inset-top));margin-left:56px;flex-wrap:nowrap}
   .ui.hide{opacity:0;pointer-events:none}
 }
+
+/* ---- time warp: the curve where the notes were, its tools on the rail ---- */
+#pNotes[hidden],#wPanel[hidden]{display:none}
+#wPanel{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px}
+#wPanel .wHead{display:flex;align-items:baseline;gap:8px;margin:4px 2px 0}
+#wPanel .cap{font-size:11px;font-weight:600;letter-spacing:2px;color:var(--mut);text-transform:uppercase}
+#wPanel .sp{flex:1}
+#wInfo{font-size:11.5px;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#wPanel .wBox{flex:1;min-height:120px;border-radius:12px;background:var(--well);box-shadow:var(--pressed);overflow:hidden}
+#wCurve{width:100%;height:100%;display:block;touch-action:none}
+#wPanel .wRow{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr 1fr 1.2fr;gap:6px}
+#wPanel .wRow .btn{height:46px;padding:0;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-size:13px}
+#wPanel .wRow .ic{width:20px;height:20px}
+#rail .rk:disabled{opacity:.35}
+@media (orientation:landscape) and (max-height:600px){
+  /* sideways the curve floats over the right of the video, above the controls */
+  #wPanel{position:absolute;right:84px;top:max(8px,env(safe-area-inset-top));width:min(46vw,380px);bottom:120px;z-index:3;padding:8px;border-radius:14px;
+    background:rgba(29,32,36,.9);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 8px 24px rgba(0,0,0,.45)}
+  #wPanel .wBox{min-height:60px}
+  #wPanel .wRow .btn{height:38px}
+}

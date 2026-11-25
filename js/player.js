@@ -1,7 +1,8 @@
 // The review player: exact frames, play rate, zoom, loop, notes and shapes, retime sections.
 // Ported from the "Vista review test" spike. One player at a time; state comes in from a review
 // and every edit goes back out through onChange with just the fields that changed.
-import { buildSeq, applySection, isCut, posAtOrAfter, posAtOrBefore } from './retime.js';
+import { posAtOrAfter, posAtOrBefore } from './retime.js';
+import * as TW from './warp.js';
 import { exportVideo } from './export.js';
 import { renderer, roundRect } from './render.js';
 export { roundRect };
@@ -22,25 +23,36 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   const cv = $('cv'), cx = cv.getContext('2d'), sc = $('scrub'), sx = sc.getContext('2d'), lane = $('drawLane'), lx = lane.getContext('2d');
   const { fps, W, H, frames } = media;
   const r0 = review || {};
-  let marks = r0.marks ? [...r0.marks] : [], secs = r0.secs ? [...r0.secs] : [], retimed = !!r0.retimed && secs.length > 0;
+  // The time warp: a curve of keys (warp.js). Reviews from before it keep their Hold / Cut / Speed sections as a curve.
+  let marks = r0.marks ? [...r0.marks] : [];
+  let warp = r0.warp && r0.warp.keys && r0.warp.keys.length ? r0.warp.keys.map(k => ({ ...k }))
+    : (r0.secs || []).length ? TW.fromSections(frames.length, r0.secs) : null;
+  const warped = () => !!warp && !TW.isIdentity(warp, frames.length);
+  let retimed = !!r0.retimed && warped();
   let inF = r0.inF ?? null, outF = r0.outF ?? null, rate = r0.rate || 1, pos = r0.pos || 0;
   // How long each frame's drawing holds. Reviews from before holds existed keep their 12 frames.
   let holds = r0.holds ? { ...r0.holds } : legacyHolds(marks);
   let pen = { color: '#FF3B5C', size: 2 };
   try { pen = { ...pen, ...JSON.parse(localStorage.getItem('qg_pen') || '{}') }; } catch {}
   const undoStack = [];
-  const remember = () => { undoStack.push({ marks: JSON.parse(JSON.stringify(marks)), holds: { ...holds } }); if (undoStack.length > 60) undoStack.shift(); };
-  let seq = [0], segAt = [null], cutMarks = [], firstPos = new Int32Array(1);
+  const remember = () => { undoStack.push({ marks: JSON.parse(JSON.stringify(marks)), holds: { ...holds }, warp: warp && warp.map(k => ({ ...k })) }); if (undoStack.length > 60) undoStack.shift(); };
+  let seq = [0], segAt = [null], cutMarks = [], firstPos = new Int32Array(1), shown = null;
   let cur = 0, playing = false, tool = null, drag = null, zoom = 1, panX = 0, panY = 0;
   const changed = (...keys) => {
-    const o = {}; for (const k of keys) o[k] = { marks, secs, retimed, inF, outF, rate, pos, holds }[k]; onChange(o);
+    const o = {}; for (const k of keys) o[k] = { marks, warp: warp && { keys: warp }, retimed, inF, outF, rate, pos, holds }[k]; onChange(o);
     if (keys.includes('marks') || keys.includes('holds')) renderList();
   };
   const stage = $('stage');
 
   // ---------- timeline
   function rebuild() {
-    const b = buildSeq(frames.length, secs, retimed); seq = b.seq; segAt = b.at; cutMarks = b.cuts;
+    const n = Math.max(1, frames.length);
+    if (retimed && warp) {
+      seq = TW.frameMap(warp, n); shown = new Set(seq);
+      // how each played frame moves: held, slow, fast or 1x (for the scrub bar), and where it jumps ahead
+      segAt = seq.map((v, p) => { const r = TW.rateAt(warp, p); return r <= 0.02 ? HOLDZ : r < 0.95 ? SLOWZ : r > 1.05 ? FASTZ : null; });
+      cutMarks = []; for (let p = 1; p < seq.length; p++) if (seq[p] - seq[p - 1] > 1 && segAt[p] !== FASTZ) cutMarks.push(p);
+    } else { seq = Array.from({ length: n }, (_, i) => i); segAt = seq.map(() => null); cutMarks = []; shown = null; }
     firstPos = new Int32Array(Math.max(1, frames.length)).fill(-1);
     for (let p = seq.length - 1; p >= 0; p--) firstPos[seq[p]] = p;
     pos = Math.max(0, Math.min(seq.length - 1, pos));
@@ -58,6 +70,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     cv.width = Math.max(1, sr.width * d); cv.height = Math.max(1, sr.height * d);
     const r = sc.getBoundingClientRect(); sc.width = r.width * d; sc.height = r.height * d;
     const lr = lane.getBoundingClientRect(); lane.width = lr.width * d; lane.height = lr.height * d;
+    if (!$('wPanel').hidden) sizeCurve();
   }
   function view() {
     const d = devicePixelRatio || 1, fit = Math.min(cv.width / W, cv.height / H), s = fit * zoom;
@@ -70,10 +83,11 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   }
 
   // ---------- marks (drawn by render.js, shared with the review exporter)
-  const { drawMark, visible, compose } = renderer({ frames, W, H, state: () => ({ marks, holds, secs, retimed }) });
+  const { drawMark, visible, compose } = renderer({ frames, W, H, state: () => ({ marks, holds, retimed, shown }) });
 
   // ---------- drawing
-  const secLabel = z => z.type === 'speed' ? fmt(z.r) : z.type;
+  const HOLDZ = { type: 'hold' }, SLOWZ = { type: 'speed', r: 0.5 }, FASTZ = { type: 'speed', r: 2 };
+  const secLabel = z => z === HOLDZ ? 'hold' : z === SLOWZ ? 'slow' : 'fast';
   function draw() {
     cur = seq[pos] ?? 0;
     const v = view();
@@ -85,6 +99,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     cx.setTransform(1, 0, 0, 1, 0, 0);
     $('fr').innerHTML = `<b>${pos + 1}</b> / ${seq.length}${retimed ? ` · fr ${cur + 1}` : ''}`;
     if (!playing) markList();
+    if (!$('wPanel').hidden) drawCurve();
     const got = media.loading ? frames.reduce((n, x) => n + (x ? 1 : 0), 0) : 0;
     $('tc').textContent = `${(pos / fps).toFixed(2)}s · ${fps} fps${zoom > 1.01 ? ' · ' + zoom.toFixed(1) + '× zoom' : ''}${media.loading ? ` · loading ${Math.round(got / frames.length * 100)}%` : ''}`;
     const hasR = inF !== null || outF !== null;
@@ -116,7 +131,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     }
     sx.fillStyle = 'rgba(255,255,255,.08)'; r(0, h / 2 - 3 * d, w, 6 * d, 3 * d);
     sx.fillStyle = '#ECEEF1'; r(0, h / 2 - 3 * d, X(pos), 6 * d, 3 * d);
-    sx.fillStyle = '#E8908C'; for (const m of marks) { const p = firstPos[m.f]; if (p >= 0 && !(retimed && isCut(secs, m.f))) r(X(p) - 1.5 * d, h / 2 + 7 * d, 3 * d, 7 * d, 1.5 * d); }
+    sx.fillStyle = '#E8908C'; for (const m of marks) { const p = firstPos[m.f]; if (p >= 0 && !(retimed && shown && !shown.has(m.f))) r(X(p) - 1.5 * d, h / 2 + 7 * d, 3 * d, 7 * d, 1.5 * d); }
     if (media.loading) { sx.fillStyle = '#6FBF8E'; for (let p = 0; p < n;) { const has = !!frames[seq[p]]; let q = p; while (q < n && !!frames[seq[q]] === has) q++; if (has) sx.fillRect(E(p), h - 3 * d, E(q) - E(p), 2 * d); p = q; } }
     // handle: a plain round knob on the track
     const hx = Math.max(11 * d, Math.min(w - 11 * d, X(pos)));
@@ -360,7 +375,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   }
   // Draw swaps the rail to the drawing tools (and shows the pen colours and Undo); Done swaps back and puts the pen down.
   function setTray(open) {
-    $('tray').hidden = !open; $('railView').hidden = open; $('penRow').hidden = !open; $('undo').hidden = !open;
+    if (open) setWarpMode(false);
+    $('tray').hidden = !open; $('railView').hidden = open; $('ioView').hidden = open; $('penRow').hidden = !open; $('undo').hidden = !open;
     $('annBtn').classList.toggle('on', open); $('annBtn').lastElementChild.textContent = open ? 'Done' : 'Draw';
   }
   $('annBtn').onclick = () => {
@@ -370,7 +386,10 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   $('drawBtn').onclick = () => pick('draw'); $('arrowBtn').onclick = () => pick('arrow'); $('boxBtn').onclick = () => pick('box'); $('circleBtn').onclick = () => pick('circle');
   $('undo').onclick = () => {
     const u = undoStack.pop(); if (!u) return;
-    marks = u.marks; holds = u.holds; changed('marks', 'holds'); draw(); poke();
+    const warpChanged = JSON.stringify(u.warp) !== JSON.stringify(warp);
+    marks = u.marks; holds = u.holds; warp = u.warp;
+    if (warpChanged) { retimed = warped() && (retimed || !$('wTray').hidden); rebuild(); updateRetimeUi(); drawCurve(); changed('warp', 'retimed'); }
+    changed('marks', 'holds'); draw(); poke();
   };
   // ---------- pen bar: colour, size, eraser, clear this frame's drawing
   const savePen = () => { try { localStorage.setItem('qg_pen', JSON.stringify(pen)); } catch {} };
@@ -395,7 +414,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   $('noteNo').onclick = closeSheets;
   $('noteOk').onclick = () => { const t = $('noteIn').value.trim(); closeSheets(); if (t) { remember(); marks.push({ f: cur, type: 'note', text: t }); changed('marks'); draw(); } };
   function jumpTo(f) {
-    stop(); if (retimed && isCut(secs, f)) setView(false);
+    stop(); if (retimed && shown && !shown.has(f)) setView(false);
     pos = firstPos[f] >= 0 ? firstPos[f] : posAtOrAfter(seq, f); inF = outF = null; draw(); changed('pos', 'inF', 'outF');
   }
   // ---------- this video's notes and drawings, under the scrub bar: tap one to go to its frame
@@ -445,60 +464,166 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     });
   }
 
-  // ---------- retime sections
+  // ---------- time warp: Retime swaps the rail to the curve's tools and the notes area to the curve
   function setView(r) {
     const src = seq[pos], sIn = inF == null ? null : seq[inF], sOut = outF == null ? null : seq[outF];
-    retimed = r && secs.length > 0; rebuild();
+    retimed = r && warped(); rebuild();
     pos = posAtOrAfter(seq, src);
     inF = sIn == null ? null : posAtOrAfter(seq, sIn); outF = sOut == null ? null : posAtOrBefore(seq, sOut);
     if (inF != null && outF != null && outF < inF) inF = outF = null;
-    updateRetimeUi(); draw(); poke(); changed('retimed', 'pos', 'inF', 'outF');
+    updateRetimeUi(); draw(); drawCurve(); poke(); changed('retimed', 'pos', 'inF', 'outF');
   }
   function updateRetimeUi() {
-    const vb = $('viewBtn'); vb.style.display = secs.length ? '' : 'none';
+    const w = warped(), vb = $('viewBtn'); vb.style.display = w ? '' : 'none';
     vb.textContent = retimed ? 'Retimed' : 'Original'; vb.classList.toggle('on', retimed);
-    $('exportBoth').style.display = secs.length ? '' : 'none';
-    $('export').textContent = secs.length ? 'Export retimed' : 'Export video';
+    $('exportBoth').style.display = w ? '' : 'none';
+    $('export').textContent = w ? 'Export retimed' : 'Export video';
   }
-  let range = null, editing = null;
+  let selKey = -1, wView = null;           // the selected key; the curve's view (null = the whole curve)
+  function setWarpMode(open) {
+    if (open) setTray(false);
+    $('wTray').hidden = !open; $('wPanel').hidden = !open; $('pNotes').hidden = open;
+    $('railView').hidden = open || !$('tray').hidden; $('undo').hidden = !open && $('tray').hidden;
+    $('secBtn').classList.toggle('on', open); $('secBtn').lastElementChild.textContent = open ? 'Done' : 'Retime';
+    if (open) {
+      stop();
+      if (!warp) warp = TW.identity(frames.length);
+      if (!retimed) { retimed = true; rebuild(); updateRetimeUi(); draw(); }
+      selKey = TW.keyAt(warp, pos); requestAnimationFrame(() => { sizeCurve(); drawCurve(); });
+    }
+    poke();
+  }
+  // Every change to the curve goes through here: undo, the timeline, the panel and the saved review.
+  function setWarp(keys, { keepPos = true, sel } = {}) {
+    if (!keys) return;
+    remember();
+    const at = pos; warp = keys; retimed = true; rebuild();
+    pos = keepPos ? Math.min(at, seq.length - 1) : pos;
+    if (inF != null) inF = Math.min(inF, seq.length - 1); if (outF != null) outF = Math.min(outF, seq.length - 1);
+    selKey = sel ?? Math.min(selKey, warp.length - 1);
+    updateRetimeUi(); draw(); drawCurve(); changed('warp', 'retimed', 'pos', 'inF', 'outF');
+  }
+  const TAN_NAMES = { linear: 'Linear', smooth: 'Smooth', flat: 'Flat', step: 'Stepped' };
+  const selIndex = () => selKey >= 0 && selKey < (warp || []).length ? selKey : (warp ? TW.keyAt(warp, pos) : -1);
+  $('secBtn').onclick = () => setWarpMode($('wTray').hidden);
+  $('viewBtn').onclick = () => setView(!retimed);
+  $('wKey').onclick = () => { const k = TW.setKey(warp, pos); setWarp(k, { sel: TW.keyAt(k, pos) }); };
+  $('wLeft').onclick = () => { const k = TW.nudgeAfter(warp, pos, -1); if (k) setWarp(k); else status('Nothing after the playhead can move sooner', 0), setTimeout(() => status(''), 1600); };
+  $('wRight').onclick = () => { const k = TW.nudgeAfter(warp, pos, 1); if (k) setWarp(k); else status('No keys after the playhead', 0), setTimeout(() => status(''), 1600); };
+  const nudgeSel = d => { const i = selIndex(); if (i < 0) { status('Select a key (or set one) first', 0); setTimeout(() => status(''), 1600); return; } setWarp(TW.nudgeKey(warp, i, d, frames.length), { sel: i }); };
+  $('wUp').onclick = () => nudgeSel(1);
+  $('wDown').onclick = () => nudgeSel(-1);
+  $('wTan').onclick = () => {
+    const i = selIndex(); if (i < 0) return;
+    const t = TW.TANS[(TW.TANS.indexOf(warp[i].t) + 1) % TW.TANS.length];
+    setWarp(TW.setTangent(warp, i, t), { sel: i });
+  };
+  $('wDel').onclick = () => { const i = selIndex(); const k = i >= 0 && TW.deleteKey(warp, i); if (k) setWarp(k, { sel: -1 }); };
+  $('secReset').onclick = () => { closeSheets(); inF = outF = null; setWarp(TW.identity(frames.length), { sel: -1 }); };
+  $('wFrame').onclick = () => { wView = wView ? null : TW.frameView(warp, pos); drawCurve(); };
+
+  // the curve: played frames across, video frames up; the faint diagonal is the original timing
+  const wc = $('wCurve'), wx = wc.getContext('2d');
+  function sizeCurve() { const r = wc.getBoundingClientRect(), d = devicePixelRatio || 1; wc.width = Math.max(1, r.width * d); wc.height = Math.max(1, r.height * d); }
+  function curveView() {
+    if (wView) return wView;
+    const last = warp[warp.length - 1].x, n = frames.length;
+    return { x0: -last * 0.03, x1: last * 1.03, y0: -n * 0.04, y1: (n - 1) * 1.04 };
+  }
+  const CX = (v, x) => (x - v.x0) / (v.x1 - v.x0) * wc.width, CY = (v, y) => wc.height - (y - v.y0) / (v.y1 - v.y0) * wc.height;
+  function drawCurve() {
+    if ($('wPanel').hidden || !warp) return;
+    const d = devicePixelRatio || 1, w = wc.width, h = wc.height, v = curveView(), f = TW.sampler(warp);
+    wx.clearRect(0, 0, w, h);
+    // grid every 10 or 50 frames
+    const stepX = (v.x1 - v.x0) > 150 ? 50 : (v.x1 - v.x0) > 30 ? 10 : 5;
+    wx.strokeStyle = 'rgba(255,255,255,.05)'; wx.lineWidth = d;
+    for (let x = Math.ceil(v.x0 / stepX) * stepX; x < v.x1; x += stepX) { wx.beginPath(); wx.moveTo(CX(v, x), 0); wx.lineTo(CX(v, x), h); wx.stroke(); }
+    for (let y = Math.ceil(v.y0 / stepX) * stepX; y < v.y1; y += stepX) { wx.beginPath(); wx.moveTo(0, CY(v, y)); wx.lineTo(w, CY(v, y)); wx.stroke(); }
+    wx.strokeStyle = 'rgba(255,255,255,.12)'; wx.setLineDash([4 * d, 4 * d]);
+    wx.beginPath(); wx.moveTo(CX(v, 0), CY(v, 0)); wx.lineTo(CX(v, frames.length - 1), CY(v, frames.length - 1)); wx.stroke(); wx.setLineDash([]);
+    // In-Out range
+    if (inF != null || outF != null) { wx.fillStyle = 'rgba(74,117,144,.18)'; wx.fillRect(CX(v, lo()), 0, CX(v, hi()) - CX(v, lo()), h); }
+    // the curve
+    const last = warp[warp.length - 1].x;
+    wx.strokeStyle = '#86B0C2'; wx.lineWidth = 2.5 * d; wx.beginPath();
+    const steps = Math.min(800, Math.max(60, Math.round(w / d)));
+    for (let i = 0; i <= steps; i++) {
+      const x = Math.max(0, v.x0) + (Math.min(last, v.x1) - Math.max(0, v.x0)) * i / steps, px = CX(v, x), py = CY(v, f(x));
+      i ? wx.lineTo(px, py) : wx.moveTo(px, py);
+    }
+    wx.stroke();
+    // playhead
+    wx.strokeStyle = '#ECEEF1'; wx.lineWidth = 1.5 * d; wx.beginPath(); wx.moveTo(CX(v, pos), 0); wx.lineTo(CX(v, pos), h); wx.stroke();
+    // keys: stepped as squares, flat as bars, smooth and linear as dots (linear hollow)
+    warp.forEach((k, i) => {
+      const px = CX(v, k.x), py = CY(v, k.y), on = i === selIndex(), r = (on ? 7 : 5) * d;
+      wx.fillStyle = on ? '#FFD166' : '#ECEEF1'; wx.strokeStyle = wx.fillStyle; wx.lineWidth = 2 * d;
+      if (k.t === 'step') wx.fillRect(px - r, py - r, r * 2, r * 2);
+      else if (k.t === 'flat') { wx.fillRect(px - r * 1.4, py - r * 0.5, r * 2.8, r); }
+      else { wx.beginPath(); wx.arc(px, py, r, 0, Math.PI * 2); k.t === 'linear' ? (wx.fillStyle = '#1D2024', wx.fill(), wx.stroke()) : wx.fill(); }
+    });
+    const i = selIndex();
+    $('wInfo').textContent = i >= 0 ? `Key ${i + 1} · played ${warp[i].x + 1} → video ${Math.round(warp[i].y) + 1}` : `Frame ${pos + 1} shows ${seq[pos] + 1}`;
+    $('wTan').lastElementChild.textContent = i >= 0 ? TAN_NAMES[warp[i].t] : 'Tangent';
+    $('wTan').disabled = $('wDel').disabled = $('wUp').disabled = $('wDown').disabled = i < 0;
+    $('wDel').disabled = i <= 0 || i >= warp.length - 1;
+    $('wFrame').textContent = wView ? 'All' : 'Frame';
+  }
+  // tap a key to select it (and go to it); drag it to move it; tap anywhere else to move the playhead
+  let wDrag = null;
+  const wPoint = e => { const r = wc.getBoundingClientRect(), d = devicePixelRatio || 1, v = curveView();
+    const px = (e.clientX - r.left) * d, py = (e.clientY - r.top) * d;
+    return { px, py, x: v.x0 + px / wc.width * (v.x1 - v.x0), y: v.y0 + (wc.height - py) / wc.height * (v.y1 - v.y0), v }; };
+  on(wc, 'pointerdown', e => {
+    if (!warp) return; const p = wPoint(e), d = devicePixelRatio || 1;
+    let best = -1, bd = 24 * d;
+    warp.forEach((k, i) => { const dd = Math.hypot(CX(p.v, k.x) - p.px, CY(p.v, k.y) - p.py); if (dd < bd) { bd = dd; best = i; } });
+    wc.setPointerCapture(e.pointerId);
+    if (best >= 0) { selKey = best; wDrag = { i: best, moved: false, x0: e.clientX, y0: e.clientY }; pos = Math.min(seq.length - 1, warp[best].x); draw(); drawCurve(); changed('pos'); }
+    else { wDrag = { scrub: true }; selKey = -1; pos = Math.max(0, Math.min(seq.length - 1, Math.round(p.x))); draw(); drawCurve(); changed('pos'); }
+  });
+  on(wc, 'pointermove', e => {
+    if (!wDrag) return; const p = wPoint(e);
+    if (wDrag.scrub) { pos = Math.max(0, Math.min(seq.length - 1, Math.round(p.x))); draw(); drawCurve(); return; }
+    if (!wDrag.moved && Math.hypot(e.clientX - wDrag.x0, e.clientY - wDrag.y0) < 6) return;
+    if (!wDrag.moved) { remember(); wDrag.moved = true; }
+    warp = TW.moveKey(warp, wDrag.i, p.x, p.y, frames.length); retimed = true; rebuild();
+    pos = Math.min(warp[wDrag.i].x, seq.length - 1); updateRetimeUi(); draw(); drawCurve();
+  });
+  const wEnd = () => { if (wDrag && wDrag.moved) changed('warp', 'retimed', 'pos'); else if (wDrag && wDrag.scrub) changed('pos'); wDrag = null; };
+  on(wc, 'pointerup', wEnd); on(wc, 'pointercancel', wEnd);
+
+  // Shape: Hold, Cut or a speed over In-Out (played frames), as keys on the curve
+  let range = null;
   function openRetime() {
-    stop(); editing = null;
-    const hasRange = inF !== null || outF !== null;
-    if (!hasRange && segAt[pos]) editing = segAt[pos];
-    let a, b;
-    if (hasRange) { const ps = seq.slice(lo(), hi() + 1); a = Math.min(...ps); b = Math.max(...ps); }
-    else if (editing) { a = editing.a; b = editing.b; }
-    const ok = a !== undefined;
+    stop();
+    const ok = inF !== null && outF !== null;
     $('secBody').style.display = ok ? '' : 'none'; $('secMsg').style.display = ok ? 'none' : '';
-    $('secCap').textContent = ok ? `Frames ${a + 1}–${b + 1}${editing ? ' · ' + secLabel(editing) : ''}` : 'Retime';
-    const r = editing && editing.type === 'speed' ? editing.r : null;
-    $('secRates').innerHTML = PRESETS.map(x => `<div class="opt${x === r ? ' on' : ''}" data-r="${x}">${fmt(x)}</div>`).join('');
-    $('secHold').classList.toggle('on', !!editing && editing.type === 'hold');
-    $('secCut').classList.toggle('on', !!editing && editing.type === 'cut');
-    $('secCustomBox').style.display = 'none';
-    $('secCustom').textContent = r !== null && !PRESETS.includes(r) ? `Custom (${fmt(r)})` : 'Custom speed…';
-    range = ok ? [a, b] : null;
+    $('secCap').textContent = ok ? `Played frames ${lo() + 1}–${hi() + 1}` : 'Shape';
+    $('secRates').innerHTML = PRESETS.map(x => `<div class="opt" data-r="${x}">${fmt(x)}</div>`).join('');
+    $('secHold').classList.remove('on'); $('secCut').classList.remove('on');
+    $('secCustomBox').style.display = 'none'; $('secCustom').textContent = 'Custom speed…';
+    range = ok ? [lo(), hi()] : null;
     openSheet('secVeil');
   }
   function applySec(type, r) {
     if (!range) return; const [a, b] = range;
-    const res = applySection(secs, a, b, type, r);
-    secs = res.secs; inF = outF = null; closeSheets();
-    retimed = secs.length > 0; rebuild();
-    if (res.mine && type !== 'cut') {
-      const ps = []; segAt.forEach((z, i) => { if (z === res.mine) ps.push(i); });
-      if (ps.length) { inF = ps[0]; outF = ps[ps.length - 1]; pos = inF; }
-    } else pos = Math.min(retimed ? posAtOrAfter(seq, a) : a, seq.length - 1);
-    updateRetimeUi(); draw(); changed('secs', 'retimed', 'inF', 'outF', 'pos');
+    const base = warp || TW.identity(frames.length);
+    const keys = type === 'hold' ? TW.holdRange(base, a, b) : type === 'cut' ? TW.cutRange(base, a, b) : TW.speedRange(base, a, b, r);
+    closeSheets(); inF = outF = null;
+    setWarp(keys, { sel: -1 });
+    if (type !== 'cut') { const m = type === 'hold' ? b - a + 1 : Math.max(1, Math.round((b - a + 1) / r)); inF = a; outF = Math.min(seq.length - 1, a + m - 1); pos = a; }
+    else pos = Math.min(a, seq.length - 1);
+    draw(); drawCurve(); changed('inF', 'outF', 'pos');
   }
-  $('secBtn').onclick = openRetime;
-  $('viewBtn').onclick = () => setView(!retimed);
-  $('secRates').onclick = e => { const r = e.target.dataset.r; if (r) applySec(+r === 1 ? null : 'speed', +r); };
+  $('wShape').onclick = openRetime;
+  $('secRates').onclick = e => { const r = e.target.dataset.r; if (r) applySec('speed', +r); };
   $('secHold').onclick = () => applySec('hold');
   $('secCut').onclick = () => applySec('cut');
-  $('secClear').onclick = () => applySec(null);
+  $('secClear').onclick = () => applySec('speed', 1);
   $('secCustom').onclick = () => { $('secCustomBox').style.display = 'block'; $('secCustomIn').value = ''; $('secCustomIn').focus(); };
-  $('secCustomOk').onclick = () => { const r = parseFloat($('secCustomIn').value); if (r > 0) applySec(Math.abs(r - 1) < 1e-6 ? null : 'speed', Math.max(0.01, Math.min(8, r))); };
+  $('secCustomOk').onclick = () => { const r = parseFloat($('secCustomIn').value); if (r > 0) applySec('speed', Math.max(0.01, Math.min(8, r))); };
 
   // ---------- full screen, where the browser allows it (not iPhone Safari; the home-screen app is full screen anyway)
   const fsEl = document.documentElement;
@@ -512,14 +637,14 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   };
 
   // ---------- export
-  const exportCtx = () => ({ frames, fps, W, H, marks, secs, name, compose, closeSheets, stop, loading: () => media.loading });
-  $('export').onclick = () => exportVideo(secs.length ? 'retimed' : 'notes', exportCtx());
+  const exportCtx = () => ({ frames, fps, W, H, marks, warpSeq: warped() ? TW.frameMap(warp, frames.length) : null, name, compose, closeSheets, stop, loading: () => media.loading });
+  $('export').onclick = () => exportVideo(warped() ? 'retimed' : 'notes', exportCtx());
   $('exportBoth').onclick = () => exportVideo('both', exportCtx());
 
   // ---------- start
   $('player').classList.add('open'); $('pName').textContent = name;
   for (const k of ['draw', 'arrow', 'box', 'circle']) $(k + 'Btn').classList.remove('on');
-  setTray(false);
+  setTray(false); setWarpMode(false); wView = null;
   $('log2').textContent = '';
   rebuild(); setRate(rate); updateRetimeUi(); sizeAll(); closeSheets(); renderList(); draw(); poke();
   let drawT = 0;

@@ -51,15 +51,18 @@ def test_loop_chip_and_hold_clear(page):
     assert page.inner_text('#inBtn') == 'In' and not page.locator('#rangeChip').is_visible()
 
 def make_sections(page):
+    # Retime opens the time warp; Shape puts Hold, Cut or a speed over In-Out (played frames)
+    page.click('#secBtn')
     step(page, 12); page.click('#inBtn'); step(page, 11); page.click('#outBtn')
-    page.click('#secBtn'); page.click('#secRates [data-r="0.5"]')
+    page.click('#wShape'); page.click('#secRates [data-r="0.5"]')
     assert '/ 84' in fr(page)
-    page.click('#rangeChip'); page.click('#viewBtn')            # original view: plain frame numbers
-    scrub_to(page, 40, 72); page.click('#inBtn'); scrub_to(page, 45, 72); page.click('#outBtn')
-    page.click('#secBtn'); page.click('#secHold')
-    page.click('#rangeChip'); page.click('#viewBtn')
-    scrub_to(page, 50, 72); page.click('#inBtn'); scrub_to(page, 60, 72); page.click('#outBtn')
-    page.click('#secBtn'); page.click('#secCut')
+    page.click('#rangeChip')
+    scrub_to(page, 40, 84); page.click('#inBtn'); scrub_to(page, 45, 84); page.click('#outBtn')
+    page.click('#wShape'); page.click('#secHold')
+    assert '/ 84' in fr(page)
+    page.click('#rangeChip')
+    scrub_to(page, 50, 84); page.click('#inBtn'); scrub_to(page, 60, 84); page.click('#outBtn')
+    page.click('#wShape'); page.click('#secCut')
 
 def test_retime_sections(page):
     open_clip(page); loaded(page)
@@ -281,3 +284,53 @@ def test_sideways_video_fills_the_height(page):
     bx = page.locator('#cv').bounding_box()
     page.mouse.click(bx['x'] + bx['width'] * 0.9, bx['y'] + bx['height'] / 2); assert fr(page).startswith('3')
     page.mouse.click(bx['x'] + bx['width'] * 0.1, bx['y'] + bx['height'] / 2); assert fr(page).startswith('2')
+
+
+# ---------- time warp: keys on a curve, nudges, tangents, frame keys
+def warp_keys(page):
+    return [c['warp']['keys'] for c in page.evaluate('window.changes') if c.get('warp')][-1]
+
+def test_time_warp_keys_and_nudges(page):
+    open_clip(page); loaded(page)
+    page.click('#secBtn')
+    assert page.locator('#wPanel').is_visible() and not page.locator('#pNotes').is_visible()
+    step(page, 10); page.click('#wKey')
+    assert [k['x'] for k in warp_keys(page)] == [0, 10, 71]
+    assert 'Key 2' in page.inner_text('#wInfo')
+    # everything after the playhead a frame later: one more played frame
+    page.click('#wRight'); assert fr(page).endswith('/ 73') or '/ 73' in fr(page)
+    page.click('#wLeft'); page.click('#wLeft'); assert '/ 71' in fr(page)
+    page.click('#wRight')
+    # the selected key a frame later in the video: frame 11 now shows video frame 12
+    page.click('#wUp')
+    assert warp_keys(page)[1]['y'] == 11 and '· fr 12' in fr(page)
+    page.click('#wDown'); page.click('#wDown')
+    assert warp_keys(page)[1]['y'] == 9
+    # tangent cycles; delete takes the key away; undo brings it back
+    page.click('#wTan'); assert page.inner_text('#wTan') == 'Smooth' and warp_keys(page)[1]['t'] == 'smooth'
+    page.click('#wTan'); page.click('#wTan'); assert page.inner_text('#wTan') == 'Stepped'
+    page.click('#wDel'); assert len(warp_keys(page)) == 2
+    page.click('#undo'); assert len(warp_keys(page)) == 3
+    page.click('#secBtn')
+    assert page.locator('#pNotes').is_visible() and page.inner_text('#viewBtn') == 'Retimed'
+
+def test_frame_keys_and_drag(page):
+    open_clip(page); loaded(page); page.click('#secBtn')
+    for f in [10, 20, 30, 40, 50, 60]:
+        scrub_to(page, f, 72); page.click('#wKey')
+    scrub_to(page, 35, 72)
+    page.click('#wFrame'); assert page.inner_text('#wFrame') == 'All'
+    page.click('#wFrame'); assert page.inner_text('#wFrame') == 'Frame'
+    # drag the key at frame 30 up: it shows a later video frame
+    bx = page.locator('#wCurve').bounding_box()
+    kx = bx['x'] + bx['width'] * (30 + 71 * 0.03) / (71 * 1.06); ky = bx['y'] + bx['height'] - bx['height'] * (30 + 72 * 0.04) / (71 * 1.04 + 72 * 0.04)
+    page.mouse.move(kx, ky); page.mouse.down(); page.mouse.move(kx, ky - 40, steps=6); page.mouse.up()
+    k = [k for k in warp_keys(page) if k['x'] == 30][0]
+    assert k['y'] > 32, k
+
+def test_old_sections_open_as_a_curve(page):
+    page.goto(f'{BASE}?test=player&clip=clip.webm&secs=' + '[{"a":5,"b":9,"type":"hold"}]')
+    page.wait_for_selector('#player', state='visible'); loaded(page)
+    assert page.inner_text('#viewBtn') == 'Retimed'
+    page.click('#secBtn')
+    step(page, 7); assert '· fr 6' in fr(page)     # played frame 8 shows the held video frame 6

@@ -1,15 +1,14 @@
 // Exports: the video with notes, the retimed video, or the original and retimed side by side.
 // Frames and marks are baked into an MP4 (no sound), encoded frame by frame where the phone can.
-import { buildSeq } from './retime.js';
 import { log, status } from './player.js';
 import { roundRect } from './render.js';
 
 export async function exportVideo(kind, ctx) {
-  const { frames, fps, W, H, secs, name, compose, closeSheets, stop, loading } = ctx;
+  const { frames, fps, W, H, warpSeq, name, compose, closeSheets, stop, loading } = ctx;  // warpSeq: the time warp's frames, or null
   stop(); closeSheets();
   if (loading()) { status('Still loading frames. Try again in a moment.', 0); setTimeout(() => status(''), 2200); return; }
   const both = kind === 'both', ret = kind !== 'notes';
-  const rseq = buildSeq(frames.length, secs, ret && secs.length > 0).seq, oseq = buildSeq(frames.length, secs, false).seq;
+  const oseq = frames.map((_, i) => i), warped = ret && !!warpSeq, rseq = warped ? warpSeq : oseq;
   const w2 = W - W % 2, gap = 8;
   const tag = (oc, x, t) => {
     const fs = Math.max(13, W / 40); oc.font = `600 ${fs}px Rubik,system-ui,sans-serif`;
@@ -28,13 +27,13 @@ export async function exportVideo(kind, ctx) {
           compose(oc, oseq[Math.min(i, oseq.length - 1)], true, false); tag(oc, 0, 'Original');
           oc.setTransform(1, 0, 0, 1, w2 + gap, 0); compose(oc, rseq[Math.min(i, rseq.length - 1)], true, true);
           oc.setTransform(1, 0, 0, 1, 0, 0); tag(oc, w2 + gap, 'Retimed');
-        } else compose(oc, rseq[i], true, ret && secs.length > 0);
+        } else compose(oc, rseq[i], true, warped);
       },
       onFrame: (i, t) => status(`Exporting frame ${i} / ${t}`, i / t),
     });
   } catch (e) { status(e.message, 0); setTimeout(() => status(''), 2500); return; }
   const { blob, ext, how } = made;
-  const file = new File([blob], `${name} - ${both ? 'before and after' : ret && secs.length ? 'retimed' : 'notes'}.${ext}`, { type: blob.type });
+  const file = new File([blob], `${name} - ${both ? 'before and after' : warped ? 'retimed' : 'notes'}.${ext}`, { type: blob.type });
   log(`exported ${file.name}: ${(blob.size / 1e6).toFixed(1)} MB in ${((performance.now() - t0) / 1000).toFixed(1)}s (${how})`);
   status('');
   await deliver(file);

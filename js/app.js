@@ -254,7 +254,8 @@ async function testPlayer(q) {
     const blob = await (await fetch(`tests/fixtures/${name}`)).blob();
     const maxBytes = q.has('maxBytes') ? +q.get('maxBytes') : undefined;
     const media = await loadFrames(blob, { maxBytes, log });
-    openPlayer($('player'), { media, name: name.replace(/\.[^.]+$/, ''), onChange: p => window.changes.push(p), onBack: () => {} });
+    const review = q.has('secs') ? { secs: JSON.parse(q.get('secs')), retimed: true } : null;  // a review from before time warp
+    openPlayer($('player'), { media, review, name: name.replace(/\.[^.]+$/, ''), onChange: p => window.changes.push(p), onBack: () => {} });
   } catch (e) { toast(e.message); }
 }
 function sample(q) {

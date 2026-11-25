@@ -2,12 +2,12 @@
 // One folder per video holding any of: the video with notes burned in, the .quarrynotes file, the Maya image
 // plane .py and (retimed videos) the Maya time warp .py. Everything is made on the phone; nothing is uploaded.
 import { loadFrames } from './frames.js';
-import { buildSeq } from './retime.js';
+import { frameMap } from './warp.js';
 import { legacyHolds } from './draw.js';
 import { renderer } from './render.js';
 import { recordVideo, deliver } from './export.js';
 import { zipParts } from './zip.js';
-import { quarryNotes, timeWarpPy, mayaDropHead, stamp, hasNotes, isRetimed, folderFor, NOTES_EXT } from './handback.js';
+import { quarryNotes, timeWarpPy, mayaDropHead, stamp, hasNotes, isRetimed, folderFor, warpOf, NOTES_EXT } from './handback.js';
 import { ICONS } from './reviews.js';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -102,9 +102,9 @@ export function openExport(veil, info, { getClip, toast = () => {}, log = () => 
           try {
             while (media.loading && !stop) { step(`loading frames ${media.frames.filter(Boolean).length} / ${media.count}`); await sleep(150); }
             if (stop) break;
-            const marks = v.marks || [], holds = v.holds || legacyHolds(marks), secs = v.secs || [], retimed = isRetimed(v);
-            const { compose } = renderer({ frames: media.frames, W: media.W, H: media.H, state: () => ({ marks, holds, secs, retimed }) });
-            const seq = buildSeq(media.count, secs, retimed).seq;
+            const marks = v.marks || [], holds = v.holds || legacyHolds(marks), retimed = isRetimed(v);
+            const seq = retimed ? frameMap(warpOf(v), media.count) : Array.from({ length: media.count }, (_, j) => j), shown = retimed ? new Set(seq) : null;
+            const { compose } = renderer({ frames: media.frames, W: media.W, H: media.H, state: () => ({ marks, holds, retimed, shown }) });
             if (p.has('video')) {
               const { blob, ext } = await recordVideo({
                 W: media.W, H: media.H, fps: media.fps, total: seq.length, draw: (c, j) => compose(c, seq[j], true),
