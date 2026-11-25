@@ -42,3 +42,12 @@ def test_a_file_that_isnt_a_handoff(page, tmp_path):
     bad = tmp_path / 'x.zip'; bad.write_bytes(b'not a zip at all, just some bytes here')
     page.set_input_files('#handoffFile', str(bad))
     page.wait_for_function("document.getElementById('toast').textContent.includes(\"isn't a Quarry Go handoff\")", timeout=8000)
+
+def test_receiving_again_repairs_a_broken_video(page, tmp_path):
+    home(page); new_review(page); in_player(page); back(page)
+    z = send(page, tmp_path)
+    page.evaluate("""async () => { const S = await import('/js/store.js'); const [r] = await S.listReviews();
+        await S.putClip(r.id, new Blob([new Uint8Array([80, 75, 3, 4, 0, 0])], { type: 'video/webm' })); }""")
+    page.set_input_files('#handoffFile', str(z))
+    page.wait_for_function("document.getElementById('toast').textContent.includes('Fixed 1 video')", timeout=30000)
+    cards(page).first.click(); in_player(page)

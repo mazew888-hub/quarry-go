@@ -77,7 +77,12 @@ export async function readHandoff(blob) {
     const { clip, thumb, ...rest } = r, t = thumb ? await open(thumb) : null;
     reviews.push({ ...rest, thumb: t ? await t.arrayBuffer() : null });
   }
-  const clip = async id => { const r = byId.get(id); return r && r.clip ? open(r.clip, r.clipType || '') : null; };
+  // The video is copied out into its own Blob: on iPad/iPhone (WebKit), saving a slice of the picked
+  // file kept a link to the whole zip, so the saved "video" couldn't be opened.
+  const clip = async id => {
+    const r = byId.get(id), part = r && r.clip ? await open(r.clip, r.clipType || '') : null;
+    return part ? new Blob([await part.arrayBuffer()], { type: r.clipType || '' }) : null;
+  };
   return { reviews, clip };
 }
 

@@ -13,7 +13,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.1';
+export const VERSION = '0.9.2';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -194,12 +194,19 @@ async function sendDay(info) {
   finally { status(''); $('reviews').classList.remove('busy'); }
   await deliver(file, { cap: 'Ready to send', btn: 'Send', hint: 'Pick AirDrop, then your other device. There, open Quarry Go and tap Receive.' });
 }
+async function sameClip(a, b) {
+  if (!a || a.size !== b.size) return false;
+  try {
+    const [x, y] = await Promise.all([a.slice(0, 64), b.slice(0, 64)].map(p => p.arrayBuffer()));
+    return new Uint8Array(x).every((v, i) => v === new Uint8Array(y)[i]);
+  } catch { return false; }
+}
 $('handoffFile').onchange = async e => {
   const f = e.target.files[0]; e.target.value = '';
   if (!f) return;
   await save();
   $('reviews').classList.add('busy');
-  let plan, days;
+  let plan, days, fixed = 0;
   try {
     status('Reading…', 0);
     const got = await readHandoff(f);
@@ -209,12 +216,18 @@ $('handoffFile').onchange = async e => {
       status(`Adding ${i + 1} of ${todo.length}…`, i / todo.length);
       await S.putReceived(r, await got.clip(r.id));
     }
+    // a video this device already has but whose saved copy differs (a broken earlier receive) is put back
+    for (const r of plan.skip) {
+      const theirs = await got.clip(r.id); if (!theirs) continue;
+      if (!await sameClip(await S.getClip(r.id).catch(() => null), theirs)) { await S.putClip(r.id, theirs); fixed++; }
+    }
     days = [...new Set(got.reviews.map(dayOf))];
   } catch (err) { toast(err.message, 5000); return; }
   finally { status(''); $('reviews').classList.remove('busy'); }
   const n = (k, w) => `${k} ${w}${k === 1 ? '' : 's'}`, parts = [];
   if (plan.add.length) parts.push(`added ${n(plan.add.length, 'video')}`);
   if (plan.update.length) parts.push(`updated ${plan.update.length}`);
+  if (fixed) parts.push(`fixed ${n(fixed, 'video')}`);
   toast(parts.length ? parts.join(', ').replace(/^./, c => c.toUpperCase()) + '.' : 'Already up to date: nothing newer in that file.', 4500);
   const go = days.length === 1 ? `#/d/${days[0]}` : '#/';
   if (location.hash !== go) location.hash = go; else showCurrent();
