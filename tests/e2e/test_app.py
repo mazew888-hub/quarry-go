@@ -33,7 +33,7 @@ def test_new_review_appears(page):
     assert 'start today' in page.inner_text('#reviews')
     new_review(page); in_player(page)
     assert '#/r/' in page.url
-    page.click('#annBtn'); page.click('#noteBtn'); page.fill('#noteIn', 'more overlap'); page.click('#noteOk')
+    page.click('#noteMode'); page.click('#noteBtn'); page.fill('#noteIn', 'more overlap'); page.click('#noteOk')
     back(page)
     assert cards(page).count() == 1
     assert cards(page).first.locator('.rv-name').inner_text() == 'clip'
@@ -44,7 +44,7 @@ def test_new_review_appears(page):
 
 def test_edit_survives_immediate_reload(page):
     home(page); new_review(page); in_player(page)
-    page.click('#annBtn'); page.click('#noteBtn'); page.fill('#noteIn', 'keep me'); page.click('#noteOk')
+    page.click('#noteMode'); page.click('#noteBtn'); page.fill('#noteIn', 'keep me'); page.click('#noteOk')
     page.wait_for_timeout(30); page.reload()
     in_player(page)
     page.click('#more')
@@ -53,9 +53,10 @@ def test_edit_survives_immediate_reload(page):
 def test_state_restored(page):
     home(page); new_review(page); in_player(page)
     for _ in range(12): page.mouse.click(370, 170)
-    page.click('#inBtn')
+    from test_player import set_in, set_out
+    set_in(page)
     for _ in range(11): page.mouse.click(370, 170)
-    page.click('#outBtn')
+    set_out(page)
     page.click('#secBtn'); page.click('#wShape'); page.click('#secRates [data-r="0.5"]'); page.click('#secBtn')
     page.click('#rateBtn'); page.click('#rateList [data-r="0.25"]')
     back(page); cards(page).first.click(); in_player(page)
@@ -75,7 +76,7 @@ def test_bad_clip_makes_no_review(page, tmp_path):
 
 def test_missing_clip_repick(page):
     home(page); new_review(page); in_player(page)
-    page.click('#annBtn'); page.click('#noteBtn'); page.fill('#noteIn', 'still here'); page.click('#noteOk')
+    page.click('#noteMode'); page.click('#noteBtn'); page.fill('#noteIn', 'still here'); page.click('#noteOk')
     back(page)
     page.wait_for_selector('.rv-clip')
     page.evaluate('''async () => { const db = await new Promise(r => { const q = indexedDB.open('quarry-go'); q.onsuccess = () => r(q.result); });
@@ -153,7 +154,7 @@ def test_old_review_drawings_keep_12_frames(page):
     red = "(r, g, b) => r > 230 && g > 40 && g < 80 && b > 75 && b < 110"
     # look only along the box's top edge (video 200..400, y 100), mapped to the screen
     seen = lambda: page.evaluate(f'''() => {{ const c = document.getElementById('cv'), x = c.getContext('2d'), ok = {red};
-        const s = Math.min(c.width / 640, c.height / 360), ox = (c.width - 640 * s) / 2, oy = (c.height - 360 * s) / 2;
+        const r = devicePixelRatio, [px, py, pw] = c.dataset.pic.split(',').map(Number), s = pw * r / 640, ox = px * r, oy = py * r;
         for (let vx = 200; vx < 400; vx += 4) for (let dy = -3; dy <= 3; dy++) {{
             const [r, g, b] = x.getImageData(ox + vx * s, oy + 100 * s + dy, 1, 1).data; if (ok(r, g, b)) return true; }}
         return false; }}''')

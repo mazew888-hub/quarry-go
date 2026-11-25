@@ -16,6 +16,15 @@ def step(page, k, x=370):
 
 def fr(page): return page.inner_text('#fr')
 
+def set_io(page, which):
+    """In and Out live on the ruler: hold it at the playhead, then Set In / Set Out."""
+    t = fr(page); p = int(t.split(' ')[0]) - 1; n = int(t.split('/ ')[1].split(' ')[0])
+    bx = page.locator('#scrub').bounding_box(); x = bx['x'] + bx['width'] * (p + 0.5) / n; y = bx['y'] + bx['height'] / 2
+    page.mouse.move(x, y); page.mouse.down(); page.wait_for_timeout(600); page.mouse.up()
+    page.wait_for_selector('#ioMenu', state='visible'); page.click('#inBtn' if which == 'in' else '#outBtn')
+def set_in(page): set_io(page, 'in')
+def set_out(page): set_io(page, 'out')
+
 def scrub_to(page, f, n):
     bx = page.locator('#scrub').bounding_box()
     page.mouse.click(bx['x'] + bx['width'] * (f + 0.5) / n, bx['y'] + bx['height'] / 2)
@@ -34,34 +43,38 @@ def test_progressive_load(page):
 
 def test_range_wrap_and_slide(page):
     open_clip(page); loaded(page)
-    step(page, 12); page.click('#inBtn'); step(page, 11); page.click('#outBtn')
+    step(page, 12); set_in(page); step(page, 11); set_out(page)
     assert page.inner_text('#rangeTxt') == 'Loop 13–24'
     step(page, 1); assert fr(page).startswith('13')            # stepping past Out wraps to In
     page.mouse.move(200, VY); page.mouse.down(); page.mouse.move(400, VY, steps=10); page.mouse.up()
     n = int(fr(page).split(' ')[0]); assert 13 <= n <= 24      # sliding stays inside the loop
 
-def test_loop_chip_and_hold_clear(page):
+def test_loop_on_the_ruler(page):
     open_clip(page); loaded(page)
-    step(page, 12); page.click('#inBtn'); step(page, 11); page.click('#outBtn')
-    assert page.inner_text('#inBtn') == 'In 13' and page.inner_text('#outBtn') == 'Out 24'
-    bx = page.locator('#outBtn').bounding_box()
-    page.mouse.move(bx['x'] + 20, bx['y'] + 20); page.mouse.down(); page.wait_for_timeout(700); page.mouse.up()
-    assert page.inner_text('#outBtn') == 'Out' and page.inner_text('#inBtn') == 'In 13'
-    page.click('#rangeChip')
-    assert page.inner_text('#inBtn') == 'In' and not page.locator('#rangeChip').is_visible()
+    step(page, 12); set_in(page); step(page, 11); set_out(page)
+    assert page.inner_text('#rangeTxt') == 'Loop 13–24'
+    # drag the loop's Out end along the ruler
+    bx = page.locator('#scrub').bounding_box(); y = bx['y'] + bx['height'] / 2; X = lambda f: bx['x'] + bx['width'] * f / 72
+    page.mouse.move(X(24), y); page.mouse.down(); page.mouse.move(X(29.5), y, steps=6); page.mouse.up()
+    assert page.inner_text('#rangeTxt') == 'Loop 13–30'
+    # hold the ruler: Clear takes the loop away
+    set_io_menu = page.mouse.move(X(20), y); page.mouse.down(); page.wait_for_timeout(600); page.mouse.up()
+    page.click('#ioClear'); assert not page.locator('#rangeChip').is_visible()
+    step(page, 2); set_in(page); step(page, 3); set_out(page)
+    page.click('#rangeChip'); assert not page.locator('#rangeChip').is_visible()
 
 def make_sections(page):
     # Retime opens the time warp; Shape puts Hold, Cut or a speed over In-Out (played frames)
     page.click('#secBtn')
-    step(page, 12); page.click('#inBtn'); step(page, 11); page.click('#outBtn')
+    step(page, 12); set_in(page); step(page, 11); set_out(page)
     page.click('#wShape'); page.click('#secRates [data-r="0.5"]')
     assert '/ 84' in fr(page)
     page.click('#rangeChip')
-    scrub_to(page, 40, 84); page.click('#inBtn'); scrub_to(page, 45, 84); page.click('#outBtn')
+    scrub_to(page, 40, 84); set_in(page); scrub_to(page, 45, 84); set_out(page)
     page.click('#wShape'); page.click('#secHold')
     assert '/ 84' in fr(page)
     page.click('#rangeChip')
-    scrub_to(page, 50, 84); page.click('#inBtn'); scrub_to(page, 60, 84); page.click('#outBtn')
+    scrub_to(page, 50, 84); set_in(page); scrub_to(page, 60, 84); set_out(page)
     page.click('#wShape'); page.click('#secCut')
 
 def test_retime_sections(page):
@@ -98,7 +111,7 @@ def test_gif_plays(page):
 
 def test_onchange_fires(page):
     open_clip(page); loaded(page)
-    page.click('#annBtn'); page.click('#noteBtn'); page.fill('#noteIn', 'arc is flat'); page.click('#noteOk')
+    page.click('#noteMode'); page.click('#noteBtn'); page.fill('#noteIn', 'arc is flat'); page.click('#noteOk')
     changes = page.evaluate('window.changes')
     assert any('marks' in c and c['marks'][-1]['text'] == 'arc is flat' for c in changes)
 
@@ -124,17 +137,14 @@ def test_export_shares_from_a_fresh_tap(page):
 
 def test_freehand_draw(page):
     open_clip(page); loaded(page)
-    page.click('#annBtn'); page.click('#drawBtn')
-    assert page.inner_text('#annBtn') == 'Done'  # the rail shows the drawing tools until Done
-    page.mouse.move(120, 150); page.mouse.down()
-    for i in range(1, 21): page.mouse.move(120 + i * 8, 150 + (i % 5) * 3)
+    page.click('#annBtn')
+    assert 'on' in page.get_attribute('#annBtn', 'class')  # Draw mode stays on until its key is tapped again
+    o = dy(page); page.mouse.move(120, 150 + o); page.mouse.down()
+    for i in range(1, 21): page.mouse.move(120 + i * 8, 150 + o + (i % 5) * 3)
     page.mouse.up()
     m = page.evaluate('window.changes')[-1]['marks'][-1]
     assert m['type'] == 'draw' and len(m['pts']) > 5
-    hit = page.evaluate('''() => { const c = document.getElementById('cv'), x = c.getContext('2d'), d = devicePixelRatio;
-        for (let px = 125; px < 275; px += 2) for (let py = 80; py < 110; py++) {
-            const [r, g, b] = x.getImageData(px * d, py * d, 1, 1).data; if (r > 230 && g > 40 && g < 80 && b > 75 && b < 110) return true; }
-        return false; }''')
+    hit = ink(page, '(r, g, b) => r > 230 && g > 40 && g < 80 && b > 75 && b < 110', box=(125, 80, 275, 110))
     assert hit
     page.click('#undo')
     assert page.evaluate('window.changes')[-1]['marks'] == []
@@ -144,19 +154,26 @@ def test_freehand_draw(page):
 PEN = "(r, g, b) => r > 230 && g > 40 && g < 80 && b > 75 && b < 110"
 BLUE = "(r, g, b) => r < 110 && g > 140 && g < 190 && b > 230"
 
-def ink(page, test=PEN, box=(100, 40, 300, 150)):  # in the video canvas (page y minus the 60px header)
+def pic_top(page):  # where the video's top edge sits on screen now (it used to be fixed at y 60, under the header)
+    return int(page.get_attribute('#cv', 'data-pic').split(',')[1])
+
+def dy(page): return pic_top(page) - 60   # old page y (video at 60) to where that spot of the video is now
+
+def ink(page, test=PEN, box=(100, 40, 300, 150)):  # box in video coordinates as before (y from the video's top)
+    t = pic_top(page)
     return page.evaluate(f'''() => {{ const c = document.getElementById('cv'), x = c.getContext('2d'), d = devicePixelRatio, ok = {test};
-        for (let px = {box[0]}; px < {box[2]}; px += 2) for (let py = {box[1]}; py < {box[3]}; py += 2) {{
+        for (let px = {box[0]}; px < {box[2]}; px += 2) for (let py = {box[1] + t}; py < {box[3] + t}; py += 2) {{
             const [r, g, b] = x.getImageData(px * d, py * d, 1, 1).data; if (ok(r, g, b)) return true; }}
         return false; }}''')
 
 def stroke(page, x0=120, x1=280, y=150):
+    y += dy(page)
     page.mouse.move(x0, y); page.mouse.down()
     for i in range(1, 21): page.mouse.move(x0 + (x1 - x0) * i / 20, y)
     page.mouse.up()
 
 def pen(page):
-    page.click('#annBtn'); page.click('#drawBtn')
+    page.click('#annBtn')
 
 def last(page, key):
     return [c[key] for c in page.evaluate('window.changes') if key in c][-1]
@@ -177,7 +194,8 @@ def test_pen_colour_and_size(page):
     open_clip(page); loaded(page); pen(page)
     stroke(page, y=130)
     small = last(page, 'marks')[-1]['size']
-    page.click('#penRow [data-color="#4FA3FF"]'); page.click('#penRow [data-size="3"]')
+    page.click('#colorBtn'); page.click('#penRow [data-color="#4FA3FF"]')
+    sl = page.locator('#sizeSl').bounding_box(); page.mouse.move(sl['x'] + 14, sl['y'] + 60); page.mouse.down(); page.mouse.move(sl['x'] + 14, sl['y'] + 8, steps=4); page.mouse.up()
     stroke(page, y=170)
     m = last(page, 'marks')[-1]
     assert m['color'] == '#4FA3FF' and m['size'] > small
@@ -213,14 +231,14 @@ def test_eraser_splits_stroke(page):
     open_clip(page); loaded(page); pen(page)
     stroke(page, 100, 300, 150)
     page.click('#eraseBtn')
-    page.mouse.move(200, 110); page.mouse.down(); page.mouse.move(200, 190, steps=8); page.mouse.up()
+    o = dy(page); page.mouse.move(200, 110 + o); page.mouse.down(); page.mouse.move(200, 190 + o, steps=8); page.mouse.up()
     drawn = [m for m in last(page, 'marks') if m['type'] == 'draw']
     assert len(drawn) == 2
 
 def test_clear_and_undo(page):
     open_clip(page); loaded(page); pen(page)
     stroke(page, y=130); stroke(page, y=170)
-    page.click('#clearBtn')
+    page.click('#colorBtn'); page.click('#clearBtn')
     assert [m for m in last(page, 'marks') if m['type'] == 'draw'] == []
     assert not ink(page)
     page.click('#undo')
@@ -230,7 +248,7 @@ def test_eraser_undo_restores(page):
     open_clip(page); loaded(page); pen(page)
     stroke(page, 100, 300, 150)
     page.click('#eraseBtn')
-    page.mouse.move(200, 110); page.mouse.down(); page.mouse.move(200, 190, steps=8); page.mouse.up()
+    o = dy(page); page.mouse.move(200, 110 + o); page.mouse.down(); page.mouse.move(200, 190 + o, steps=8); page.mouse.up()
     page.click('#undo')
     assert len(last(page, 'marks')) == 1
 
@@ -238,9 +256,9 @@ def test_eraser_undo_restores(page):
 # ---------- phone layout: notes under the video, tools on the rail, sideways fills the height
 def test_notes_list_jumps_to_frame(page):
     open_clip(page); loaded(page)
-    assert 'No notes yet' in page.inner_text('#pNotes')
-    step(page, 20); page.click('#annBtn'); page.click('#noteBtn'); page.fill('#noteIn', 'arc is flat'); page.click('#noteOk')
-    step(page, 5); page.click('#drawBtn'); stroke(page); page.click('#annBtn')  # the tray is still open from the note
+    page.click('#noteMode'); assert 'No notes yet' in page.inner_text('#pNotes'); page.click('#noteMode')
+    step(page, 20); page.click('#noteMode'); page.click('#noteBtn'); page.fill('#noteIn', 'arc is flat'); page.click('#noteOk')
+    step(page, 5); page.click('#annBtn'); stroke(page); page.click('#noteMode')
     rows = page.locator('#pList .pli')
     assert rows.count() == 2
     assert rows.nth(0).inner_text().split('\n')[0] == '21' and 'arc is flat' in rows.nth(0).inner_text()
@@ -257,33 +275,45 @@ def test_step_keys(page):
     page.click('#stepBack'); assert fr(page).startswith('2')
     page.click('#stepBack'); page.click('#stepBack'); assert fr(page).startswith('72')  # wraps
 
-def test_rail_swaps_to_tools_and_back(page):
+def test_modes_bring_their_own_tools(page):
     open_clip(page); loaded(page)
-    assert page.locator('#inBtn').is_visible() and not page.locator('#drawBtn').is_visible()
-    page.click('#annBtn')
-    assert page.locator('#drawBtn').is_visible() and page.locator('#penRow').is_visible() and page.locator('#undo').is_visible()
-    assert not page.locator('#inBtn').is_visible()
-    page.click('#annBtn')
-    assert page.inner_text('#annBtn') == 'Draw' and page.locator('#inBtn').is_visible() and not page.locator('#undo').is_visible()
+    assert not page.locator('#drawBtn').is_visible() and not page.locator('#pNotes').is_visible()
+    page.click('#annBtn')                                   # Draw: tool card, undo/redo, edge sliders
+    for el in ['#drawBtn', '#eraseBtn', '#undo', '#redo', '#colorBtn', '#sizeSl', '#opSl']: assert page.locator(el).is_visible(), el
+    page.click('#noteMode')                                 # Note: the list and Add note; Draw's tools go
+    assert page.locator('#pNotes').is_visible() and page.locator('#noteBtn').is_visible() and not page.locator('#drawBtn').is_visible()
+    assert 'Add note at 1' in page.inner_text('#noteBtn')
+    page.click('#secBtn')                                   # Retime: the curve and its tools, undo/redo with them
+    assert page.locator('#wPanel').is_visible() and page.locator('#wKey').is_visible() and page.locator('#undo').is_visible()
+    assert not page.locator('#pNotes').is_visible()
+    page.click('#secBtn')                                   # tap the lit mode again: just watching
+    assert not page.locator('#wPanel').is_visible() and not page.locator('#undo').is_visible()
 
-def test_upright_video_sits_under_the_header(page):
+def test_video_sits_between_the_cards_and_moves_freely(page):
     open_clip(page); loaded(page)
-    st = page.locator('#stage').bounding_box(), 
-    st = st[0]
-    assert abs(st['height'] - 390 * 360 / 640) < 2 and st['y'] < 80
-    assert page.locator('#pNotes').is_visible() and page.locator('#rail').is_visible()
+    top = page.locator('#top').bounding_box(); dock = page.locator('#dock').bounding_box(); modes = page.locator('#modes').bounding_box()
+    assert top['y'] < 80 and dock['y'] + dock['height'] > 800 and modes['y'] + modes['height'] < dock['y'] + 1
+    # pinch out below 1x is allowed now: the readout says so
+    page.evaluate("""() => { const cv = document.getElementById('cv'), ev = (t, id, x, y) => cv.dispatchEvent(new PointerEvent(t, { pointerId: id, clientX: x, clientY: y, bubbles: true }));
+        ev('pointerdown', 1, 150, 400); ev('pointerdown', 2, 250, 400); ev('pointermove', 1, 180, 400); ev('pointermove', 2, 220, 400); ev('pointerup', 1, 180, 400); ev('pointerup', 2, 220, 400); }""")
+    assert '0.' in page.inner_text('#tc') and 'zoom' in page.inner_text('#tc')
 
-def test_sideways_video_fills_the_height(page):
+def test_two_finger_tap_undoes_three_redoes(page):
+    open_clip(page); loaded(page); pen(page)
+    stroke(page, y=150); assert len(last(page, 'marks')) == 1
+    tap = """n => { const cv = document.getElementById('cv'), ev = (t, id) => cv.dispatchEvent(new PointerEvent(t, { pointerId: id, clientX: 100 + id * 40, clientY: 330, bubbles: true }));
+        for (let i = 1; i <= n; i++) ev('pointerdown', i); for (let i = 1; i <= n; i++) ev('pointerup', i); }"""
+    page.evaluate(tap, 2); assert len(last(page, 'marks')) == 0
+    page.evaluate(tap, 3); assert len(last(page, 'marks')) == 1
+
+def test_sideways_video_fills_the_screen(page):
     page.set_viewport_size({'width': 844, 'height': 390})
     open_clip(page); loaded(page)
-    st = page.locator('#stage').bounding_box(), page.locator('#rail').bounding_box()
-    assert st[0]['height'] > 385 and st[1]['x'] > st[0]['x'] + st[0]['width'] - 1  # rail to the right of the video
-    assert not page.locator('#pNotes').is_visible()
+    assert page.locator('#cv').bounding_box()['height'] > 385
     page.click('#stepFwd'); assert fr(page).startswith('2')
-    # taps on the video still step frames, measured from the video's own edges
     bx = page.locator('#cv').bounding_box()
-    page.mouse.click(bx['x'] + bx['width'] * 0.9, bx['y'] + bx['height'] / 2); assert fr(page).startswith('3')
-    page.mouse.click(bx['x'] + bx['width'] * 0.1, bx['y'] + bx['height'] / 2); assert fr(page).startswith('2')
+    page.mouse.click(bx['x'] + bx['width'] * 0.75, 120); assert fr(page).startswith('3')
+    page.mouse.click(bx['x'] + bx['width'] * 0.1, 120); assert fr(page).startswith('2')
 
 
 # ---------- time warp: keys on a curve, nudges, tangents, frame keys
@@ -312,7 +342,7 @@ def test_time_warp_keys_and_nudges(page):
     page.click('#wDel'); assert len(warp_keys(page)) == 2
     page.click('#undo'); assert len(warp_keys(page)) == 3
     page.click('#secBtn')
-    assert page.locator('#pNotes').is_visible() and page.inner_text('#viewBtn') == 'Retimed'
+    assert page.inner_text('#viewBtn') == 'Retimed'
 
 def test_frame_keys_and_drag(page):
     open_clip(page); loaded(page); page.click('#secBtn')
@@ -339,20 +369,20 @@ def test_old_sections_open_as_a_curve(page):
 # ---------- drawing aids: onion skin and tracing paper
 RED_GHOST = "(r, g, b) => r > 50 && r < 200 && g < 45 && b < 60"   # the red pen faded over the black bar
 def black_bar_stroke(page):
-    page.mouse.move(18, 110); page.mouse.down()
-    for i in range(1, 16): page.mouse.move(18, 110 + i * 6)
+    o = dy(page); page.mouse.move(44, 110 + o); page.mouse.down()   # clear of the size/opacity sliders on the edge
+    for i in range(1, 16): page.mouse.move(44, 110 + o + i * 6)
     page.mouse.up()
 
 def test_onion_skin_shows_nearby_drawings_faded(page):
     open_clip(page); loaded(page)
     step(page, 10); pen(page); black_bar_stroke(page); page.click('#annBtn')
     step(page, 2)                                   # two frames on: the drawing (held 1 frame) is gone
-    assert not ink(page, RED_GHOST, box=(10, 50, 26, 140))
+    assert not ink(page, RED_GHOST, box=(38, 50, 48, 140))
     page.click('#more'); page.click('#onionBtn'); page.click('#moreVeil', position={'x': 10, 'y': 10})
-    assert ink(page, RED_GHOST, box=(10, 50, 26, 140))
+    assert ink(page, RED_GHOST, box=(38, 50, 48, 140))
     page.click('#more'); page.click('#onionAfter [data-d="1"]'); assert page.inner_text('#onionAfter .n') == '3'
     page.click('#onionBtn'); page.click('#moreVeil', position={'x': 10, 'y': 10})
-    assert not ink(page, RED_GHOST, box=(10, 50, 26, 140))
+    assert not ink(page, RED_GHOST, box=(38, 50, 48, 140))
 
 def test_tracing_paper_lightens_the_video_and_is_saved(page):
     open_clip(page); loaded(page)
@@ -402,7 +432,8 @@ def test_leaving_the_player_stops_an_export(page):
 
 def lum(page):
     return page.evaluate('''() => { const c = document.getElementById('cv'), x = c.getContext('2d');
-        const d = x.getImageData(c.width * 0.75, c.height * 0.75, 1, 1).data; return d[0]; }''')
+        const [px, py, pw, ph] = c.dataset.pic.split(',').map(Number), r = devicePixelRatio;
+        const d = x.getImageData((px + pw * 0.75) * r, (py + ph * 0.75) * r, 1, 1).data; return d[0]; }''')
 
 def test_mp4_frames_come_from_the_decoder_in_display_order(page):
     for clip in ('ramp.mp4', 'ramp.mov'):
@@ -419,7 +450,7 @@ def test_mp4_frames_come_from_the_decoder_in_display_order(page):
 def test_reset_span_and_reset_curve_keep_the_keys(page):
     open_clip(page); loaded(page)
     page.click('#secBtn')
-    step(page, 12); page.click('#inBtn'); step(page, 11); page.click('#outBtn')
+    step(page, 12); set_in(page); step(page, 11); set_out(page)
     page.click('#wShape'); page.click('#secRates [data-r="0.5"]')
     assert '/ 84' in fr(page)
     page.click('#rangeChip')
@@ -427,7 +458,7 @@ def test_reset_span_and_reset_curve_keep_the_keys(page):
     page.click('#wShape'); page.click('#secSpan')
     assert '/ 72' in fr(page)                               # that span plays at real time again
     n = len(warp_keys(page)); assert n >= 3                 # its keys are still there
-    scrub_to(page, 40, 72); page.click('#inBtn'); scrub_to(page, 45, 72); page.click('#outBtn')
+    scrub_to(page, 40, 72); set_in(page); scrub_to(page, 45, 72); set_out(page)
     page.click('#wShape'); page.click('#secHold'); page.click('#rangeChip')
     assert any(k['t'] == 'step' for k in warp_keys(page))
     page.click('#wShape'); page.click('#secReset')

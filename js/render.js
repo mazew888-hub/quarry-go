@@ -10,7 +10,7 @@ export function roundRect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y);
 
 export function renderer({ frames, W, H, state }) {
   function drawMark(c, m) {
-    c.save(); c.strokeStyle = m.color || '#FF3B5C'; c.fillStyle = m.color || '#FF3B5C'; c.lineWidth = m.size || Math.max(3, W/220); c.lineCap = 'round'; c.lineJoin = 'round';
+    c.save(); if (m.alpha != null) c.globalAlpha *= m.alpha; c.strokeStyle = m.color || '#FF3B5C'; c.fillStyle = m.color || '#FF3B5C'; c.lineWidth = m.size || Math.max(3, W/220); c.lineCap = 'round'; c.lineJoin = 'round';
     if (m.type === 'arrow') {
       c.beginPath(); c.moveTo(m.x1, m.y1); c.lineTo(m.x2, m.y2); c.stroke();
       const a = Math.atan2(m.y2-m.y1, m.x2-m.x1), L = Math.max(14, W/45);
