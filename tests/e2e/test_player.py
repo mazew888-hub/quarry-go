@@ -115,6 +115,13 @@ def test_onchange_fires(page):
     changes = page.evaluate('window.changes')
     assert any('marks' in c and c['marks'][-1]['text'] == 'arc is flat' for c in changes)
 
+def test_long_clip_is_held_smaller_and_still_shows(page):
+    # on iPad/iPhone a long clip used to run out of graphics memory and draw all black
+    page.goto(f'{BASE}?test=player&clip=clip.webm&maxBytes=30000000')
+    loaded(page)
+    assert 'long clip: held at' in page.inner_text('#log2')
+    assert centre_rgb(page) != (0, 0, 0)
+
 def test_too_long_refused_before_save(page):
     page.goto(f'{BASE}?test=player&clip=clip.webm&maxBytes=1000')
     page.wait_for_function("document.getElementById('toast').textContent.includes('too long')", timeout=15000)

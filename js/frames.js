@@ -3,14 +3,14 @@
 import { decodeGif, scanGif, gifTimeline } from './gif.js';
 import { demux } from './demux.js';
 
+import { frameSize, MAX_W, BUDGET } from './framesize.js';
 export const CANT_OPEN = "This clip can't be opened here";
 const tooLong = n => `This clip is too long to hold on the phone (${n} frames)`;
 const wait = ms => new Promise(r => setTimeout(r, ms));
-const MAX_W = 960;
 
 // The returned media has cancel(): it stops loading and frees every frame. Call it when the clip is left.
 // fps: the clip's rate if already known (measured when it was added), which saves measuring it again.
-export async function loadFrames(blob, { maxBytes = 900e6, log = () => {}, fps = 0 } = {}) {
+export async function loadFrames(blob, { maxBytes = BUDGET, log = () => {}, fps = 0 } = {}) {
   const head = new Uint8Array(await blob.slice(0, 6).arrayBuffer());
   const isGif = blob.type === 'image/gif' || String.fromCharCode(...head).startsWith('GIF8');
   if (isGif) return loadGif(blob, maxBytes, log);
@@ -27,9 +27,10 @@ async function loadDecoded(blob, maxBytes, log) {
   const v = demux(buf); if (!v || !v.samples.length) return null;
   const config = { codec: v.codec, codedWidth: v.width, codedHeight: v.height, description: v.description };
   try { if (!(await VideoDecoder.isConfigSupported(config)).supported) return null; } catch { return null; }
-  const scale = Math.min(1, MAX_W / v.width);
-  const W = Math.round(v.width * scale), H = Math.round(v.height * scale), count = v.samples.length;
-  if (count * W * H * 4 > maxBytes) throw new Error(tooLong(count));
+  const count = v.samples.length, size = frameSize(count, v.width, v.height, maxBytes);
+  if (!size) throw new Error(tooLong(count));
+  const { W, H } = size;
+  if (W < Math.min(MAX_W, v.width)) log(`long clip: held at ${W}x${H} to fit in memory`);
   const us = x => Math.round(x * 1e6 / v.timescale);
   const order = new Map([...v.samples].map(x => us(x.pts)).sort((a, b) => a - b).map((t, i) => [t, i]));
   const m = media(v.fps, count, W, H);
@@ -68,7 +69,7 @@ async function loadDecoded(blob, maxBytes, log) {
     // a picture the decoder didn't give back shows the one before it
     for (let i = 0; i < count; i++) if (!m.frames[i]) m.frames[i] = m.frames[i - 1] || m.frames.find(Boolean) || null;
     m.loading = false; m.onFrame && m.onFrame();
-    log(`${v.width}x${v.height}, ${v.fps} fps, ${count} frames (${v.codec}), loaded in ${((performance.now() - t0) / 1000).toFixed(1)}s${failed ? ' — decoder: ' + failed.message : ''}`);
+    log(`${v.width}x${v.height}, ${v.fps} fps, ${count} frames (${v.codec})${W < Math.min(MAX_W, v.width) ? `, long clip: held at ${W}x${H}` : ''}, loaded in ${((performance.now() - t0) / 1000).toFixed(1)}s${failed ? ' — decoder: ' + failed.message : ''}`);
   })();
   return m;
 }
@@ -88,9 +89,9 @@ async function loadGif(blob, maxBytes, log) {
   const buf = await blob.arrayBuffer();
   let info;
   try { info = scanGif(buf); } catch (e) { log('gif: ' + e.message); throw new Error(CANT_OPEN); }
-  const scale = Math.min(1, MAX_W / info.width);
-  const W = Math.round(info.width * scale), H = Math.round(info.height * scale);
-  if (info.count * W * H * 4 > maxBytes) throw new Error(tooLong(info.count));
+  const size = frameSize(info.count, info.width, info.height, maxBytes);
+  if (!size) throw new Error(tooLong(info.count));
+  const { W, H } = size;
   const { fps, slots } = gifTimeline(info.delays);
   const count = slots.reduce((a, b) => a + b, 0);
   const m = media(fps, count, W, H);
@@ -171,9 +172,10 @@ async function loadVideo(blob, maxBytes, log, knownFps = 0) {
   const dur = v.duration;
   if (!v.videoWidth || !isFinite(dur)) { quit(); throw new Error(CANT_OPEN); }
   const count = Math.max(1, Math.round(dur * fps));
-  const scale = Math.min(1, MAX_W / v.videoWidth);
-  const W = Math.round(v.videoWidth * scale), H = Math.round(v.videoHeight * scale);
-  if (count * W * H * 4 > maxBytes) { quit(); throw new Error(tooLong(count)); }
+  const size = frameSize(count, v.videoWidth, v.videoHeight, maxBytes);
+  if (!size) { quit(); throw new Error(tooLong(count)); }
+  const { W, H } = size;
+  if (W < Math.min(MAX_W, v.videoWidth)) log(`long clip: held at ${W}x${H} to fit in memory`);
   const m = media(fps, count, W, H);
   m.cleanup = () => { try { v.pause(); } catch {} quit(); };
   const opts = { resizeWidth: W, resizeHeight: H, resizeQuality: 'medium' };
@@ -209,7 +211,7 @@ async function loadVideo(blob, maxBytes, log, knownFps = 0) {
     }
     if (m.cancelled) return;
     m.loading = false; quit(); m.cleanup = () => {};
-    log(`${v.videoWidth}x${v.videoHeight}, ${fps} fps, ${count} frames, loaded in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
+    log(`${v.videoWidth}x${v.videoHeight}, ${fps} fps, ${count} frames${W < Math.min(MAX_W, v.videoWidth) ? `, long clip: held at ${W}x${H}` : ''}, loaded in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
   })();
   return m;
 }
