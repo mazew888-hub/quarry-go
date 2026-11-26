@@ -1,4 +1,6 @@
 // Quarry Go: boot, routing (#/ is Reviews, #/r/<id> is the player), saving and settings.
+import { playIntro } from './intro.js';
+playIntro();
 import { loadFrames, CANT_OPEN } from './frames.js';
 import { openPlayer, log, status } from './player.js';
 import { renderHistory, renderDay } from './reviews.js';
@@ -14,7 +16,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.26';
+export const VERSION = '0.9.27';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 

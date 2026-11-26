@@ -1,0 +1,48 @@
+<!DOCTYPE html><html><head><style>
+body{margin:0;background:#0d0f12;font:14px/1.35 Rubik,system-ui,sans-serif;color:#ECEEF1;padding:20px;width:1280px}
+h1{font-size:20px;margin:0 0 4px}.sub{color:#8a9099;margin:0 0 16px;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.p{background:#16181c;border-radius:14px;padding:10px;position:relative}
+.p canvas{width:100%;display:block;border-radius:8px}
+.n{position:absolute;top:16px;left:18px;font-weight:700;font-size:16px;background:rgba(0,0,0,.45);padding:2px 9px;border-radius:8px}
+.t{position:absolute;top:16px;right:18px;color:#86B0C2;font-weight:600;background:rgba(0,0,0,.45);padding:2px 9px;border-radius:8px;font-variant-numeric:tabular-nums}
+.c{margin:8px 2px 2px;font-size:13px;color:#cfd3d9;min-height:54px}
+</style></head><body>
+<h1>Quarry Go opening: storyboard</h1><p class="sub">Key poses and timings. Arrows show the motion into each pose. Mark what's right and wrong before anything is animated.</p>
+<div class="grid" id="g"></div>
+<script type="module">
+import { drawSplash } from './js/splash.js';
+const W = 390, H = 844, CROP = [40, 200, 310, 440];  // the middle of the phone screen
+const P = [
+  [0.32, 'The first stone drops in from above. No bounce: it lands with a short dip and a little dust.', a => arrow(a, 150, 30, 150, 160, 'down')],
+  [0.8, 'The bottom layer of four has landed. Each landing gives the screen a small knock.', a => arrow(a, 205, 20, 205, 130, 'down')],
+  [1.36, 'The top layer lands. The notch at the top right is still empty.', a => arrow(a, 180, 10, 180, 120, 'down')],
+  [1.74, 'The last stone drops into the notch with the heaviest thud. The whole block reads as one stone.', a => arrow(a, 205, 0, 205, 115, 'down')],
+  [2.05, 'A crack runs along the last stone\'s seams. It crouches a little, ready to go.', a => {}],
+  [2.4, 'It hops up and to the right: stretched on the way up, arcing over.', a => arc(a, 180, 170, 240, 95)],
+  [2.95, 'It lands in the logo spot with a small settle. Hold here about half a second: this is the logo.', a => {}],
+  [3.95, 'It comes slowly toward you, then speeds up, fills the screen and passes the camera. The app is there behind it.', a => burst(a)],
+];
+function arrow(c, x1, y1, x2, y2) { c.save(); c.strokeStyle = '#FFD166'; c.fillStyle = '#FFD166'; c.lineWidth = 3; c.setLineDash([7, 6]);
+  c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2 - 12); c.stroke(); c.setLineDash([]);
+  c.beginPath(); c.moveTo(x2, y2); c.lineTo(x2 - 8, y2 - 14); c.lineTo(x2 + 8, y2 - 14); c.closePath(); c.fill(); c.restore(); }
+function arc(c, x1, y1, x2, y2) { c.save(); c.strokeStyle = '#FFD166'; c.fillStyle = '#FFD166'; c.lineWidth = 3; c.setLineDash([7, 6]);
+  c.beginPath(); c.moveTo(x1, y1); c.quadraticCurveTo((x1 + x2) / 2 - 10, y2 - 70, x2, y2 - 8); c.stroke(); c.setLineDash([]);
+  c.beginPath(); c.moveTo(x2 + 2, y2 + 4); c.lineTo(x2 - 12, y2 - 10); c.lineTo(x2 + 6, y2 - 14); c.closePath(); c.fill(); c.restore(); }
+function burst(c) { c.save(); c.strokeStyle = '#FFD166'; c.lineWidth = 3; c.setLineDash([7, 6]);
+  for (const [x, y, dx, dy] of [[60, 40, -40, -30], [210, 40, 40, -30], [60, 200, -40, 30], [210, 200, 40, 30]]) { c.beginPath(); c.moveTo(x, y); c.lineTo(x + dx, y + dy); c.stroke(); }
+  c.restore(); }
+const g = document.getElementById('g');
+P.forEach(([t, cap, mark], i) => {
+  const off = document.createElement('canvas'); off.width = W * 2; off.height = H * 2; const ox = off.getContext('2d'); ox.scale(2, 2);
+  drawSplash(ox, W, H, t);
+  const cv = document.createElement('canvas'); cv.width = CROP[2] * 2; cv.height = CROP[3] * 2; const x = cv.getContext('2d');
+  x.fillStyle = '#1D2024'; x.fillRect(0, 0, cv.width, cv.height);
+  x.drawImage(off, CROP[0] * 2, CROP[1] * 2, CROP[2] * 2, CROP[3] * 2, 0, 0, cv.width, cv.height);
+  x.scale(2, 2); mark(x);
+  const d = document.createElement('div'); d.className = 'p';
+  d.innerHTML = `<span class="n">${i + 1}</span><span class="t">${t.toFixed(2)}s</span><div class="c">${cap}</div>`;
+  d.prepend(cv); g.append(d);
+});
+window.ready = true;
+</script></body></html>

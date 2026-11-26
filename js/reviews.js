@@ -36,7 +36,7 @@ export function renderHistory(root, videos, h, thumbUrl, now = Date.now()) {
   const { week, months } = groupHistory(videos, now);
   const th = v => `<span class="rv-th">${v.thumb ? `<img alt="" src="${thumbUrl(v)}">` : ''}</span>`;
   root.innerHTML = `
-    <header class="rv-head"><h1>Reviews</h1><button class="btn rv-gear" id="gear" aria-label="Settings">${GEAR}</button></header>
+    <header class="rv-head"><h1>Reviews</h1><button class="btn rv-gear" id="gear" aria-label="Settings"><img src="icons/icon-180.png" alt=""></button></header>
     <div class="acts"><label class="btn pri" id="newReview" for="file">${ICONS.plus}New review</label><label class="btn" id="receive" for="handoffFile">${ICONS.recv}Receive</label></div>
     ${!videos.length ? `<div class="rv-empty"><p>Pick videos from Photos or Files to start today's review. Videos stay on this phone.</p></div>` : ''}
     ${week.length ? `<div class="rv-cap">This week</div>${week.map(d => `

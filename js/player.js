@@ -501,12 +501,12 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     if (now.length) {
       const tag = document.createElement('span'); tag.className = 'ftag'; tag.textContent = `F ${last}`;
       const t = document.createElement('span'); t.className = 'nt'; t.textContent = now.map(o => o.m.text).join('  ·  ');
-      el.append(tag, t); el.onclick = () => { jumpTo(now[0].m.f); };
+      el.append(tag, t);
       fitBar(t);
     } else {
       const list = [...new Set(notes.map(o => o.n))].sort((a, b) => a - b);
       const t = document.createElement('span'); t.className = 'nt lst'; t.textContent = `Notes on frame${list.length > 1 ? 's' : ''} ${list.join(', ')}`;
-      el.append(t); el.onclick = null; fitBar(t);
+      el.append(t); fitBar(t);
     }
   }
   function fitBar(t) {   // the biggest size (up to normal) at which the whole note fits the fixed bar

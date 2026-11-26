@@ -1,0 +1,12 @@
+<!DOCTYPE html><html><body style="margin:0;background:#1D2024">
+<img src="app_bg.png" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover">
+<canvas id="c" style="position:fixed;inset:0;width:100%;height:100%"></canvas>
+<script type="module">
+import * as S from './js/splash.js';
+const c = document.getElementById('c'), d = 2;
+c.width = innerWidth * d; c.height = innerHeight * d;
+const x = c.getContext('2d'); x.scale(d, d);
+const which = S.drawSplash;
+window.at = t => which(x, innerWidth, innerHeight, t);
+window.ready = true;
+</script></body></html>
