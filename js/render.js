@@ -6,7 +6,7 @@ import { fillStroke } from './stroke.js';
 
 export const HOLD = 12; // frames a note stays on screen (drawings use their own holds)
 
-export function wrap(c, t, max) { const out = []; let line = ''; for (const w of t.split(/\s+/)) { const n = line ? line + ' ' + w : w; if (c.measureText(n).width > max && line) { out.push(line); line = w; } else line = n; } if (line) out.push(line); return out; }
+export function wrap(c, t, max) { if (t.includes('\n')) return t.split('\n').flatMap(p => p.trim() ? wrap(c, p, max) : ['']); const out = []; let line = ''; for (const w of t.split(/\s+/)) { const n = line ? line + ' ' + w : w; if (c.measureText(n).width > max && line) { out.push(line); line = w; } else line = n; } if (line) out.push(line); return out; }
 export function roundRect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
 
 export function renderer({ frames, W, H, state }) {
@@ -67,7 +67,16 @@ export function renderer({ frames, W, H, state }) {
         c.restore();
       });
     }
-    for (const m of visible(f, ret)) if (withNotes || m.type !== 'note') drawMark(c, m);
+    // Exports play at the real (or retimed) speed, never pausing, so the timing still reads. A note stays up from its
+    // frame until the next note takes over (never two boxes on top of each other); notes on one frame share a box.
+    const vis = visible(f, ret);
+    for (const m of vis) if (m.type !== 'note') drawMark(c, m);
+    const { marks, retimed, shown } = state(), r = ret === undefined ? retimed : ret;
+    const notes = marks.filter(m => m.type === 'note' && m.f <= f && !(r && shown && !shown.has(m.f)));
+    if (withNotes && notes.length) {
+      const latest = Math.max(...notes.map(m => m.f)), now = notes.filter(m => m.f === latest);
+      drawMark(c, now.length === 1 ? now[0] : { ...now[0], text: now.map(m => m.text).join('\n\n') });
+    }
   }
   return { drawMark, visible, compose, pic };
 }
