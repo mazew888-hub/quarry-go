@@ -658,3 +658,9 @@ def test_phone_mode_keys_stay_above_the_bottom_card(page):
         assert r['y'] + r['height'] <= d['y'] - 8, (r, d)
         x, y, w, h = map(int, page.get_attribute('#cv', 'data-pic').split(','))
         assert y >= r['y'] + r['height'], 'the mode keys cover the video'
+
+def test_ruler_doesnt_shift_as_the_frame_number_grows(page):
+    open_clip(page); loaded(page)
+    w1 = page.locator('#scrub').bounding_box()['width']
+    step(page, 12)                                   # 1 digit to 2
+    assert page.locator('#scrub').bounding_box()['width'] == w1

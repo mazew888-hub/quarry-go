@@ -123,6 +123,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     showNoteChip();
     cx.setTransform(1, 0, 0, 1, 0, 0);
     // iPhone: just the played frame (the video's own frame shows in Retime's readout)
+    // room for the widest frame number up front, so the ruler beside it never shifts as the digits change
+    const dg = String(seq.length).length; $('fr').style.minWidth = `calc(${dg * 2 + 3}ch + 26px)`;
     $('fr').innerHTML = `<b>${pos + 1}</b> / ${seq.length}${retimed && (isPad() || mode === 'retime') ? ` · fr ${cur + 1}` : ''}`;
     if (!playing) markList();
     if (!$('wPanel').hidden) drawCurve();
@@ -477,16 +479,39 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   ac.signal.addEventListener('abort', () => ro.disconnect());
   on(window, 'orientationchange', () => setTimeout(() => { sizeAll(); clampPan(); draw(); }, 350));
 
-  // ---------- note chip: a note on this frame shows at the top edge, only while paused
-  const chipHidden = new Set();
+  // ---------- notes bar: as in the exported video. A black bar right under the picture (over it if there's no room):
+  // the latest note so far stays up with an "F n" tag (the frame on screen it's about); before the first note it lists
+  // the frames that have notes. One height always; a long note's text shrinks to fit it.
+  let barKey = '';
   function showNoteChip() {
     const el = $('noteChip');
-    const ns = playing ? [] : visible(cur).filter(m => m.type === 'note' && !chipHidden.has(m));
-    if (!ns.length) { el.style.display = 'none'; return; }
-    el.innerHTML = ns.map(m => `<div class="t"><span class="fn">FR ${m.f + 1}</span></div>`).join('');
-    [...el.children].forEach((d, i) => d.append(document.createTextNode(ns[i].text)));
-    el.style.display = 'block';
-    el.onclick = () => { ns.forEach(m => chipHidden.add(m)); showNoteChip(); };
+    const at = new Map(); seq.forEach((v, k) => { if (!at.has(v)) at.set(v, k + 1); });
+    const notes = marks.filter(m => m.type === 'note' && at.has(m.f)).map(m => ({ m, n: at.get(m.f) }));
+    if (!notes.length) { el.style.display = 'none'; barKey = ''; return; }
+    const live = notes.filter(o => o.n <= pos + 1), last = live.length ? Math.max(...live.map(o => o.n)) : 0, now = live.filter(o => o.n === last);
+    // where the picture is on screen
+    const v = view(), px = v.ox / v.d, py = v.oy / v.d, pw = W * v.s / v.d, ph = H * v.s / v.d;
+    const sw = stage.clientWidth, left = Math.max(0, px), width = Math.min(sw, px + pw) - left, bh = 72;
+    const dockTop = $('dock').getBoundingClientRect().top - stage.getBoundingClientRect().top;
+    const top = py + ph + bh <= dockTop - 4 ? py + ph : Math.min(py + ph, dockTop) - bh;
+    Object.assign(el.style, { display: 'flex', left: left + 'px', width: Math.max(160, width) + 'px', top: top + 'px', height: bh + 'px' });
+    const key = now.length ? 'n' + last + now.map(o => o.m.text).join('|') : 'list' + notes.map(o => o.n).join(',');
+    if (key === barKey) return; barKey = key;
+    el.innerHTML = '';
+    if (now.length) {
+      const tag = document.createElement('span'); tag.className = 'ftag'; tag.textContent = `F ${last}`;
+      const t = document.createElement('span'); t.className = 'nt'; t.textContent = now.map(o => o.m.text).join('  ·  ');
+      el.append(tag, t); el.onclick = () => { jumpTo(now[0].m.f); };
+      fitBar(t);
+    } else {
+      const list = [...new Set(notes.map(o => o.n))].sort((a, b) => a - b);
+      const t = document.createElement('span'); t.className = 'nt lst'; t.textContent = `Notes on frame${list.length > 1 ? 's' : ''} ${list.join(', ')}`;
+      el.append(t); el.onclick = null; fitBar(t);
+    }
+  }
+  function fitBar(t) {   // the biggest size (up to normal) at which the whole note fits the fixed bar
+    let fs = 14; t.style.fontSize = fs + 'px';
+    while (fs > 6 && t.scrollHeight > t.clientHeight + 1) { fs *= 0.94; t.style.fontSize = fs + 'px'; }
   }
 
   // ---------- annotate
