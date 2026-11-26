@@ -16,11 +16,19 @@ def step(page, k, x=300):  # right third of the canvas, clear of the mode pill
 
 def fr(page): return page.inner_text('#fr')
 
-def set_io(page, which):
-    """In and Out live on the ruler: hold it at the playhead, then Set In / Set Out."""
-    t = fr(page); p = int(t.split(' ')[0]) - 1; n = int(t.split('/ ')[1].split(' ')[0])
-    bx = page.locator('#scrub').bounding_box(); x = bx['x'] + bx['width'] * (p + 0.5) / n; y = bx['y'] + bx['height'] / 2
+def hold_at(page, p, n):
+    """Hold the ruler at played frame p; in Retime on iPhone the ruler is hidden, so hold the curve there."""
+    if page.locator('#scrub').is_visible():
+        bx = page.locator('#scrub').bounding_box(); x = bx['x'] + bx['width'] * (p + 0.5) / n; y = bx['y'] + bx['height'] / 2
+    else:
+        bx = page.locator('#wCurve').bounding_box(); x0, x1, _, _ = [float(v) for v in page.get_attribute('#wCurve', 'data-view').split(',')]
+        x = bx['x'] + bx['width'] * (p - x0) / (x1 - x0); y = bx['y'] + (8 if p < n * 0.6 else bx['height'] - 8)
     page.mouse.move(x, y); page.mouse.down(); page.wait_for_timeout(600); page.mouse.up()
+
+def set_io(page, which):
+    """In and Out: hold the ruler (or the curve) at the playhead, then Set In / Set Out."""
+    t = fr(page); p = int(t.split(' ')[0]) - 1; n = int(t.split('/ ')[1].split(' ')[0])
+    hold_at(page, p, n)
     page.wait_for_selector('#ioMenu', state='visible'); page.click('#inBtn' if which == 'in' else '#outBtn')
 def set_in(page): set_io(page, 'in')
 def loop_txt(page):
@@ -31,14 +39,18 @@ def clear_loop(page):
     # hold the ruler well away from the loop (its ends drag), then Clear
     a, b = [int(v) for v in loop_txt(page)[5:].split('–')]
     t = fr(page); n = int(t.split('/ ')[1].split(' ')[0]); p = n - 2 if a - 1 < n - b else 1
-    bx = page.locator('#scrub').bounding_box(); x = bx['x'] + bx['width'] * (p + 0.5) / n; y = bx['y'] + bx['height'] / 2
-    page.mouse.move(x, y); page.mouse.down(); page.wait_for_timeout(600); page.mouse.up()
+    hold_at(page, p, n)
     page.wait_for_selector('#ioMenu', state='visible'); page.click('#ioClear')
 def set_out(page): set_io(page, 'out')
 
 def scrub_to(page, f, n):
-    bx = page.locator('#scrub').bounding_box()
-    page.mouse.click(bx['x'] + bx['width'] * (f + 0.5) / n, bx['y'] + bx['height'] / 2)
+    if page.locator('#scrub').is_visible():
+        bx = page.locator('#scrub').bounding_box()
+        page.mouse.click(bx['x'] + bx['width'] * (f + 0.5) / n, bx['y'] + bx['height'] / 2); return
+    # Retime on iPhone: no ruler; drag along the top of the curve to the frame
+    bx = page.locator('#wCurve').bounding_box(); x0, x1, _, _ = [float(v) for v in page.get_attribute('#wCurve', 'data-view').split(',')]
+    x = bx['x'] + bx['width'] * (f - x0) / (x1 - x0); y = bx['y'] + 6
+    page.mouse.move(x + 20 if x < bx['x'] + bx['width'] / 2 else x - 20, y); page.mouse.down(); page.mouse.move(x, y, steps=4); page.mouse.up()
 
 def probe(path):
     out = subprocess.run(['ffprobe', '-v', 'error', '-count_frames', '-select_streams', 'v', '-show_entries',
@@ -391,8 +403,8 @@ def test_time_warp_keys_and_nudges(page):
     page.click('#wDown'); page.click('#wDown')
     assert warp_keys(page)[1]['y'] == 9
     # tangent cycles; delete takes the key away; undo brings it back
-    page.click('#wTan'); assert page.inner_text('#wTan') == 'Smooth' and warp_keys(page)[1]['t'] == 'smooth'
-    page.click('#wTan'); page.click('#wTan'); assert page.inner_text('#wTan') == 'Stepped'
+    page.click('#wTan'); assert page.text_content('#wTan').strip() == 'Smooth' and warp_keys(page)[1]['t'] == 'smooth'
+    page.click('#wTan'); page.click('#wTan'); assert page.text_content('#wTan').strip() == 'Stepped'
     page.click('#wDel'); assert len(warp_keys(page)) == 2
     page.click('#undo'); assert len(warp_keys(page)) == 3
     page.click('#secBtn')
@@ -628,3 +640,13 @@ def test_notes_list_shows_one_line_per_drawn_frame(page):
     page.click('#annBtn'); page.click('#more')
     assert page.locator('#notes .note').count() == 1
     page.click('#notes .note .x'); assert len(last(page, 'marks')) == 0
+
+def test_phone_mode_keys_stay_above_the_bottom_card(page):
+    page.set_viewport_size({'width': 390, 'height': 844})
+    open_clip(page); loaded(page)
+    for setup in (lambda: None, lambda: page.click('#secBtn')):
+        setup(); page.wait_for_timeout(200)
+        r, d = page.locator('#modes').bounding_box(), page.locator('#dock').bounding_box()
+        assert r['y'] + r['height'] <= d['y'] - 8, (r, d)
+        x, y, w, h = map(int, page.get_attribute('#cv', 'data-pic').split(','))
+        assert y >= r['y'] + r['height'], 'the mode keys cover the video'

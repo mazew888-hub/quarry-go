@@ -330,7 +330,8 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 #viewBtn{height:34px;padding:0 12px;font-size:13px;flex:none;border-radius:17px}
 #viewBtn.on{color:var(--acc);box-shadow:var(--pressed-sm)}
 /* modes: low on the right, above the bottom card */
-#modes{right:max(12px,env(safe-area-inset-right));bottom:calc(var(--dockH,220px) + 12px);display:flex;flex-direction:column;gap:6px;padding:6px;border-radius:28px}
+#modes{right:max(12px,env(safe-area-inset-right));bottom:calc(var(--dockH,220px) + env(safe-area-inset-bottom) + 24px);   /* above the bottom card, which sits up off the home bar */
+  display:flex;flex-direction:column;gap:6px;padding:6px;border-radius:28px}
 #modes .mk{width:46px;height:46px;padding:0;border-radius:50%;display:grid;place-items:center;box-shadow:none;background:none}
 #modes .mk span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 #modes .mk.on{background:var(--acc);color:#fff;box-shadow:0 3px 8px rgba(232,52,79,.45)}
@@ -532,3 +533,33 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 #ptFeels .chip{height:36px;padding:0 14px;border-radius:18px;border:0;background:var(--well);color:var(--ink);font:500 14px Rubik,system-ui}
 #ptFeels .chip.on{background:var(--acc);color:#fff}
 #ptNotes{width:100%;box-sizing:border-box;margin-bottom:12px;border-radius:14px;border:0;padding:10px 12px;background:var(--well);color:var(--ink);font:15px Rubik,system-ui}
+
+/* ---- iPhone: the cards are tabs pressed to the screen's edges, leaving the most room for the video ---- */
+@media not ((min-width:900px) and (min-height:600px)){
+  /* top: just a back key in the corner (and Retimed/Original when the video is retimed) */
+  #player #top{top:0;left:0;right:auto;width:auto;gap:6px;border-radius:0 0 22px 0;padding:calc(env(safe-area-inset-top) + 4px) 8px 6px max(6px,env(safe-area-inset-left))}
+  #player #top .pt,#player #top #fsBtn{display:none!important}
+  #player #top #back{width:40px;height:40px}
+  #player #dock{left:0;right:0;bottom:0;border-radius:24px 24px 0 0;padding:10px max(12px,env(safe-area-inset-right)) calc(env(safe-area-inset-bottom) + 8px) max(12px,env(safe-area-inset-left))}
+  /* the mode keys: a tab across the top-right corner, beside the back key, off the video */
+  #player #modes{top:0;bottom:auto;right:0;flex-direction:row;border-radius:0 0 0 22px;padding:calc(env(safe-area-inset-top) + 4px) max(8px,env(safe-area-inset-right)) 6px 8px}
+  #player #modes .mk{width:40px;height:40px}
+  /* Retime: a shorter curve, keys as one row of icons, no ruler (the curve shows the frames) */
+  #dock.rt #wPanel .wBox{height:min(20vh,160px)}
+  #dock.rt #bot .lane{display:none}
+  #dock.rt #wTop .btn{height:40px}
+  #dock.rt #wRows{flex-direction:row;gap:4px}
+  #dock.rt #wRows .wg{display:contents}
+  #dock.rt #wRows .gap{display:none}
+  #dock.rt #wRows .btn,#dock.rt #wRows .slot .rk{flex:1 1 0;height:38px;min-width:0;padding:0;border-radius:12px}
+  #dock.rt #wRows .btn span{display:none}
+  #dock.rt #wRows #wFrame{font-size:11px}
+}
+@media (orientation:landscape) and (max-height:599px){
+  #player #top{padding:max(4px,env(safe-area-inset-top)) 8px 4px max(6px,env(safe-area-inset-left))}
+  #player #modes{padding:max(4px,env(safe-area-inset-top)) max(6px,env(safe-area-inset-right)) 6px 6px}
+  #player #dock{padding:6px max(12px,env(safe-area-inset-right)) calc(env(safe-area-inset-bottom) + 4px) max(12px,env(safe-area-inset-left))}
+  /* Retime sideways: curve and keys in a column pressed to the right edge; the video fills the rest */
+  #player #dock.rt{left:auto;top:0;width:min(48vw,420px);border-radius:24px 0 0 24px;overflow-y:auto;padding-top:62px}
+  #dock.rt #wPanel .wBox{height:38vh}
+}

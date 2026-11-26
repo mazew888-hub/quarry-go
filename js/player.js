@@ -76,10 +76,12 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     const d = devicePixelRatio || 1;
     const sr = stage.getBoundingClientRect();
     cv.width = Math.max(1, sr.width * d); cv.height = Math.max(1, sr.height * d);
-    if (sideways()) area = { top: 0, bottom: 0, right: 0 };
+    // sideways: the video fills the screen under the edge tabs; in Retime the curve's column takes the right side
+    if (sideways()) area = { top: 0, bottom: 0, right: mode === 'retime' ? Math.max(0, sr.right - $('dock').getBoundingClientRect().left) : 0 };
     else {
       const tb = $('top').getBoundingClientRect(), db = $('dock').getBoundingClientRect();
-      area = { top: Math.max(0, tb.bottom - sr.top + 8), bottom: Math.max(0, sr.bottom - db.top + 8), right: 0 };
+      const mb = isPad() ? tb : $('modes').getBoundingClientRect();   // iPhone: the mode keys share the top edge
+      area = { top: Math.max(0, Math.max(tb.bottom, mb.bottom) - sr.top + 8), bottom: Math.max(0, sr.bottom - db.top + 8), right: 0 };
       // iPad: the side panel takes the right, unless it's tucked away
       if (isPad() && !$('player').classList.contains('tucked')) area.right = Math.max(0, sr.right - $('side').getBoundingClientRect().left + 8);
     }
@@ -253,9 +255,9 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     if (scrubbing) { scrubbing = false; changed('pos'); }
   });
   on(sc, 'contextmenu', e => e.preventDefault());
-  function showIo(x) {
+  function showIo(x, above) {   // above: the screen y to sit over (default: the ruler)
     const m = $('ioMenu'); m.hidden = false;
-    const pr = $('player').getBoundingClientRect(), sr = sc.getBoundingClientRect(), mw = m.offsetWidth;
+    const pr = $('player').getBoundingClientRect(), sr = above != null ? { top: above } : sc.getBoundingClientRect(), mw = m.offsetWidth;
     const left = Math.max(8, Math.min(pr.width - mw - 8, x - pr.left - mw / 2));
     m.style.left = left + 'px'; m.style.top = (sr.top - pr.top - m.offsetHeight - 10) + 'px';
     m.style.setProperty('--ax', (x - pr.left - left) + 'px');
@@ -456,6 +458,15 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   // actually change, and once more after the turn settles, so the video never draws stretched.
   const ro = new ResizeObserver(() => { sizeAll(); clampPan(); draw(); });
   for (const el of [stage, sc, lane, $('wCurve')]) ro.observe(el);
+  // If iOS runs short of graphics memory it can drop a canvas's picture (it goes black) and give it back later:
+  // draw everything again the moment it does, rather than waiting for the video to be reopened.
+  for (const el of [cv, sc, lane, $('wCurve')]) {
+    on(el, 'contextlost', e => { e.preventDefault(); log('picture dropped by the system (low graphics memory)'); });
+    on(el, 'contextrestored', () => { sizeAll(); draw(); drawCurve(); });
+  }
+  // the bottom card grows and shrinks with the mode: keep what sits above it (the mode keys) clear of it
+  const dockRo = new ResizeObserver(() => $('player').style.setProperty('--dockH', $('dock').offsetHeight + 'px'));
+  dockRo.observe($('dock')); ac.signal.addEventListener('abort', () => { dockRo.disconnect(); ro.disconnect(); });
   ac.signal.addEventListener('abort', () => ro.disconnect());
   on(window, 'orientationchange', () => setTimeout(() => { sizeAll(); clampPan(); draw(); }, 350));
 
@@ -785,7 +796,12 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     try { wc.setPointerCapture(e.pointerId); } catch {}
     if (best >= 0) { selKey = best; wDrag = { i: best, moved: false, x0: e.clientX, y0: e.clientY }; pos = Math.min(seq.length - 1, warp[best].x); draw(); drawCurve(); changed('pos'); }
     // anywhere else: a tap steps a frame towards that side of the playhead; a drag scrubs
-    else wDrag = { scrub: true, moved: false, x0: e.clientX, y0: e.clientY, side: p.x < pos ? -1 : 1 };
+    else {
+      wDrag = { scrub: true, moved: false, x0: e.clientX, y0: e.clientY, side: p.x < pos ? -1 : 1 };
+      // hold: Set In / Set Out at that frame (on iPhone the ruler is hidden in Retime, so the curve does it)
+      const d0 = wDrag, x = e.clientX, at = Math.max(0, Math.min(seq.length - 1, Math.round(p.x)));
+      d0.hold = setTimeout(() => { if (wDrag !== d0 || d0.moved) return; d0.held = true; stop(); pos = at; draw(); drawCurve(); changed('pos'); navigator.vibrate && navigator.vibrate(12); showIo(x, wc.getBoundingClientRect().top); }, 450);
+    }
   });
   on(wc, 'pointermove', e => {
     if (wTouch.has(e.pointerId)) wTouch.set(e.pointerId, [e.clientX, e.clientY]);
@@ -801,7 +817,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     pos = Math.min(warp[wDrag.i].x, seq.length - 1); updateRetimeUi(); draw(); drawCurve();
   });
   const wEnd = () => {
-    if (wDrag && wDrag.scrub) { if (!wDrag.moved) { stop(); stepBy(wDrag.side); draw(); } changed('pos'); }
+    if (wDrag && wDrag.scrub) { clearTimeout(wDrag.hold); if (wDrag.held) { wDrag = null; return; } if (!wDrag.moved) { stop(); stepBy(wDrag.side); draw(); } changed('pos'); }
     else if (wDrag && wDrag.moved) changed('warp', 'retimed', 'pos');
     wDrag = null;
   };
