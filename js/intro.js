@@ -1,5 +1,5 @@
 // Start screen: the Quarry mark itself (the block of seven cubes and the small cube), no app tile.
-// The block drops in and lands with a squash, then the small cube pops out of its notch into place.
+// The mark grows in, the small cube pops out of its notch into place, and it holds before fading to the app.
 const TOP = [238, 241, 245], RIGHT = [184, 196, 211], LEFT = [226, 230, 236];
 const BG0 = '#353B45', BG1 = '#1A1D22';
 const C30 = Math.cos(Math.PI / 6);
@@ -68,34 +68,27 @@ const squashAbout = (p, base, sz, sxy) => [base[0] + (p[0] - base[0]) * sxy, bas
 
 const BLOCK = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [0, 1, 1], [1, 1, 1]];
 const HOME = [1, 0, 1], LOGO = [2.25, -0.85, 1.9], MID = [0.5, 0.5, 0];
-export const LAND = 0.3, POP = 0.5, POPPED = 0.82, HOLD = 1.25, END = 1.55;
+export const GROW = 0.5, POP = 0.42, POPPED = 0.74, HOLD = 2.3, END = 2.6;
+const C = [1.3, 0.2, 1.1];   // the middle of the mark, which it grows from
 
 export function drawIntro(c, w, h, t) {
   const s = Math.min(w, h) * 0.085, ox = w / 2 - s * 0.6, oy = h * 0.47;
-  // the block: falls, quickening, then lands with a squash and a little rebound
-  const z = t < LAND ? lerp(7, 0, E.in(clamp(t / LAND))) : 0;
-  const sz = t < LAND ? 1.12 : track(t, [LAND, 1.12], [LAND + 0.06, 0.8, E.out], [LAND + 0.2, 1.05, E.inOut], [LAND + 0.36, 1, E.inOut]);
-  const block = p => { const r = squashAbout(p, MID, sz, 1 / Math.sqrt(sz)); return [r[0], r[1], r[2] + z]; };
-  // the small cube: rides in the notch, then springs out on an arc into its spot and settles
+  // the whole mark grows out of nothing with a little overshoot
+  const g = track(t, [0, 0], [GROW * 0.7, 1.08, E.out], [GROW, 0.98, E.inOut], [GROW + 0.15, 1, E.inOut]);
+  const grow = p => [C[0] + (p[0] - C[0]) * g, C[1] + (p[1] - C[1]) * g, C[2] + (p[2] - C[2]) * g];
+  const at = pos => p => [p[0] + pos[0], p[1] + pos[1], p[2] + pos[2]];
+  // the small cube: tucked in the notch, then springs out on an arc into its spot and settles
   let tf;
-  if (t < POP) tf = p => block([p[0] + HOME[0], p[1] + HOME[1], p[2] + HOME[2]]);
+  if (t < POP) tf = p => grow(at(HOME)(p));
   else {
     const k = clamp((t - POP) / (POPPED - POP)), e = E.out(k);
     const ss = track(t, [POP, 1.18], [POP + 0.15, 1, E.out], [POPPED, 1], [POPPED + 0.06, 0.86, E.out], [POPPED + 0.25, 1, E.inOut]);
     const pos = [lerp(HOME[0], LOGO[0], e), lerp(HOME[1], LOGO[1], e), lerp(HOME[2], LOGO[2], e) + Math.sin(k * Math.PI) * 0.9];
-    tf = p => { const r = squashAbout(p, MID, ss, 1 / Math.sqrt(ss)); return [r[0] + pos[0], r[1] + pos[1], r[2] + pos[2]]; };
+    tf = p => grow(at(pos)(squashAbout(p, MID, ss, 1 / Math.sqrt(ss))));
   }
   c.clearRect(0, 0, w, h);
   c.fillStyle = '#1E2024'; c.fillRect(0, 0, w, h);
-  // a soft red glow that blooms under the mark as the small cube lands
-  const g = clamp((t - POPPED) / 0.4);
-  if (g > 0) {
-    const [gx, gy] = [w / 2, oy - s * 0.2], r = s * (2.2 + 1.6 * E.out(g));
-    const rg = c.createRadialGradient(gx, gy, 0, gx, gy, r);
-    rg.addColorStop(0, `rgba(232,52,79,${0.22 * Math.sin(g * Math.PI)})`); rg.addColorStop(1, 'rgba(232,52,79,0)');
-    c.fillStyle = rg; c.fillRect(0, 0, w, h);
-  }
-  drawScene(c, ox, oy, s, [{ cubes: BLOCK, tf: block }, { cubes: [[0, 0, 0]], tf, bias: 0.01 }]);
+  if (g > 0.01) drawScene(c, ox, oy, s, [{ cubes: BLOCK, tf: grow }, { cubes: [[0, 0, 0]], tf, bias: 0.01 }]);
   const f = clamp((t - HOLD) / (END - HOLD));
   if (f > 0) { c.save(); c.globalCompositeOperation = 'destination-out'; c.globalAlpha = E.sine(f); c.fillRect(0, 0, w, h); c.restore(); }
 }
