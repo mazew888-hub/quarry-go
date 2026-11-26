@@ -39,3 +39,16 @@ test('notes bar: under the picture, a note stays up with "F n" saying which fram
   assert.match(at(70), /F 61.*arms read awkward/);
   assert.equal(r.barH() % 2, 0);
 });
+
+test('notes bar: one height for the whole video; a long note gets smaller text and is shown in full', () => {
+  const long = Array.from({ length: 120 }, (_, i) => 'word' + i).join(' ');
+  const marks = [{ type: 'note', f: 10, text: 'short' }, { type: 'note', f: 20, text: long }];
+  const only = r => r.barH();
+  const r = renderer({ frames: [], W: 960, H: 540, state: () => ({ marks, holds: [], retimed: false }) });
+  const r2 = renderer({ frames: [], W: 960, H: 540, state: () => ({ marks: [marks[0]], holds: [], retimed: false }) });
+  assert.equal(only(r), only(r2));                     // the bar doesn't grow for long notes
+  const seq = Array.from({ length: 100 }, (_, j) => j);
+  const c = ctx(); c.canvas = { width: 960 }; r.noteBar(c, seq, 25);
+  const said = c.said.join(' ');
+  assert.ok(said.includes('word0') && said.includes('word119'), 'the end of the note is missing');
+});
