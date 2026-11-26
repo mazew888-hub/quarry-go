@@ -67,16 +67,29 @@ export function renderer({ frames, W, H, state }) {
         c.restore();
       });
     }
-    // Exports play at the real (or retimed) speed, never pausing, so the timing still reads. A note stays up from its
-    // frame until the next note takes over (never two boxes on top of each other); notes on one frame share a box.
+    // Exports: a note is about its moment, so it shows on its own frame only (the video plays at its real or retimed
+    // speed, never pausing). Notes on one frame share a box. Frame 1 lists the frames with notes (noteBanner).
     const vis = visible(f, ret);
     for (const m of vis) if (m.type !== 'note') drawMark(c, m);
     const { marks, retimed, shown } = state(), r = ret === undefined ? retimed : ret;
-    const notes = marks.filter(m => m.type === 'note' && m.f <= f && !(r && shown && !shown.has(m.f)));
-    if (withNotes && notes.length) {
-      const latest = Math.max(...notes.map(m => m.f)), now = notes.filter(m => m.f === latest);
-      drawMark(c, now.length === 1 ? now[0] : { ...now[0], text: now.map(m => m.text).join('\n\n') });
-    }
+    const now = marks.filter(m => m.type === 'note' && m.f === f && !(r && shown && !shown.has(m.f)));
+    if (withNotes && now.length) drawMark(c, now.length === 1 ? now[0] : { ...now[0], text: now.map(m => m.text).join('\n\n') });
   }
-  return { drawMark, visible, compose, pic };
+  // Frame 1 of an export: "Notes on frames 12, 35, 87" along the bottom, so the artist knows where to stop.
+  // seq: the export's frames in order (video frame per exported frame); numbers are the exported frames.
+  function noteFrames(seq) {
+    const at = new Map(); seq.forEach((v, j) => { if (!at.has(v)) at.set(v, j + 1); });
+    return [...new Set(state().marks.filter(m => m.type === 'note' && at.has(m.f)).map(m => at.get(m.f)))].sort((a, b) => a - b);
+  }
+  function noteBanner(c, seq) {
+    const list = noteFrames(seq); if (!list.length) return;
+    const fs = Math.max(14, W / 34), pad = fs * 0.5;
+    c.save(); c.font = `600 ${fs}px -apple-system,system-ui,sans-serif`;
+    const lines = wrap(c, `Notes on frame${list.length > 1 ? 's' : ''} ${list.join(', ')}`, W * 0.9), h = lines.length * fs * 1.25 + pad * 2;
+    const w = Math.max(...lines.map(l => c.measureText(l).width)) + pad * 2;
+    c.fillStyle = 'rgba(232,52,79,.92)'; roundRect(c, (W - w) / 2, H - h - pad, w, h, 6); c.fill();
+    c.fillStyle = '#fff'; lines.forEach((l, i) => c.fillText(l, (W - w) / 2 + pad, H - h - pad + pad + fs * (i + 0.95)));
+    c.restore();
+  }
+  return { drawMark, visible, compose, pic, noteFrames, noteBanner };
 }

@@ -4,7 +4,7 @@ import { log, status } from './player.js';
 import { roundRect } from './render.js';
 
 export async function exportVideo(kind, ctx) {
-  const { frames, fps, W, H, warpSeq, name, compose, closeSheets, stop, loading, left = () => false } = ctx;  // left(): the player was closed  // warpSeq: the time warp's frames, or null
+  const { frames, fps, W, H, warpSeq, name, compose, banner = () => {}, closeSheets, stop, loading, left = () => false } = ctx;  // left(): the player was closed  // warpSeq: the time warp's frames, or null
   stop(); closeSheets();
   if (loading()) { status('Still loading frames. Try again in a moment.', 0); setTimeout(() => status(''), 2200); return; }
   const both = kind === 'both', ret = kind !== 'notes';
@@ -28,6 +28,7 @@ export async function exportVideo(kind, ctx) {
           oc.setTransform(1, 0, 0, 1, w2 + gap, 0); compose(oc, rseq[Math.min(i, rseq.length - 1)], true, true);
           oc.setTransform(1, 0, 0, 1, 0, 0); tag(oc, w2 + gap, 'Retimed');
         } else compose(oc, rseq[i], true, warped);
+        if (i === 0) { oc.setTransform(1, 0, 0, 1, 0, 0); banner(oc, rseq); }   // frame 1: which frames have notes
       },
       onFrame: (i, t) => { if (!left()) status(`Exporting frame ${i} / ${t}`, i / t); },
       stopped: left,

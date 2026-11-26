@@ -105,10 +105,10 @@ export function openExport(veil, info, { getClip, toast = () => {}, log = () => 
             if (stop) break;
             const marks = v.marks || [], holds = v.holds || legacyHolds(marks), retimed = isRetimed(v);
             const seq = retimed ? frameMap(warpOf(v), media.count) : Array.from({ length: media.count }, (_, j) => j), shown = retimed ? new Set(seq) : null;
-            const { compose } = renderer({ frames: media.frames, W: media.W, H: media.H, state: () => ({ marks, holds, retimed, shown, trace: v.trace || 0, onion: null }) });
+            const { compose, noteBanner } = renderer({ frames: media.frames, W: media.W, H: media.H, state: () => ({ marks, holds, retimed, shown, trace: v.trace || 0, onion: null }) });
             if (p.has('video')) {
               const { blob, ext } = await recordVideo({
-                W: media.W, H: media.H, fps: media.fps, total: seq.length, draw: (c, j) => compose(c, seq[j], true),
+                W: media.W, H: media.H, fps: media.fps, total: seq.length, draw: (c, j) => { compose(c, seq[j], true); if (j === 0) noteBanner(c, seq); },
                 onFrame: (j, t) => step(`video, frame ${j} / ${t}`, j / t * .6), stopped: () => stop,
               });
               if (!blob) break;
@@ -120,7 +120,7 @@ export function openExport(veil, info, { getClip, toast = () => {}, log = () => 
               const parts = [mayaDropHead(tpl, { shot: name, stamp: stamp(), fps: media.fps, count: seq.length })];
               for (const [j, f] of seq.entries()) {
                 if (stop) break;
-                cx.setTransform(1, 0, 0, 1, 0, 0); compose(cx, f, true);
+                cx.setTransform(1, 0, 0, 1, 0, 0); compose(cx, f, true); if (j === 0) noteBanner(cx, seq);
                 const jpg = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
                 parts.push(`"${await b64(jpg)}",\n`);
                 if (j % 4 === 0) step(`Maya image plane, frame ${j + 1} / ${seq.length}`, .6 + j / seq.length * .4);

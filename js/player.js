@@ -101,7 +101,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   }
 
   // ---------- marks (drawn by render.js, shared with the review exporter)
-  const { drawMark, visible, compose } = renderer({ frames, W, H, state: () => ({ marks, holds, retimed, shown, trace,
+  const { drawMark, visible, compose, noteBanner } = renderer({ frames, W, H, state: () => ({ marks, holds, retimed, shown, trace,
     onion: onion.on && !playing && !quietAids ? onion : null }) });
 
   // ---------- drawing
@@ -882,7 +882,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   // ---------- export
   // exports carry the tracing paper (as Quarry's do) but not the onion skin
   const exportCompose = (...a) => { quietAids = true; try { compose(...a); } finally { quietAids = false; } };
-  const exportCtx = () => ({ frames, fps, W, H, marks, warpSeq: warped() ? TW.frameMap(warp, frames.length) : null, name, compose: exportCompose, closeSheets, stop, loading: () => media.loading, left: () => ac.signal.aborted });
+  const exportCtx = () => ({ frames, fps, W, H, marks, warpSeq: warped() ? TW.frameMap(warp, frames.length) : null, name, compose: exportCompose, banner: noteBanner, closeSheets, stop, loading: () => media.loading, left: () => ac.signal.aborted });
 
   // ---------- drawing aids, in More
   function showAids() {
