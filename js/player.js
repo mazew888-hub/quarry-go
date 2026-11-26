@@ -33,7 +33,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   let inF = r0.inF ?? null, outF = r0.outF ?? null, rate = r0.rate || 1, pos = r0.pos || 0;
   // How long each frame's drawing holds. Reviews from before holds existed keep their 12 frames.
   let holds = r0.holds ? { ...r0.holds } : legacyHolds(marks);
-  let pen = { color: '#FF3B5C', size: 2, alpha: 1, pressure: 1, smooth: SMOOTH_DEFAULT };
+  let pen = { color: '#E5484D', size: 2, alpha: 1, pressure: 1, smooth: SMOOTH_DEFAULT };
   const penPx = () => pen.px ?? PEN_SIZES[pen.size] ?? 4.5;   // the stroke's on-screen width: the size slider sets it
   // Drawing aids: tracing paper is kept with the review (Quarry keeps it with the video); onion skin is a preference.
   let trace = r0.trace || 0, lastTrace = trace || 0.5, onion = { on: false, before: 2, after: 2 }, quietAids = false;
@@ -432,7 +432,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     if (erasing) { if (erasing.hit) changed('marks'); else undoStack.pop(); erasing = null; draw(); return; }
     if (drag) {
       const big = drag.type === 'draw' ? drag.pts.length > 2 : Math.hypot(drag.x2 - drag.x1, drag.y2 - drag.y1) > 6;
-      if (big) { remember(); marks.push(drag); changed('marks'); } drag = null; draw(); return;
+      if (big) { remember(); marks.push(drag); changed('marks'); usedColor(drag.color); } drag = null; draw(); return;
     }
     if (sliding) { sliding = false; tapStart = null; poke(); changed('pos'); return; }
     if (tapStart && Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 10 && performance.now() - tapStart.t < 350) {
@@ -515,7 +515,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   // ---------- pen bar: colour, size, eraser, clear this frame's drawing
   const savePen = () => { try { localStorage.setItem('qg_pen', JSON.stringify(pen)); } catch {} };
   const showPen = () => {
-    for (const b of document.querySelectorAll('#penRow .sw')) b.classList.toggle('on', b.dataset.color === pen.color);
+    showRecent();
+    for (const b of document.querySelectorAll('#penRow .sw')) b.classList.toggle('on', b.dataset.color.toLowerCase() === pen.color.toLowerCase());
     $('colorBtn').style.setProperty('--c', pen.color);
     $('sizeSl').style.setProperty('--v', 1 - (penPx() - 1.5) / 12.5); $('opSl').style.setProperty('--v', 1 - pen.alpha);
     $('smSl').style.setProperty('--v', 1 - (pen.smooth ?? SMOOTH_DEFAULT));
@@ -525,9 +526,23 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     $('smSl').querySelector('.val').textContent = `${Math.round((pen.smooth ?? SMOOTH_DEFAULT) * 100)}%`;
     $('eraseBtn').classList.toggle('on', tool === 'erase');
   };
+  // Quarry's palette: a column per colour (light, bright, dark), plus the colours you drew with lately
+  const PAL = [['#FFFFFF', '#EDECEF', '#B5B4B9'], ['#6F6E73', '#2B2A2E', '#1D1C1E'],
+    ['#E59A93', '#E5484D', '#7C3836'], ['#EBB27F', '#F08C3A', '#83522B'], ['#E8D07E', '#F5D153', '#866F30'],
+    ['#9DCDA4', '#4FBF7A', '#426449'], ['#9AB8E3', '#5A8FF0', '#3D527C'], ['#BBA8E3', '#A98BEF', '#5A4A7B'], ['#E09EBF', '#E35D9B', '#78405B']];
+  const swatch = c => `<button class="sw" data-color="${c}" style="--c:${c}" aria-label="${c}"></button>`;
+  $('pal').innerHTML = PAL.flat().map(swatch).join('');
+  let recent = []; try { recent = JSON.parse(localStorage.getItem('qg_recent') || '[]'); } catch {}
+  function showRecent() { $('palRecent').innerHTML = recent.map(swatch).join(''); }
+  const usedColor = c => { recent = [c, ...recent.filter(x => x.toLowerCase() !== c.toLowerCase())].slice(0, 8); try { localStorage.setItem('qg_recent', JSON.stringify(recent)); } catch {} showRecent(); };
+  // + : the system colour picker, for any colour; the colour joins Recent
+  $('palPick').oninput = $('palPick').onchange = () => {
+    pen.color = $('palPick').value.toUpperCase(); if (tool === 'erase' || !tool) pick('draw');
+    usedColor(pen.color); savePen(); showPen(); poke();
+  };
   $('penRow').onclick = e => {
     const c = e.target.closest('.sw'), z = e.target.closest('.sz');
-    if (c) { pen.color = c.dataset.color; if (tool === 'erase' || !tool) pick('draw'); $('penRow').hidden = true; }
+    if (c) { pen.color = c.dataset.color; if (tool === 'erase' || !tool) pick('draw'); if (!isPad()) $('penRow').hidden = true; }   // iPad: the colours stay in the panel
     if (z) { pen.size = +z.dataset.size; if (tool === 'erase' || !tool) pick('draw'); }
     if (c || z) { savePen(); showPen(); poke(); }
   };

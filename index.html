@@ -47,10 +47,8 @@
     <button class="btn rk" id="colorBtn" aria-label="Colour"><i class="cdot"></i></button>
   </div>
   <div class="fcard" id="penRow" hidden>
-    <button class="sw on" data-color="#FF3B5C" style="--c:#FF3B5C" aria-label="Red"></button>
-    <button class="sw" data-color="#4FA3FF" style="--c:#4FA3FF" aria-label="Blue"></button>
-    <button class="sw" data-color="#ECEEF1" style="--c:#ECEEF1" aria-label="White"></button>
-    <button class="sw" data-color="#111111" style="--c:#111111" aria-label="Black"></button>
+    <div class="pal" id="pal" aria-label="Colours"></div>
+    <div class="palRow"><label class="add" id="palAdd" aria-label="Any colour"><input type="color" id="palPick"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></label><div class="palRecent" id="palRecent" aria-label="Recent colours"></div></div>
     <button class="btn" id="clearBtn" style="color:var(--late)">Clear frame</button>
   </div>
   <!-- Draw: size and opacity, frosted sliders on the left edge -->

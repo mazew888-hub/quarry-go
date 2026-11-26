@@ -151,7 +151,7 @@ def test_freehand_draw(page):
 
 
 # ---------- draw-over: pen bar, holds on the timeline, eraser, clear and undo
-PEN = "(r, g, b) => r > 230 && g > 40 && g < 80 && b > 75 && b < 110"
+PEN = "(r, g, b) => r > 210 && g > 50 && g < 95 && b > 60 && b < 100"   # Quarry red #E5484D
 BLUE = "(r, g, b) => r < 110 && g > 140 && g < 190 && b > 230"
 
 def pic_top(page):  # where the video's top edge sits on screen now (it used to be fixed at y 60, under the header)
@@ -194,12 +194,28 @@ def test_pen_colour_and_size(page):
     open_clip(page); loaded(page); pen(page)
     stroke(page, y=130)
     small = last(page, 'marks')[-1]['size']
-    page.click('#colorBtn'); page.click('#penRow [data-color="#4FA3FF"]')
+    page.click('#colorBtn'); page.click('#penRow [data-color="#5A8FF0"]')
     sl = page.locator('#sizeSl').bounding_box(); page.mouse.move(sl['x'] + 14, sl['y'] + 60); page.mouse.down(); page.mouse.move(sl['x'] + 14, sl['y'] + 8, steps=4); page.mouse.up()
     stroke(page, y=170)
     m = last(page, 'marks')[-1]
-    assert m['color'] == '#4FA3FF' and m['size'] > small
+    assert m['color'] == '#5A8FF0' and m['size'] > small
     assert ink(page, BLUE)
+
+def test_palette_recent_and_any_colour(page):
+    open_clip(page); loaded(page)
+    page.evaluate("localStorage.removeItem('qg_recent')"); pen(page)
+    page.click('#colorBtn'); assert page.locator('#pal .sw').count() == 27        # Quarry's palette
+    page.click('#penRow [data-color="#4FBF7A"]'); stroke(page, y=130)
+    page.click('#colorBtn'); assert page.locator('#palRecent .sw').first.get_attribute('data-color') == '#4FBF7A'
+    page.evaluate("() => { const i = document.getElementById('palPick'); i.value = '#123456'; i.dispatchEvent(new Event('change')); }")
+    page.click('#colorBtn'); stroke(page, y=170)
+    assert last(page, 'marks')[-1]['color'] == '#123456'
+
+def test_ipad_colours_stay_put_when_one_is_picked(page):
+    page.set_viewport_size({'width': 1194, 'height': 834})
+    open_clip(page); loaded(page); page.click('#annBtn')
+    page.click('#penRow [data-color="#F5D153"]')
+    assert page.locator('#penRow').is_visible() and page.locator('#penRow [data-color="#F5D153"].on').count() == 1
 
 def test_stretch_hold_on_lane(page):
     open_clip(page); loaded(page); pen(page)
