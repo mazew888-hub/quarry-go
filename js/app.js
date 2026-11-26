@@ -1,5 +1,6 @@
 // Quarry Go: boot, routing (#/ is Reviews, #/r/<id> is the player), saving and settings.
 import { playIntro } from './intro.js';
+import * as DL from './devlab.js';
 playIntro();
 import { loadFrames, CANT_OPEN } from './frames.js';
 import { openPlayer, log, status } from './player.js';
@@ -16,7 +17,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.30';
+export const VERSION = '0.9.31';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -27,7 +28,7 @@ export function toast(msg, ms = 3500) {
 }
 const show = id => { $(id).style.display = 'flex'; $(id).classList.add('show'); };
 const hide = id => { $(id).style.display = 'none'; $(id).classList.remove('show'); };
-for (const v of ['cardVeil', 'settingsVeil', 'confirmVeil']) $(v).addEventListener('click', e => { if (e.target === $(v)) hide(v); });
+for (const v of ['cardVeil', 'settingsVeil', 'confirmVeil', 'devVeil']) $(v).addEventListener('click', e => { if (e.target === $(v)) hide(v); });
 
 // ---------- confirm sheet (never the browser's confirm())
 function confirmSheet(text) {
@@ -85,7 +86,7 @@ async function showHistory() {
   renderHistory($('reviews'), list, {
     onOpenDay: day => { location.hash = `#/d/${day}`; },
     onHoldDay: day => deleteDay(day, list),
-    onSettings: settings,
+    onSettings: settings, onDevLab: openDevLab,
   }, thumbUrl);
   $('reviews').classList.add('show'); $('reviews').scrollTop = 0;
   fileMode = { kind: 'add', day: today() };
@@ -150,18 +151,12 @@ async function settings() {
   const [{ bytes }, list] = await Promise.all([S.usage(), S.listReviews()]);
   $('spaceUsed').textContent = `${(bytes / 1e6).toFixed(1)} MB · ${list.length} video${list.length === 1 ? '' : 's'}`;
   $('version').textContent = VERSION;
-  const on = extraTabs();
-  $('extraTabs').textContent = on ? 'On' : 'Off'; $('extraTabs').classList.toggle('on', on);
-  $('extraTabs').onclick = () => {
-    try { localStorage.setItem('qg_extra_tabs', on ? '0' : '1'); } catch {}
-    $('extraTabs').textContent = on ? 'Off' : 'On'; $('tabbar').classList.toggle('show', !on); settings();
-  };
   $('gRow').style.display = 'none';   // Drive sign-in is blocked on the work account: Sort goes by file instead
   const acc = G.connected() ? await G.account().catch(() => null) : null;
   $('gAccount').textContent = !G.configured() ? 'Not set up yet' : acc ? acc.email : 'Not connected';
   $('gBtn').textContent = acc ? 'Disconnect' : 'Connect';
   $('gBtn').style.display = G.configured() ? '' : 'none';
-  $('gCheckRow').style.display = acc && on ? '' : 'none';
+  $('gCheckRow').style.display = 'none';
   $('gCheck').textContent = 'Check what this phone can see in your Drive.';
   $('gCheckBtn').onclick = async () => {
     $('gCheck').textContent = 'Checking…';
@@ -366,7 +361,18 @@ $('missingBack').onclick = () => { hide('missing'); const d = fileMode.day; loca
 // ---------- tabs: Review, Sort, Library
 let sortTab = null, libTab = null;
 // Quarry Go is a review app first: Sort and Library stay hidden until switched on in Settings.
-const extraTabs = () => { try { return localStorage.getItem('qg_extra_tabs') === '1'; } catch { return false; } };
+const extraTabs = () => { try { return DL.isUnlocked() && localStorage.getItem('qg_extra_tabs') === '1'; } catch { return false; } };
+// Dev lab: opened by holding the Quarry logo key, behind Face ID (js/devlab.js).
+async function openDevLab() {
+  try { await DL.unlock(); } catch (e) { if (e.name !== 'NotAllowedError') toast(e.message); return; }
+  const paint = () => { const on = extraTabs(); $('extraTabs').textContent = on ? 'On' : 'Off'; $('extraTabs').classList.toggle('on', on); };
+  $('extraTabs').onclick = () => {
+    try { localStorage.setItem('qg_extra_tabs', localStorage.getItem('qg_extra_tabs') === '1' ? '0' : '1'); } catch {}
+    paint(); $('tabbar').classList.toggle('show', extraTabs());
+  };
+  $('devLock').onclick = () => { DL.lock(); hide('devVeil'); $('tabbar').classList.remove('show'); if (location.hash !== '#/') location.hash = '#/'; };
+  paint(); show('devVeil');
+}
 function setTab(name) {
   $('tabbar').classList.toggle('show', !!name && extraTabs());
   for (const t of ['review', 'sort', 'library']) $('tab-' + t).classList.toggle('on', t === name);

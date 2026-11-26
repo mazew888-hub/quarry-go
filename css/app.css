@@ -657,3 +657,4 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 #tab-library{display:none!important}
 .so-top [hidden]{display:none!important}
 .so-top .btn{margin-left:6px}
+.rv-gear{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}.rv-gear img{pointer-events:none}

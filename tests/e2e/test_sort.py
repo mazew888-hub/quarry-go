@@ -1,6 +1,7 @@
 """The tab bar, Settings' Google section and the Sort tab, against FakeDrive."""
 from fakedrive import FakeDrive
 
+from devlab_stub import FACE, UNLOCK
 BASE = 'http://localhost:8765/'
 SIGNED_IN = """
   localStorage.setItem('qg_client_id', 'test-client.apps.googleusercontent.com');
@@ -13,7 +14,8 @@ def go(page, hash='#/sort', signed_in=True, **kw):
     fake = FakeDrive(page, **kw)
     page.add_init_script("localStorage.setItem('qg_client_id', 'test-client.apps.googleusercontent.com');")
     if signed_in: page.add_init_script(SIGNED_IN)
-    page.goto(BASE + '#/'); page.wait_for_selector('#reviews.show', timeout=8000)
+    page.add_init_script("localStorage.setItem('qg_extra_tabs', '1');"); page.add_init_script(FACE)
+    page.goto(BASE + '#/'); page.wait_for_selector('#reviews.show', timeout=8000); page.evaluate(UNLOCK)
     page.evaluate("async () => { const S = await import('/js/store.js'); await S.phoneReset(); }")
     page.evaluate(f"location.hash = '{hash}'")
     return fake
@@ -30,12 +32,11 @@ def sent(fake):
     return [a for _, parent, body in fake.written if parent == 'actions' for a in body['actions']]
 
 def test_tabs_route(page):
-    go(page, '#/')
-    assert page.locator('#tabbar.show').count() == 1 and 'on' in page.get_attribute('#tab-review', 'class')
-    page.click('#tab-sort'); page.wait_for_selector('#sort.show')
-    assert 'on' in page.get_attribute('#tab-sort', 'class')
+    go(page, '#/sort'); page.wait_for_selector('#sort.show')
+    assert page.locator('#tabbar.show').count() == 1 and 'on' in page.get_attribute('#tab-sort', 'class')
     assert page.locator('#tab-library').is_hidden()   # Library stays parked
     page.click('#tab-review'); page.wait_for_selector('#reviews.show')
+    assert 'on' in page.get_attribute('#tab-review', 'class')
 
 def test_settings_connect_shows_account(page):
     go(page, '#/')

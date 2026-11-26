@@ -17,12 +17,3 @@ def test_review_only_by_default(browser, server):
     assert page.inner_text('#extraTabs') == 'Off'
     ctx.close()
 
-def test_turning_on_shows_tabs(browser, server):
-    ctx, page = fresh(browser, server)
-    page.goto(BASE + '#/'); page.wait_for_selector('#reviews.show', timeout=8000)
-    page.click('#gear'); page.click('#extraTabs')
-    assert page.inner_text('#extraTabs') == 'On'
-    assert page.locator('#tabbar').is_visible()
-    page.reload(); page.wait_for_selector('#reviews.show', timeout=8000)
-    assert page.locator('#tabbar').is_visible()
-    ctx.close()

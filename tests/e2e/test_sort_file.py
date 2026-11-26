@@ -1,6 +1,7 @@
 """Sort without a Drive sign-in: likes come in as a file picked from Files, choices go out as a file."""
 import json
 
+from devlab_stub import FACE, UNLOCK
 BASE = 'http://localhost:8765/'
 BUNDLE = {'kind': 'quarry-phone',
           'status': {'snapshot': 's1', 'written': '2026-11-26T15:00:00', 'x_checked': '2026-11-26T14:00:00'},
@@ -9,8 +10,8 @@ BUNDLE = {'kind': 'quarry-phone',
                                {'id': '102', 'author': 'b', 'text': 'two', 'media': []}]}}
 
 def go(page):
-    page.add_init_script("localStorage.setItem('qg_extra_tabs', '1');")
-    page.goto(BASE + '#/'); page.wait_for_selector('#reviews.show', timeout=8000)
+    page.add_init_script("localStorage.setItem('qg_extra_tabs', '1');"); page.add_init_script(FACE)
+    page.goto(BASE + '#/'); page.wait_for_selector('#reviews.show', timeout=8000); page.evaluate(UNLOCK)
     page.evaluate("async () => { const S = await import('/js/store.js'); await S.phoneReset(); }")
     page.evaluate("location.hash = '#/sort'"); page.wait_for_selector('#sort.show')
 

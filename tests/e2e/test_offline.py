@@ -54,7 +54,7 @@ def test_sort_library_hosts(page):
     page.on('request', lambda r: hosts.add(r.url.split('/')[2] if r.url.startswith('http') else r.url.split(':')[0]))
     page.goto(BASE + '#/sort'); page.wait_for_function("document.getElementById('soCount').textContent.startsWith('4')", timeout=8000)
     page.click('#soSkip'); page.wait_for_timeout(400)
-    page.click('#tab-library'); page.wait_for_selector('#libGrid .lib-tile')
+    page.evaluate("location.hash = '#/library'"); page.wait_for_selector('#libGrid .lib-tile')
     page.wait_for_function("[...document.querySelectorAll('#libGrid .lib-tile img')].every(i => i.src)", timeout=8000)
     allowed = {'localhost:8765', 'accounts.google.com', 'www.googleapis.com', 'pbs.twimg.com', 'video.twimg.com', 'blob', 'data'}
     assert hosts <= allowed, hosts - allowed

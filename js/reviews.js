@@ -1,5 +1,6 @@
 // Review history (like Quarry's review panel) and one review (a day's videos).
 // History: this week's reviews as raised cards, older ones as rows under their month, newest first.
+import { holdToOpen } from './devlab.js';
 import { groupHistory } from './days.js';
 import { hasNotes, isRetimed } from './handback.js';
 
@@ -31,7 +32,7 @@ function pressable(el, onTap, onHold) {
   el.addEventListener('click', () => { if (!held) onTap(); });
 }
 
-// handlers: { onOpenDay(day), onHoldDay(day), onSettings() }. The New review key is a label for the file picker.
+// handlers: { onOpenDay(day), onHoldDay(day), onSettings(), onDevLab() }. The New review key is a label for the file picker.
 export function renderHistory(root, videos, h, thumbUrl, now = Date.now()) {
   const { week, months } = groupHistory(videos, now);
   const th = v => `<span class="rv-th">${v.thumb ? `<img alt="" src="${thumbUrl(v)}">` : ''}</span>`;
@@ -52,6 +53,7 @@ export function renderHistory(root, videos, h, thumbUrl, now = Date.now()) {
         <span class="chev">${ICONS.chev}</span>
       </div>`).join('')}</div>`).join('')}`;
   root.querySelector('#gear').onclick = () => h.onSettings();
+  if (h.onDevLab) holdToOpen(root.querySelector('#gear'), h.onDevLab);
   for (const el of root.querySelectorAll('[data-day]')) pressable(el, () => h.onOpenDay(el.dataset.day), () => h.onHoldDay(el.dataset.day));
 }
 

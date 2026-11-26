@@ -68,7 +68,6 @@ def test_lost_reply_new_file_name(page):
     names = [n for n, parent, _ in fake.written if parent == 'actions']
     assert len(names) == 2 and len(set(names)) == 2
 
-# Important 5: signed out with a cached snapshot still offers Connect
 def test_signed_out_with_cache_shows_connect(page):
     start(page)
     page.evaluate(f"async () => {P}.refresh()")
