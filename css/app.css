@@ -572,3 +572,36 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
   #player #dock.rt{left:auto;top:0;width:min(48vw,420px);border-radius:24px 0 0 24px;overflow-y:auto;padding-top:62px}
   #dock.rt #wPanel .wBox{height:38vh}
 }
+
+/* ---- iPhone Draw mode ---- */
+/* the sliders in the colour pop-up: labelled pills, name left, reading right */
+#player.phone .esl{position:relative;left:auto;right:auto;top:auto;bottom:auto;flex:0 0 100%;width:auto;height:40px;border-radius:14px;overflow:hidden;
+  background:var(--well);-webkit-backdrop-filter:none;backdrop-filter:none;border:0;box-shadow:var(--pressed-sm)}
+#player.phone .esl .fill{display:block;position:absolute;left:0;top:0;bottom:0;width:calc((1 - var(--v,.5)) * 100%);background:rgba(255,255,255,.12);pointer-events:none}
+#player.phone .esl .lab,#player.phone .esl .val{display:block;position:absolute;top:0;line-height:40px;font-size:14px;pointer-events:none}
+#player.phone .esl .lab{left:14px;color:var(--mut)}#player.phone .esl .val{right:14px;color:var(--ink);font-weight:600}
+#player.phone .esl i{display:none}
+#player.phone #smSl{display:block}
+#player.phone #penRow{max-height:calc(100vh - var(--dockH,200px) - 140px);overflow-y:auto}
+/* upright: the tools are a drawer that slides up from behind the bottom card */
+@media (orientation:portrait){
+  #player.phone #tray{left:0;right:0;bottom:calc(var(--dockH,200px) - 22px);display:flex;justify-content:space-between;padding:8px 14px 30px;
+    border-radius:22px 22px 0 0;z-index:3;animation:drawerUp .22s ease-out}
+  #player.phone #tray::after{display:none}
+  #player.phone #tray .rk,#player.phone #tray .slot .rk{width:40px;height:40px}
+  #player.phone #dock{z-index:4}
+  #player.phone #penRow{right:10px;left:10px;width:auto;bottom:calc(var(--dockH,200px) + 52px)}
+}
+@keyframes drawerUp{from{transform:translateY(100%)}to{transform:none}}
+/* sideways: a column of tools under the mode keys, pressed to the right edge; the bottom card slims to ruler + play */
+@media (orientation:landscape) and (max-height:599px){
+  #player.phone #tray{top:56px;bottom:auto;right:0;display:grid;grid-template-columns:repeat(2,40px);gap:2px;padding:6px max(6px,env(safe-area-inset-right)) 6px 6px;border-radius:18px 0 0 18px}
+  #player.phone #tray::after{display:none}
+  #player.phone #tray .rk,#player.phone #tray .slot .rk{width:40px;height:40px}
+  #player.phone #penRow{top:56px;bottom:auto;right:110px;width:300px}
+  #player.phone.drawing #dock{display:flex;flex-direction:row;align-items:center;gap:10px}
+  #player.phone.drawing #dock #bot{flex:1;min-width:0;order:2}
+  #player.phone.drawing #dock #tp{order:1;flex:none}
+  #player.phone.drawing #dock #tp .btn:not(#play){display:none}
+  #player.phone.drawing #dock #tp #play{width:64px;height:40px}
+}

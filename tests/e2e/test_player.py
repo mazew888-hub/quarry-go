@@ -224,8 +224,10 @@ def test_pen_colour_and_size(page):
     open_clip(page); loaded(page); pen(page)
     stroke(page, y=130)
     small = last(page, 'marks')[-1]['size']
-    page.click('#colorBtn'); page.click('#penRow [data-color="#5A8FF0"]')
-    sl = page.locator('#sizeSl').bounding_box(); page.mouse.move(sl['x'] + 14, sl['y'] + 60); page.mouse.down(); page.mouse.move(sl['x'] + 14, sl['y'] + 8, steps=4); page.mouse.up()
+    page.click('#colorBtn')
+    # iPhone: Size is a pill in the colour pop-up; drag right for bigger
+    sl = page.locator('#sizeSl').bounding_box(); page.mouse.move(sl['x'] + 20, sl['y'] + 20); page.mouse.down(); page.mouse.move(sl['x'] + sl['width'] - 10, sl['y'] + 20, steps=4); page.mouse.up()
+    page.click('#penRow [data-color="#5A8FF0"]')                       # picking a colour closes the pop-up
     stroke(page, y=170)
     m = last(page, 'marks')[-1]
     assert m['color'] == '#5A8FF0' and m['size'] > small
@@ -345,7 +347,10 @@ def test_modes_bring_their_own_tools(page):
     open_clip(page); loaded(page)
     assert not page.locator('#drawBtn').is_visible() and not page.locator('#pNotes').is_visible()
     page.click('#annBtn')                                   # Draw: tool card, undo/redo, edge sliders
-    for el in ['#drawBtn', '#eraseBtn', '#undo', '#redo', '#colorBtn', '#sizeSl', '#opSl']: assert page.locator(el).is_visible(), el
+    for el in ['#drawBtn', '#eraseBtn', '#undo', '#redo', '#colorBtn']: assert page.locator(el).is_visible(), el
+    page.click('#colorBtn')
+    for el in ['#sizeSl', '#opSl', '#smSl']: assert page.locator(el).is_visible(), el   # iPhone: in the colour pop-up
+    page.click('#colorBtn')
     page.click('#noteMode')                                 # Note: the list and Add note; Draw's tools go
     assert page.locator('#pNotes').is_visible() and page.locator('#noteBtn').is_visible() and not page.locator('#drawBtn').is_visible()
     assert 'Add note at 1' in page.inner_text('#noteBtn')

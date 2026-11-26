@@ -107,6 +107,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   // ---------- drawing
   const HOLDZ = { type: 'hold' }, SLOWZ = { type: 'speed', r: 0.5 }, FASTZ = { type: 'speed', r: 2 };
   const secLabel = z => z === HOLDZ ? 'hold' : z === SLOWZ ? 'slow' : 'fast';
+  let zoomedAt = -1e9, zoomHide = 0;
   let drawQueued = 0;
   function drawSoon() { if (!drawQueued) drawQueued = requestAnimationFrame(() => { drawQueued = 0; draw(); }); }
   function draw() {
@@ -121,12 +122,16 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     compose(cx, cur, false); if (drag) drawMark(cx, drag);
     showNoteChip();
     cx.setTransform(1, 0, 0, 1, 0, 0);
-    $('fr').innerHTML = `<b>${pos + 1}</b> / ${seq.length}${retimed ? ` · fr ${cur + 1}` : ''}`;
+    // iPhone: just the played frame (the video's own frame shows in Retime's readout)
+    $('fr').innerHTML = `<b>${pos + 1}</b> / ${seq.length}${retimed && (isPad() || mode === 'retime') ? ` · fr ${cur + 1}` : ''}`;
     if (!playing) markList();
     if (!$('wPanel').hidden) drawCurve();
     const got = media.loading ? frames.reduce((n, x) => n + (x ? 1 : 0), 0) : 0;
     // only what's worth a glance: the zoom when zoomed in, and loading while frames come in (no seconds or fps)
-    $('tc').textContent = [Math.abs(zoom - 1) > .01 ? zoom.toFixed(1) + '× zoom' : '', media.loading ? `loading ${Math.round(got / frames.length * 100)}%` : ''].filter(Boolean).join(' · ');
+    // the zoom shows while you pinch, then gets out of the way (on iPad it stays)
+    const zoomNow = isPad() || performance.now() - zoomedAt < 1200;
+    if (!isPad() && zoomNow) { clearTimeout(zoomHide); zoomHide = setTimeout(() => draw(), 1300); }
+    $('tc').textContent = [Math.abs(zoom - 1) > .01 && zoomNow ? zoom.toFixed(1) + '× zoom' : '', media.loading ? `loading ${Math.round(got / frames.length * 100)}%` : ''].filter(Boolean).join(' · ');
     const hasR = inF !== null || outF !== null;
     // the loop shows only on the ruler (red bracket); hold the ruler to change or clear it
     $('inBtn').lastElementChild.textContent = inF !== null ? `In ${inF + 1}` : 'Set In'; $('inBtn').classList.toggle('on', inF !== null);
@@ -401,7 +406,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
       const r = box(), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, cxm = r.left + r.width / 2, cym = r.top + area.top + (r.height - area.top - area.bottom) / 2;
       panX = (pinch.mx - cxm - pinch.px) * (1 - z / pinch.z0) + pinch.px + (mx - pinch.mx);
       panY = (pinch.my - cym - pinch.py) * (1 - z / pinch.z0) + pinch.py + (my - pinch.my);
-      zoom = z; clampPan(); draw(); return;
+      zoom = z; zoomedAt = performance.now(); clampPan(); draw(); return;
     }
     if (erasing) { erasing.path.push(toVideo(e.clientX, e.clientY)); eraseAt(); return; }
     if (drag) {
@@ -494,6 +499,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   // ---------- modes: Draw, Note, Retime (or none: just watching). Each brings its own tools.
   let mode = null;
   const undoTo = slot => { $(slot).append($('undo'), $('redo')); };
+  // iPhone: Size, Opacity and Smoothing live in the colour pop-up, as labelled pills (not edge sliders over the video)
+  if (!isPad()) { const pal = $('pal'); for (const id of ['sizeSl', 'opSl', 'smSl']) pal.before($(id)); $('player').classList.add('phone'); }
   function setTray(open) {   // Draw mode: the tool card beside the Draw key, the edge sliders
     if (open) { setWarpMode(false); setNoteMode(false); undoTo('drawUndoSlot'); mode = 'draw'; } else if (mode === 'draw') mode = null;
     $('tray').hidden = !open; $('sizeSl').hidden = !open; $('opSl').hidden = !open; $('smSl').hidden = !open;
