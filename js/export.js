@@ -4,7 +4,7 @@ import { log, status } from './player.js';
 import { roundRect } from './render.js';
 
 export async function exportVideo(kind, ctx) {
-  const { frames, fps, W, H, warpSeq, name, compose, banner = () => {}, closeSheets, stop, loading, left = () => false } = ctx;  // left(): the player was closed  // warpSeq: the time warp's frames, or null
+  const { frames, fps, W, H, warpSeq, name, compose, bar = null, barH = () => 0, closeSheets, stop, loading, left = () => false } = ctx;  // left(): the player was closed  // warpSeq: the time warp's frames, or null
   stop(); closeSheets();
   if (loading()) { status('Still loading frames. Try again in a moment.', 0); setTimeout(() => status(''), 2200); return; }
   const both = kind === 'both', ret = kind !== 'notes';
@@ -20,15 +20,15 @@ export async function exportVideo(kind, ctx) {
   let made;
   try {
     made = await recordVideo({
-      W: both ? w2 * 2 + gap : W, H, fps, total, bitrate: both ? 12e6 : 8e6,
+      W: both ? w2 * 2 + gap : W, H: H + (bar ? barH() : 0), fps, total, bitrate: both ? 12e6 : 8e6,   // the notes bar sits under the picture
       draw: (oc, i) => {
         if (both) {
           oc.fillStyle = '#1D2024'; oc.fillRect(0, 0, oc.canvas.width, oc.canvas.height);
-          compose(oc, oseq[Math.min(i, oseq.length - 1)], true, false); tag(oc, 0, 'Original');
-          oc.setTransform(1, 0, 0, 1, w2 + gap, 0); compose(oc, rseq[Math.min(i, rseq.length - 1)], true, true);
+          compose(oc, oseq[Math.min(i, oseq.length - 1)], !bar, false); tag(oc, 0, 'Original');
+          oc.setTransform(1, 0, 0, 1, w2 + gap, 0); compose(oc, rseq[Math.min(i, rseq.length - 1)], !bar, true);
           oc.setTransform(1, 0, 0, 1, 0, 0); tag(oc, w2 + gap, 'Retimed');
-        } else compose(oc, rseq[i], true, warped);
-        if (i === 0) { oc.setTransform(1, 0, 0, 1, 0, 0); banner(oc, rseq); }   // frame 1: which frames have notes
+        } else compose(oc, rseq[i], !bar, warped);
+        if (bar) bar(oc, rseq, Math.min(i, rseq.length - 1), warped);   // notes in the black bar under the picture
       },
       onFrame: (i, t) => { if (!left()) status(`Exporting frame ${i} / ${t}`, i / t); },
       stopped: left,

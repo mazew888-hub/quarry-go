@@ -91,5 +91,32 @@ export function renderer({ frames, W, H, state }) {
     c.fillStyle = '#fff'; lines.forEach((l, i) => c.fillText(l, (W - w) / 2 + pad, H - h - pad + pad + fs * (i + 0.95)));
     c.restore();
   }
-  return { drawMark, visible, compose, pic, noteFrames, noteBanner };
+  // ---- the notes bar: a black band under the picture, so the frame itself stays clear ----
+  // A note shows from its frame until the next one, marked "F 87" with the exported frame it's about.
+  // Before the first note, the bar lists the frames that have notes.
+  const barH = () => { const fs = Math.max(14, W / 34); return 2 * Math.round((fs * 1.3 * 3 + fs) / 2); };   // 3 lines, even for video
+  function noteBar(c, seq, j, ret) {
+    const fs = Math.max(14, W / 34), pad = fs * 0.6, h = barH(), y0 = H, wide = c.canvas.width;
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#000'; c.fillRect(0, y0, wide, h);
+    const at = new Map(); seq.forEach((v, k) => { if (!at.has(v)) at.set(v, k + 1); });
+    const { marks, retimed, shown } = state(), r = ret === undefined ? retimed : ret;
+    const notes = marks.filter(m => m.type === 'note' && at.has(m.f) && !(r && shown && !shown.has(m.f))).map(m => ({ m, n: at.get(m.f) }));
+    const live = notes.filter(o => o.n <= j + 1), last = live.length ? Math.max(...live.map(o => o.n)) : 0, now = live.filter(o => o.n === last);
+    c.font = `600 ${fs}px -apple-system,system-ui,sans-serif`; c.textBaseline = 'alphabetic';
+    if (now.length) {
+      const tag = `F ${last}`, tw = c.measureText(tag).width + fs * 0.8;
+      c.fillStyle = '#E8344F'; roundRect(c, pad, y0 + pad * 0.8, tw, fs * 1.4, fs * 0.3); c.fill();
+      c.fillStyle = '#fff'; c.fillText(tag, pad + fs * 0.4, y0 + pad * 0.8 + fs * 1.05);
+      c.font = `500 ${fs}px -apple-system,system-ui,sans-serif`;
+      const lines = wrap(c, now.map(o => o.m.text).join('  ·  '), wide - tw - pad * 3).slice(0, 3);
+      if (lines.length === 3 && wrap(c, now.map(o => o.m.text).join('  ·  '), wide - tw - pad * 3).length > 3) lines[2] = lines[2].replace(/\s*\S*$/, '…');
+      lines.forEach((l, i) => c.fillText(l, pad * 2 + tw, y0 + pad * 0.8 + fs * 1.05 + i * fs * 1.3));
+    } else if (notes.length) {
+      const list = [...new Set(notes.map(o => o.n))].sort((a, b) => a - b);
+      c.fillStyle = 'rgba(255,255,255,.75)';
+      wrap(c, `Notes on frame${list.length > 1 ? 's' : ''} ${list.join(', ')}`, wide - pad * 2).slice(0, 3).forEach((l, i) => c.fillText(l, pad, y0 + pad * 0.8 + fs * 1.05 + i * fs * 1.3));
+    }
+    c.restore();
+  }
+  return { drawMark, visible, compose, pic, noteFrames, noteBanner, noteBar, barH };
 }

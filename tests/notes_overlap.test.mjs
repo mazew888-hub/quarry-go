@@ -28,3 +28,14 @@ test('a note shows on its own frame only (it is about that moment); frame 1 list
   const slow = Array.from({ length: 150 }, (_, j) => Math.floor(j / 1.5));
   assert.deepEqual(r.noteFrames(slow), [16, 91]);
 });
+
+test('notes bar: under the picture, a note stays up with "F n" saying which frame it is about; before it, the list', () => {
+  const marks = [{ type: 'note', f: 10, text: 'head turns early' }, { type: 'note', f: 60, text: 'arms read awkward' }];
+  const r = renderer({ frames: [], W: 960, H: 540, state: () => ({ marks, holds: [], retimed: false }) });
+  const seq = Array.from({ length: 100 }, (_, j) => j);
+  const at = j => { const c = ctx(); c.canvas = { width: 960 }; r.noteBar(c, seq, j); return c.said.join(' '); };
+  assert.match(at(0), /Notes on frames 11, 61/);
+  assert.match(at(30), /F 11.*head turns early/);
+  assert.match(at(70), /F 61.*arms read awkward/);
+  assert.equal(r.barH() % 2, 0);
+});
