@@ -284,7 +284,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     };
     raf = requestAnimationFrame(tick); poke();
   }
-  function stop() { const was = playing; playing = false; cancelAnimationFrame(raf); $('play').textContent = '▶︎'; showUi(); if (was) changed('pos'); }
+  function stop() { const was = playing; playing = false; cancelAnimationFrame(raf); $('play').textContent = '▶︎'; showUi(); if (was) { drawCurve(); changed('pos'); } }
   $('play').onclick = () => playing ? stop() : play();
   $('stepBack').onclick = () => { stop(); stepBy(-1); draw(); changed('pos'); };
   $('stepFwd').onclick = () => { stop(); stepBy(1); draw(); changed('pos'); };
@@ -632,7 +632,9 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     updateRetimeUi(); draw(); drawCurve(); changed('warp', 'retimed', 'pos', 'inF', 'outF');
   }
   const TAN_NAMES = { linear: 'Linear', smooth: 'Smooth', flat: 'Flat', step: 'Stepped' };
-  const selIndex = () => selKey >= 0 && selKey < (warp || []).length ? selKey : (warp ? TW.keyAt(warp, pos) : -1);
+  // The key the Retime tools act on: the one picked, or the one under a parked playhead. While playing, only a
+  // picked key counts, so the tools don't light up and grey out as the playhead passes each key.
+  const selIndex = () => selKey >= 0 && selKey < (warp || []).length ? selKey : (warp && !playing ? TW.keyAt(warp, pos) : -1);
   $('secBtn').onclick = () => setWarpMode(mode !== 'retime');
   $('viewBtn').onclick = () => setView(!retimed);
   $('wKey').onclick = () => { const k = TW.setKey(warp, pos); setWarp(k, { sel: TW.keyAt(k, pos) }); };

@@ -494,3 +494,16 @@ def test_pencil_draws_any_time_with_pressure_and_fingers_then_navigate(page):
     page.click('#annBtn')
     pencil_stroke(page, 340, kind='touch', pressures=(0.5, 0.5, 0.5, 0.5))      # after the Pencil, a finger doesn't draw
     assert len(last(page, 'marks')) == 1
+
+def test_retime_buttons_stay_still_while_playing(page):
+    # Playing through keys used to light up and grey out the key buttons (and swap Tangent/Linear) on every key.
+    open_clip(page); loaded(page); page.click('#secBtn')
+    for f in [10, 20, 30, 40, 50, 60]:
+        scrub_to(page, f, 72); page.click('#wKey')
+    scrub_to(page, 5, 72); page.click('#secBtn'); page.click('#secBtn')   # back into Retime off a key: nothing selected
+    page.click('#play'); page.wait_for_timeout(100)
+    page.evaluate("""() => { window.__seen = new Set(); const t = () => { const b = document.getElementById('wTan');
+        window.__seen.add(b.disabled + '|' + b.innerText); if (window.__watch) requestAnimationFrame(t); }; window.__watch = 1; t(); }""")
+    page.wait_for_timeout(2500); page.evaluate("() => { window.__watch = 0; }"); page.click('#play')
+    seen = page.evaluate("[...window.__seen]")
+    assert len(seen) == 1, seen
