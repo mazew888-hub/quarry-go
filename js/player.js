@@ -230,7 +230,9 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   let scrubbing = false;
   const frameAt = e => { const r = sc.getBoundingClientRect(); return Math.min(seq.length - 1, Math.max(0, Math.floor((e.clientX - r.left) / r.width * seq.length))); };
   let endDrag = null, ioT = 0, ioAt = null;
+  let nearEnd = null;   // pressed by a loop end: moving drags it, holding still opens Set In / Set Out
   const scrubMove = e => {
+    if (nearEnd && ioAt && Math.abs(e.clientX - ioAt.x) > 6) { clearTimeout(ioT); ioAt = null; endDrag = nearEnd; nearEnd = null; if (endDrag === 'in' && inF === null) inF = lo(); if (endDrag === 'out' && outF === null) outF = hi(); }
     if (ioAt && Math.abs(e.clientX - ioAt.x) > 8) { clearTimeout(ioT); ioAt = null; }
     if (endDrag) { const f = frameAt(e); if (endDrag === 'in') inF = Math.min(f, outF ?? seq.length - 1); else outF = Math.max(f, inF ?? 0); pos = Math.max(lo(), Math.min(hi(), pos)); draw(); return; }
     if (!scrubbing) return; pos = Math.max(lo(), Math.min(hi(), frameAt(e))); draw();
@@ -240,17 +242,17 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     // near an end of the loop: drag that end
     if (inF !== null || outF !== null) {
       const r = sc.getBoundingClientRect(), x = e.clientX - r.left, ex = f => r.width * f / seq.length;
-      if (Math.abs(x - ex(lo())) < 14) { endDrag = 'in'; if (inF === null) inF = lo(); return; }
-      if (Math.abs(x - ex(hi() + 1)) < 14) { endDrag = 'out'; if (outF === null) outF = hi(); return; }
-    }
-    scrubbing = true; scrubMove(e);
+      nearEnd = Math.abs(x - ex(lo())) < 14 ? 'in' : Math.abs(x - ex(hi() + 1)) < 14 ? 'out' : null;
+    } else nearEnd = null;
+    const fAt = frameAt(e);
+    if (!nearEnd) { scrubbing = true; scrubMove(e); }
     // held still: Set In / Set Out for that frame, right above the finger
     ioAt = { x: e.clientX }; clearTimeout(ioT);
-    ioT = setTimeout(() => { if (!ioAt) return; scrubbing = false; navigator.vibrate && navigator.vibrate(12); showIo(ioAt.x); ioAt = null; changed('pos'); }, 450);
+    ioT = setTimeout(() => { if (!ioAt) return; if (nearEnd) { nearEnd = null; pos = fAt; draw(); } scrubbing = false; navigator.vibrate && navigator.vibrate(12); showIo(ioAt.x); ioAt = null; changed('pos'); }, 450);
   });
   on(sc, 'pointermove', scrubMove);
   on(sc, 'pointerup', () => {
-    clearTimeout(ioT); ioAt = null;
+    clearTimeout(ioT); ioAt = null; nearEnd = null;
     if (endDrag) { endDrag = null; changed('inF', 'outF'); return; }
     if (scrubbing) { scrubbing = false; changed('pos'); }
   });
