@@ -123,7 +123,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     // only what's worth a glance: the zoom when zoomed in, and loading while frames come in (no seconds or fps)
     $('tc').textContent = [Math.abs(zoom - 1) > .01 ? zoom.toFixed(1) + '× zoom' : '', media.loading ? `loading ${Math.round(got / frames.length * 100)}%` : ''].filter(Boolean).join(' · ');
     const hasR = inF !== null || outF !== null;
-    $('rangeTxt').textContent = hasR ? `Loop ${lo() + 1}–${hi() + 1}` : ''; $('rangeChip').style.display = hasR ? '' : 'none';
+    // the loop shows only on the ruler (red bracket); hold the ruler to change or clear it
     $('inBtn').lastElementChild.textContent = inF !== null ? `In ${inF + 1}` : 'Set In'; $('inBtn').classList.toggle('on', inF !== null);
     $('outBtn').lastElementChild.textContent = outF !== null ? `Out ${outF + 1}` : 'Set Out'; $('outBtn').classList.toggle('on', outF !== null);
     drawScrub();
@@ -264,7 +264,6 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   const pressed = { t: 0, long: false };
   $('inBtn').onclick = () => { hideIo(); if (pressed.long) return; inF = pos; if (outF !== null && outF < inF) outF = null; draw(); poke(); changed('inF', 'outF'); };
   $('outBtn').onclick = () => { hideIo(); if (pressed.long) return; outF = pos; if (inF !== null && inF > outF) inF = null; draw(); poke(); changed('inF', 'outF'); };
-  $('rangeChip').onclick = () => { inF = outF = null; draw(); poke(); changed('inF', 'outF'); };
   for (const [id, clear] of [['inBtn', () => { inF = null; }], ['outBtn', () => { outF = null; }]]) {
     const el = $(id);
     on(el, 'pointerdown', () => { pressed.long = false; clearTimeout(pressed.t);

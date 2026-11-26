@@ -70,11 +70,6 @@ html,body{margin:0;height:100%;background:var(--page);color:var(--ink);font:15px
 #status .bar i{display:block;height:100%;width:0;background:var(--acc);border-radius:4px}
 #log,#log2{font:11px/1.45 ui-monospace,monospace;color:var(--faint);white-space:pre-wrap;margin-top:14px;text-align:left}
 input[type=file]{display:none}
-#rangeChip{appearance:none;border:0;height:30px;margin:-6px 0;padding:0 6px 0 11px;border-radius:15px;display:inline-flex;align-items:center;gap:7px;
-  background:rgba(74,117,144,.55);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:#ECEEF1;font:600 12px/1 "Rubik",system-ui;
-  box-shadow:0 2px 6px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.12);text-shadow:none;font-variant-numeric:tabular-nums}
-#rangeChip .x{width:20px;height:20px;border-radius:10px;background:rgba(20,22,26,.4);display:inline-flex;align-items:center;justify-content:center;font-size:10px}
-#rangeChip:active{transform:scale(.97)}
 
 /* ---- app shell (Quarry Go) ---- */
 #toast{position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom) + 24px);background:var(--board);color:var(--ink);
@@ -410,7 +405,6 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 #ioMenu{display:flex;gap:6px;padding:6px;border-radius:18px;z-index:6}
 #ioMenu .btn{height:38px;padding:0 14px;border-radius:13px;font-size:13px;box-shadow:var(--raised)}
 #ioMenu::before{content:'';position:absolute;bottom:-6px;left:var(--ax,50%);margin-left:-6px;width:12px;height:12px;background:var(--surf);transform:rotate(45deg)}
-#rangeChip{height:28px;padding:0 10px;border:0;border-radius:14px;background:var(--surf);box-shadow:var(--raised);color:var(--acc);font:500 12px Rubik,system-ui;display:inline-flex;align-items:center;gap:6px}
 /* sideways: the video fills the screen, the cards float at the edges and fade while it plays */
 @media (orientation:landscape) and (max-height:600px){
   #top{right:auto;width:min(46vw,360px);padding:4px 8px 4px 4px}

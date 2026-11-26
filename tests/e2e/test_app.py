@@ -62,7 +62,8 @@ def test_state_restored(page):
     back(page); cards(page).first.click(); in_player(page)
     assert page.inner_text('#viewBtn') == 'Retimed'
     assert '/ 84' in page.inner_text('#fr')
-    assert page.inner_text('#rangeTxt') == 'Loop 13–36'
+    from test_player import loop_txt
+    assert loop_txt(page) == 'Loop 13–36'
     assert page.inner_text('#rateBtn') == '0.25×'
 
 def test_bad_clip_makes_no_review(page, tmp_path):

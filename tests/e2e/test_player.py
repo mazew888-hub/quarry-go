@@ -23,6 +23,17 @@ def set_io(page, which):
     page.mouse.move(x, y); page.mouse.down(); page.wait_for_timeout(600); page.mouse.up()
     page.wait_for_selector('#ioMenu', state='visible'); page.click('#inBtn' if which == 'in' else '#outBtn')
 def set_in(page): set_io(page, 'in')
+def loop_txt(page):
+    """The loop is shown on the ruler only; its ends read off the hold menu's keys."""
+    a, b = page.text_content('#inBtn').strip(), page.text_content('#outBtn').strip()
+    return f"Loop {a.split(' ')[1]}–{b.split(' ')[1]}" if a.startswith('In ') and b.startswith('Out ') else ''
+def clear_loop(page):
+    # hold the ruler well away from the loop (its ends drag), then Clear
+    a, b = [int(v) for v in loop_txt(page)[5:].split('–')]
+    t = fr(page); n = int(t.split('/ ')[1].split(' ')[0]); p = n - 2 if a - 1 < n - b else 1
+    bx = page.locator('#scrub').bounding_box(); x = bx['x'] + bx['width'] * (p + 0.5) / n; y = bx['y'] + bx['height'] / 2
+    page.mouse.move(x, y); page.mouse.down(); page.wait_for_timeout(600); page.mouse.up()
+    page.wait_for_selector('#ioMenu', state='visible'); page.click('#ioClear')
 def set_out(page): set_io(page, 'out')
 
 def scrub_to(page, f, n):
@@ -44,7 +55,7 @@ def test_progressive_load(page):
 def test_range_wrap_and_slide(page):
     open_clip(page); loaded(page)
     step(page, 12); set_in(page); step(page, 11); set_out(page)
-    assert page.inner_text('#rangeTxt') == 'Loop 13–24'
+    assert loop_txt(page) == 'Loop 13–24'
     step(page, 1); assert fr(page).startswith('13')            # stepping past Out wraps to In
     page.mouse.move(200, VY); page.mouse.down(); page.mouse.move(400, VY, steps=10); page.mouse.up()
     n = int(fr(page).split(' ')[0]); assert 13 <= n <= 24      # sliding stays inside the loop
@@ -52,16 +63,16 @@ def test_range_wrap_and_slide(page):
 def test_loop_on_the_ruler(page):
     open_clip(page); loaded(page)
     step(page, 12); set_in(page); step(page, 11); set_out(page)
-    assert page.inner_text('#rangeTxt') == 'Loop 13–24'
+    assert loop_txt(page) == 'Loop 13–24'
     # drag the loop's Out end along the ruler
     bx = page.locator('#scrub').bounding_box(); y = bx['y'] + bx['height'] / 2; X = lambda f: bx['x'] + bx['width'] * f / 72
     page.mouse.move(X(24), y); page.mouse.down(); page.mouse.move(X(29.5), y, steps=6); page.mouse.up()
-    assert page.inner_text('#rangeTxt') == 'Loop 13–30'
+    assert loop_txt(page) == 'Loop 13–30'
     # hold the ruler: Clear takes the loop away
     set_io_menu = page.mouse.move(X(20), y); page.mouse.down(); page.wait_for_timeout(600); page.mouse.up()
-    page.click('#ioClear'); assert not page.locator('#rangeChip').is_visible()
+    page.click('#ioClear'); assert loop_txt(page) == ''
     step(page, 2); set_in(page); step(page, 3); set_out(page)
-    page.click('#rangeChip'); assert not page.locator('#rangeChip').is_visible()
+    clear_loop(page); assert loop_txt(page) == ''
 
 def make_sections(page):
     # Retime opens the time warp; Shape puts Hold, Cut or a speed over In-Out (played frames)
@@ -69,11 +80,11 @@ def make_sections(page):
     step(page, 12); set_in(page); step(page, 11); set_out(page)
     page.click('#wShape'); page.click('#secRates [data-r="0.5"]')
     assert '/ 84' in fr(page)
-    page.click('#rangeChip')
+    clear_loop(page)
     scrub_to(page, 40, 84); set_in(page); scrub_to(page, 45, 84); set_out(page)
     page.click('#wShape'); page.click('#secHold')
     assert '/ 84' in fr(page)
-    page.click('#rangeChip')
+    clear_loop(page)
     scrub_to(page, 50, 84); set_in(page); scrub_to(page, 60, 84); set_out(page)
     page.click('#wShape'); page.click('#secCut')
 
@@ -476,13 +487,13 @@ def test_reset_span_and_reset_curve_keep_the_keys(page):
     step(page, 12); set_in(page); step(page, 11); set_out(page)
     page.click('#wShape'); page.click('#secRates [data-r="0.5"]')
     assert '/ 84' in fr(page)
-    page.click('#rangeChip')
+    clear_loop(page)
     scrub_to(page, 20, 84)                                  # inside the slowed span
     page.click('#wShape'); page.click('#secSpan')
     assert '/ 72' in fr(page)                               # that span plays at real time again
     n = len(warp_keys(page)); assert n >= 3                 # its keys are still there
     scrub_to(page, 40, 72); set_in(page); scrub_to(page, 45, 72); set_out(page)
-    page.click('#wShape'); page.click('#secHold'); page.click('#rangeChip')
+    page.click('#wShape'); page.click('#secHold'); clear_loop(page)
     assert any(k['t'] == 'step' for k in warp_keys(page))
     page.click('#wShape'); page.click('#secReset')
     keys = warp_keys(page)                                  # every key kept on its frame, all at real time
