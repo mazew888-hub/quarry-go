@@ -520,7 +520,9 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   ]) {
     const el = $(id); let on_ = false;
     const move = e => {
-      const r = el.getBoundingClientRect(), v = Math.max(0, Math.min(1, (e.clientY - r.top - 13) / (r.height - 26)));
+      // upright on iPhone (top = biggest); across the panel on iPad (right = biggest)
+      const r = el.getBoundingClientRect(), across = r.width > r.height;
+      const v = Math.max(0, Math.min(1, across ? 1 - (e.clientX - r.left - 13) / (r.width - 26) : (e.clientY - r.top - 13) / (r.height - 26)));
       set(v); showPen();
       const b = $('slBub'), pr = $('player').getBoundingClientRect(); b.hidden = false;
       b.style.top = (Math.max(8, Math.min(pr.height - 104, e.clientY - pr.top - 48))) + 'px';

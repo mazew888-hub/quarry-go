@@ -32,7 +32,7 @@
     <button class="btn key" id="fsBtn" style="display:none" aria-label="Full screen"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
   </header>
   <!-- iPad: a side panel holds the modes and their tools; a tab tucks it away -->
-  <div id="side"></div><button class="btn" id="sideTab" aria-label="Hide or show the panel"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+  <div id="side"></div><button class="btn" id="sideTab" aria-label="Hide or show the panel"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M15 4v16"/></svg></button>
   <!-- the modes, low on the right by the thumb: Draw, Note, Retime -->
   <div class="ui fcard" id="modes">
     <button class="btn mk" id="annBtn" aria-label="Draw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 7l3 3"/></svg><span>Draw</span></button>
@@ -55,8 +55,8 @@
     <button class="btn" id="clearBtn" style="color:var(--late)">Clear frame</button>
   </div>
   <!-- Draw: size and opacity, frosted sliders on the left edge -->
-  <div class="esl" id="sizeSl" hidden aria-label="Pen size"><i></i></div>
-  <div class="esl" id="opSl" hidden aria-label="Pen opacity"><i></i></div>
+  <div class="esl" id="sizeSl" hidden aria-label="Pen size" data-cap="Size"><i></i></div>
+  <div class="esl" id="opSl" hidden aria-label="Pen opacity" data-cap="Opacity"><i></i></div>
   <div id="slBub" hidden><span></span><b></b></div>
   <!-- the bottom card: the mode's panel, the ruler, the transport -->
   <div class="ui fcard" id="dock">

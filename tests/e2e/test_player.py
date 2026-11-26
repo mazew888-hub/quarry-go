@@ -484,6 +484,24 @@ def test_ipad_side_panel_holds_the_modes_and_tucks_away(page):
     assert not page.locator('#side').is_visible() and pic() >= w               # tucked: the video gets the room
     page.click('#sideTab'); assert page.locator('#side').is_visible()
 
+def test_ipad_size_opacity_and_panel_key_stay_off_the_video(page):
+    page.set_viewport_size({'width': 1194, 'height': 834})
+    open_clip(page); loaded(page); page.click('#annBtn')
+    side = page.locator('#side').bounding_box()
+    x, y, w, h = map(int, page.get_attribute('#cv', 'data-pic').split(','))
+    for sl in ('#sizeSl', '#opSl'):
+        b = page.locator(sl).bounding_box(); assert b['x'] > side['x'] and b['width'] > b['height']   # across, in the panel
+    t = page.locator('#sideTab').bounding_box()
+    assert t['y'] + t['height'] <= y or t['x'] >= x + w                        # the panel key doesn't sit on the picture
+    b = page.locator('#sizeSl').bounding_box()
+    page.mouse.move(b['x'] + 10, b['y'] + 15); page.mouse.down(); page.mouse.move(b['x'] + b['width'] - 10, b['y'] + 15, steps=4); page.mouse.up()
+    big = page.evaluate("JSON.parse(localStorage.getItem('qg_pen')).px")
+    page.mouse.move(b['x'] + b['width'] - 10, b['y'] + 15); page.mouse.down(); page.mouse.move(b['x'] + 10, b['y'] + 15, steps=4); page.mouse.up()
+    small = page.evaluate("JSON.parse(localStorage.getItem('qg_pen')).px")
+    assert big > 12 and small < 3                                               # right is bigger, left smaller
+    page.click('#sideTab'); t2 = page.locator('#sideTab').bounding_box()
+    assert t2['y'] + t2['height'] <= y + 1 or t2['y'] < 80                      # tucked: still up in the header band
+
 def test_pencil_draws_any_time_with_pressure_and_fingers_then_navigate(page):
     page.set_viewport_size({'width': 1194, 'height': 834})
     open_clip(page); loaded(page)

@@ -444,9 +444,18 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
   #player{--sideW:310px}
   #side{display:block;position:absolute;z-index:3;top:calc(env(safe-area-inset-top) + 14px);bottom:calc(env(safe-area-inset-bottom) + 14px);right:max(14px,env(safe-area-inset-right));width:var(--sideW);
     background:var(--surf);border-radius:26px;box-shadow:0 10px 28px rgba(0,0,0,.45)}
-  #sideTab{display:grid;place-items:center;position:absolute;z-index:6;top:50%;margin-top:-36px;right:calc(max(14px,env(safe-area-inset-right)) + var(--sideW));width:22px;height:72px;padding:0;
-    border-radius:12px 0 0 12px;background:var(--surf);color:var(--mut);box-shadow:-4px 0 10px rgba(0,0,0,.3)}
-  #sideTab .ic{width:18px;height:18px}
+  /* the panel's show/hide key sits in the header band, beside the panel, clear of the video */
+  #sideTab{display:grid;place-items:center;position:absolute;z-index:6;top:calc(env(safe-area-inset-top) + 6px);right:calc(max(14px,env(safe-area-inset-right)) + var(--sideW) + 14px);
+    width:54px;height:54px;padding:0;border-radius:50%;background:var(--surf);color:var(--mut);box-shadow:var(--raised)}
+  #sideTab .ic{width:22px;height:22px}
+  /* size and opacity: across the panel under the tools, not over the video */
+  .esl{left:auto;right:calc(max(14px,env(safe-area-inset-right)) + 14px);width:calc(var(--sideW) - 28px);height:30px;border-radius:15px;
+    background:var(--well);-webkit-backdrop-filter:none;backdrop-filter:none;border:0;box-shadow:var(--pressed-sm)}
+  .esl::before{content:attr(data-cap);position:absolute;left:2px;top:-21px;font-size:12px;color:var(--mut)}
+  .esl i{top:5px;left:calc((1 - var(--v,.5)) * (100% - 26px) + 3px)}
+  #sizeSl{top:calc(env(safe-area-inset-top) + 236px)}#opSl{top:calc(env(safe-area-inset-top) + 296px)}
+  #player:not(.drawing) .esl,#player.tucked .esl{display:none}
+  #slBub{left:auto;right:calc(max(14px,env(safe-area-inset-right)) + var(--sideW) + 14px)}
   #top{right:auto;width:440px}
   #dock{right:calc(max(14px,env(safe-area-inset-right)) + var(--sideW) + 14px);left:max(14px,env(safe-area-inset-left));bottom:calc(env(safe-area-inset-bottom) + 14px)}
   /* the mode tabs across the top of the panel */
@@ -461,7 +470,7 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
   #tray::after{display:none}
   #tray .rk,#tray .slot .rk{width:auto;height:50px;border-radius:16px;box-shadow:var(--raised)}
   #tray #colorBtn{display:none}
-  #penRow{display:flex!important;position:absolute;top:calc(env(safe-area-inset-top) + 222px);bottom:auto!important;right:calc(max(14px,env(safe-area-inset-right)) + 14px);width:calc(var(--sideW) - 28px);
+  #penRow{display:flex!important;position:absolute;top:calc(env(safe-area-inset-top) + 346px);bottom:auto!important;right:calc(max(14px,env(safe-area-inset-right)) + 14px);width:calc(var(--sideW) - 28px);
     background:none;box-shadow:none;padding:0;flex-wrap:wrap;gap:12px}
   #player:not(.drawing) #penRow{display:none!important}
   #penRow .sw{width:36px;height:36px}
@@ -477,8 +486,7 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
   #wPanel .wBox{height:min(24vh,220px)}
   /* tucked away: the panel and its tools go; the video and the bottom card take the width */
   #player.tucked #side,#player.tucked #modes,#player.tucked #tray,#player.tucked #penRow,#player.tucked #pNotes,#player.tucked #wRows{display:none!important}
-  #player.tucked #sideTab{right:0}
-  #player.tucked #sideTab .ic{transform:rotate(180deg)}
+  #player.tucked #sideTab{right:max(14px,env(safe-area-inset-right));color:var(--ink)}
   #player.tucked #dock{right:max(14px,env(safe-area-inset-right))}
   .ui.hide{opacity:1;pointer-events:auto}
 }
