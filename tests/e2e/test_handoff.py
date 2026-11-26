@@ -26,7 +26,7 @@ def test_send_and_receive_a_day(page, tmp_path):
     assert cards(page).first.locator('.pip').get_attribute('title') == '1 note'
     assert cards(page).first.locator('img').count() == 1
     cards(page).first.click(); in_player(page)          # the video came too: it opens
-    page.click('#more'); assert 'more overlap' in page.inner_text('#notes')
+    assert 'more overlap' in page.text_content('#pList')
 
 def test_receiving_again_keeps_newer_edits(page, tmp_path):
     home(page); new_review(page); in_player(page); note(page, 'first'); back(page)
@@ -35,7 +35,7 @@ def test_receiving_again_keeps_newer_edits(page, tmp_path):
     page.set_input_files('#handoffFile', str(z))     # the older copy comes back
     page.wait_for_function("document.getElementById('toast').textContent.includes('up to date')", timeout=30000)
     cards(page).first.click(); in_player(page)
-    page.click('#more'); assert 'second, newer' in page.inner_text('#notes')
+    assert 'second, newer' in page.text_content('#pList')
 
 def test_a_file_that_isnt_a_handoff(page, tmp_path):
     home(page)

@@ -640,13 +640,14 @@ def test_retime_buttons_stay_still_while_playing(page):
     seen = page.evaluate("[...window.__seen]")
     assert len(seen) == 1, seen
 
-def test_notes_list_shows_one_line_per_drawn_frame(page):
-    # every stroke used to get its own "Drawing" line; now a frame's drawings are one line
-    open_clip(page); loaded(page); pen(page)
-    for y in (120, 150, 180): stroke(page, y=y)
-    page.click('#annBtn'); page.click('#more')
-    assert page.locator('#notes .note').count() == 1
-    page.click('#notes .note .x'); assert len(last(page, 'marks')) == 0
+def test_phone_all_notes_list_in_note_mode(page):
+    # iPhone: Note mode's "All notes" opens every note and drawing; × takes a note away; ••• is exports only
+    open_clip(page); loaded(page)
+    page.click('#noteMode'); page.click('#noteBtn'); page.fill('#noteIn', 'arc is flat'); page.click('#noteOk')
+    assert 'All notes · 1' in page.inner_text('#allNotes')
+    page.click('#allNotes'); assert page.locator('#pList .pli').count() == 1 and 'arc is flat' in page.inner_text('#pList')
+    page.click('#pList .pli .del'); assert not [m for m in last(page, 'marks') if m['type'] == 'note']
+    page.click('#noteMode'); page.click('#more'); assert page.locator('#notes').count() == 0
 
 def test_phone_mode_keys_stay_above_the_bottom_card(page):
     page.set_viewport_size({'width': 390, 'height': 844})

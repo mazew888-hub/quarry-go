@@ -47,8 +47,7 @@ def test_edit_survives_immediate_reload(page):
     page.click('#noteMode'); page.click('#noteBtn'); page.fill('#noteIn', 'keep me'); page.click('#noteOk')
     page.wait_for_timeout(30); page.reload()
     in_player(page)
-    page.click('#more')
-    assert 'keep me' in page.inner_text('#notes')
+    assert 'keep me' in page.text_content('#pList')
 
 def test_state_restored(page):
     home(page); new_review(page); in_player(page)
@@ -86,8 +85,8 @@ def test_missing_clip_repick(page):
     page.wait_for_selector('#missing.show', timeout=8000)
     assert 'missing' in page.inner_text('#missing')
     page.set_input_files('#file', str(FIX / 'clip.webm'))
-    in_player(page); page.click('#more')
-    assert 'still here' in page.inner_text('#notes')
+    in_player(page)
+    assert 'still here' in page.text_content('#pList')
     assert page.evaluate("async () => { const S = await import('/js/store.js'); const [r] = await S.listReviews(); return !!(await S.getClip(r.id)); }")
 
 def test_repicked_clip_of_another_length_takes_its_frame_count(page):

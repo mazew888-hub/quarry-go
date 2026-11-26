@@ -607,8 +607,15 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 }
 
 /* ---- iPhone Note mode: one slim row, like Draw's drawer: the mic key and the frame it notes ---- */
-#player.phone #pNotes .nhead,#player.phone #pNotes #pList,#player.phone #pNotes .none{display:none}
-#player.phone #pNotes{gap:0;max-height:none;position:absolute;z-index:3;background:var(--surf)}
+#player.phone #pNotes .nhead,#player.phone #pNotes .none{display:none}
+#allNotes{display:none}
+#player.phone #allNotes{display:inline-flex;flex:none;height:44px;border-radius:22px;padding:0 14px;font-size:14px}
+#player.phone #pNotes:not(.open) #pList{display:none}
+#player.phone #pNotes #pList{order:-1;max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:10px;flex:0 0 100%}
+.pli .f{font-size:15px!important;padding:3px 9px!important}   /* frame numbers easy to see */
+.pli .del{flex:none;border:0;background:none;color:var(--faint);font-size:20px;line-height:1;padding:0 4px}
+#player.phone #pNotes{gap:8px;max-height:none;position:absolute;z-index:3;background:var(--surf);flex-direction:row;flex-wrap:wrap}
+#player.phone #pNotes #noteBtn{flex:1}
 @media (orientation:portrait){
   #player.phone #pNotes{left:0;right:0;bottom:calc(var(--dockH,200px) - 22px);padding:8px 14px 30px;border-radius:22px 22px 0 0;animation:drawerUp .22s ease-out}
 }
@@ -623,4 +630,18 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
   #player.phone.noting #dock #tp{order:1;flex:none}
   #player.phone.noting #dock #tp .btn:not(#play){display:none}
   #player.phone.noting #dock #tp #play{width:64px;height:40px}
+}
+
+/* ••• sheet: exports at the top, then the notes, each kept to two lines (tap one to go to its frame) */
+#moreVeil #exportAll{width:100%;height:auto;min-height:60px;flex-direction:column;gap:2px;border-radius:20px;padding:10px 16px}
+#moreVeil #exportAll .big{font-size:16px;font-weight:600}#moreVeil #exportAll .sub{font:400 12px Rubik,system-ui;letter-spacing:0;text-transform:none;color:rgba(255,255,255,.85)}
+#moreVeil .moreRow{display:flex;gap:8px;margin:10px 0 18px}
+#moreVeil .moreRow .btn{flex:1 1 0;min-width:0;height:44px;padding:0 8px;font-size:14px}
+#moreVeil .moreRow .btn[hidden]{display:none}
+#log2.quiet{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:pre-wrap}
+@media (orientation:landscape) and (max-height:599px){
+  #player.phone.noting #allNotes{width:48px;height:48px;padding:0;border-radius:50%;justify-content:center}
+  #player.phone.noting #allNotesTxt{display:none}
+  #player.phone.noting #pNotes{flex-direction:column;flex-wrap:nowrap;width:auto}
+  #player.phone.noting #pNotes #pList{position:absolute;right:calc(100% + 8px);top:0;width:min(360px,50vw);max-height:70vh;margin:0;padding:8px;background:var(--surf);border-radius:18px;box-shadow:var(--raised)}
 }

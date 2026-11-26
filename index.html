@@ -70,6 +70,7 @@
       <div class="nhead"><div class="cap" id="pNotesCap">Notes</div></div>
       <div class="list" id="pList"></div>
       <button class="btn pri" id="noteBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg><span id="noteBtnTxt">Add note</span></button>
+      <button class="btn" id="allNotes" aria-expanded="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg><span id="allNotesTxt">All notes</span></button>
     </div>
     <div id="wPanel" hidden>
       <div class="wBox"><canvas id="wCurve" aria-label="Time warp curve: played frames across, video frames up"></canvas></div>
@@ -132,16 +133,15 @@
 </div></div>
 
 <div class="veil" id="moreVeil"><div class="sheet grain">
-  <div class="cap">Notes</div><div class="list" id="notes"></div>
-  <div class="row" style="margin-top:14px;flex-wrap:wrap">
-    <button class="btn" id="clearRange" style="display:none">Clear loop</button>
-    <button class="btn" id="reset">Reset zoom</button>
-    <span class="sp"></span>
-    <button class="btn" id="exportBoth" style="display:none">Export original + retimed</button>
+  <!-- exports first, then the notes; the load log is kept for tests and the Pencil test, out of sight -->
+  <button class="btn pri" id="exportAll"><span class="big">Export feedback</span><span class="sub">Notes video, notes file and Maya files</span></button>
+  <div class="moreRow">
     <button class="btn" id="export">Export video</button>
-    <button class="btn pri" id="exportAll">Export feedback</button>
+    <button class="btn" id="exportBoth" style="display:none">Side by side</button>
+    <button class="btn" id="reset">Reset zoom</button>
+    <button class="btn" id="clearRange" style="display:none">Clear loop</button>
   </div>
-  <div id="log2" style="font:11px/1.4 ui-monospace,monospace;color:var(--mut);white-space:pre-wrap;margin-top:12px"></div>
+  <div id="log2" class="quiet"></div>
 </div></div>
 
 <div id="missing" class="veil"><div class="sheet grain">

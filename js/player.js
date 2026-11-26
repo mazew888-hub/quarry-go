@@ -323,7 +323,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   function openSheet(id) { $(id).style.display = 'flex'; showUi(true); }
   function closeSheets() { for (const v of document.querySelectorAll('.veil')) v.style.display = 'none'; poke(); }
   for (const v of document.querySelectorAll('.veil')) on(v, 'click', e => { if (e.target === v) closeSheets(); });
-  $('more').onclick = () => { stop(); renderNotes(); updateRetimeUi(); openSheet('moreVeil'); };
+  $('more').onclick = () => { stop(); renderNotes(); updateRetimeUi(); $('reset').hidden = Math.abs(zoom - 1) < .01 && !panX && !panY; openSheet('moreVeil'); };
   $('back').onclick = () => { stop(); onBack(); };
   $('reset').onclick = () => { zoom = 1; panX = panY = 0; draw(); closeSheets(); };
   // this video's whole feedback set (notes video, notes file, Maya image plane, Maya time warp), as from its day
@@ -512,7 +512,10 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     $('annBtn').classList.toggle('on', open); $('player').classList.toggle('drawing', open);
     fitDock();
   }
+  // iPhone Note mode: All notes opens the list of every note and drawing (tap one to go to its frame)
+  $('allNotes').onclick = () => { const o = !$('pNotes').classList.contains('open'); $('pNotes').classList.toggle('open', o); $('allNotes').setAttribute('aria-expanded', o); };
   function setNoteMode(open) {
+    if (!open) $('pNotes').classList.remove('open');
     if (open) { setTray(false); setWarpMode(false); mode = 'note'; } else if (mode === 'note') mode = null;
     $('pNotes').hidden = !open; $('noteMode').classList.toggle('on', open); $('player').classList.toggle('noting', open);
     if (open) $('noteBtnTxt').textContent = `Add note at ${pos + 1}`;
@@ -626,6 +629,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     const nNotes = notes.length, nDraw = starts.length;
     $('pSub').textContent = [`${seq.length} frames`, nNotes && `${nNotes} note${nNotes === 1 ? '' : 's'}`, nDraw && `${nDraw} drawing${nDraw === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
     $('pNotesCap').textContent = listItems.length ? `Notes · ${listItems.length}` : 'Notes';
+    $('allNotesTxt').textContent = nNotes ? `All notes · ${nNotes}` : 'All notes'; $('allNotes').disabled = !listItems.length;
     const box = $('pList'); box.innerHTML = '';
     for (const it of listItems) {
       const d = document.createElement('div'); d.className = 'pli';
@@ -633,6 +637,11 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
       d.querySelector('.f').textContent = it.f + 1; d.querySelector('.x').textContent = it.text;
       if (it.drawing) d.querySelector('.dot').style.background = it.color;
       d.onclick = () => jumpTo(it.f);
+      if (it.note) {   // a note can be taken away from the list
+        const del = document.createElement('button'); del.className = 'del'; del.setAttribute('aria-label', 'Remove note'); del.textContent = '×';
+        del.onclick = ev => { ev.stopPropagation(); remember(); marks = marks.filter(m => m !== it.note); changed('marks'); draw(); };
+        d.append(del);
+      }
       box.append(d);
     }
     let none = $('pNotes').querySelector('.none');
@@ -644,24 +653,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     const here = visible(cur), rows = $('pList').children;
     listItems.forEach((it, i) => rows[i] && rows[i].classList.toggle('on', it.note ? here.includes(it.note) : here.some(m => isDrawn(m) && m.f === it.f)));
   }
-  // The ••• list: each written note, and one line per frame with drawings on it (not a line per stroke)
-  function renderNotes() {
-    const box = $('notes'); box.innerHTML = marks.length ? '' : '<div style="color:var(--mut);padding:8px 2px">No notes or drawings yet.</div>';
-    const rows = [], drawn = new Map();
-    marks.forEach((m, i) => {
-      if (m.type === 'note') rows.push({ f: m.f, text: m.text, idx: [i] });
-      else { if (!drawn.has(m.f)) { const r = { f: m.f, text: 'Drawing', idx: [] }; drawn.set(m.f, r); rows.push(r); } drawn.get(m.f).idx.push(i); }
-    });
-    rows.sort((a, b) => a.f - b.f || (a.text === 'Drawing') - (b.text === 'Drawing')).forEach(r => {
-      const d = document.createElement('div'); d.className = 'note';
-      d.innerHTML = '<span class="f"></span><span class="t"></span><span class="x">×</span>';
-      d.querySelector('.f').textContent = `FR ${r.f + 1}`;
-      d.querySelector('.t').textContent = r.text;
-      d.querySelector('.t').onclick = () => { jumpTo(r.f); closeSheets(); };
-      d.querySelector('.x').onclick = () => { remember(); const gone = new Set(r.idx); marks = marks.filter((_, i) => !gone.has(i)); changed('marks'); renderNotes(); draw(); };
-      box.append(d);
-    });
-  }
+  function renderNotes() {}   // (the ••• sheet is exports only now; the notes list lives in Note mode)
 
   // ---------- time warp: Retime swaps the rail to the curve's tools and the notes area to the curve
   function setView(r) {
@@ -676,7 +668,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     const w = warped(), vb = $('viewBtn'); vb.style.display = w ? '' : 'none';
     vb.textContent = retimed ? 'Retimed' : 'Original'; vb.classList.toggle('on', retimed);
     $('exportBoth').style.display = w ? '' : 'none';
-    $('export').textContent = w ? 'Export retimed' : 'Export video';
+    $('export').textContent = w ? 'Retimed video' : 'Notes video';
   }
   let selKey = -1, wView = null;           // the selected key; the curve's view (null = the whole curve)
   function setWarpMode(open) {
