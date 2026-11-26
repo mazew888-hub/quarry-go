@@ -47,15 +47,7 @@ export async function refresh() {
       const a = await G.readJson(folder.appliedId, (await phoneId()) + '.json');
       if (a) { applied = { last: a.last || 0, failed: a.failed || [], time: a.time || null }; await S.kvSet('applied', applied); }
     }
-    // Quarry writes applied/ at the start of a sync and the snapshot at the end: only once the snapshot
-    // is at least as new as applied/ are those actions really in it, and can be let go here.
-    const written = snap && snap.status && snap.status.written;
-    if (!applied.time || (written && written >= applied.time)) {
-      appliedOk = { last: applied.last }; await S.kvSet('appliedOk', appliedOk);
-      const failedN = new Set(applied.failed.map(f => f.n));
-      for (const a of actions.filter(a => a.n <= applied.last && !failedN.has(a.n))) await S.actionDel(a.n);
-      actions = actions.filter(a => a.n > applied.last || failedN.has(a.n));
-    }
+    await settle();
     emit();
     await send();
     return { state: 'ok', status };
@@ -66,6 +58,66 @@ export async function refresh() {
     return { state: 'offline', message: e.message };
   }
 }
+
+// Quarry writes applied/ at the start of a sync and the snapshot at the end: only once the snapshot
+// is at least as new as applied/ are those actions really in it, and can be let go here.
+async function settle() {
+  const written = snap && snap.status && snap.status.written;
+  if (!applied.time || (written && written >= applied.time)) {
+    appliedOk = { last: applied.last }; await S.kvSet('appliedOk', appliedOk);
+    const failedN = new Set(applied.failed.map(f => f.n));
+    for (const a of actions.filter(a => a.n <= applied.last && !failedN.has(a.n))) await S.actionDel(a.n);
+    actions = actions.filter(a => a.n > applied.last || failedN.has(a.n));
+  }
+}
+
+// ---------- By file, through the iPhone Files app (Quarry Go isn't signed in to Drive):
+// Quarry puts "for phone.json" in Quarry Sync › phone; Bring in reads it, and Send makes the
+// actions file to save into Quarry Sync › phone › actions, the same file a signed-in phone would write.
+export const BUNDLE = 'for phone.json';
+const PARTS = ['status', 'library', 'folders', 'tags', 'xqueue'];
+export function readParts(named) {   // [{name, json}] → the snapshot's parts, from the bundle or the separate files
+  const got = {};
+  for (const { name, json } of named) {
+    if (!json || typeof json !== 'object') continue;
+    if (json.kind === 'quarry-phone') { for (const k of [...PARTS, 'applied']) if (json[k]) got[k] = json[k]; continue; }
+    const n = name.replace(/\.json$/i, '').replace(/[ -]\(?\d+\)?$/, '').toLowerCase();
+    if (PARTS.includes(n)) got[n] = json;
+    else if (typeof json.last === 'number' && Array.isArray(json.failed)) got.appliedOne = json;
+  }
+  return got;
+}
+export async function bringIn(files) {
+  await init();
+  const named = [];
+  for (const f of files) { try { named.push({ name: f.name, json: JSON.parse(await f.text()) }); } catch {} }
+  const got = readParts(named);
+  if (!got.status) throw new Error(`That isn't the file from Quarry. Pick "${BUNDLE}" in Quarry Sync › phone.`);
+  snap = { status: got.status, library: got.library || snap?.library || { items: [] }, folders: got.folders || snap?.folders || null,
+           tags: got.tags || snap?.tags || null, xqueue: got.xqueue || { posts: [] } };
+  await S.kvSet('snap', snap);
+  const a = (got.applied && got.applied[await phoneId()]) || got.appliedOne;
+  if (a) { applied = { last: a.last || 0, failed: a.failed || [], time: a.time || null }; await S.kvSet('applied', applied); }
+  await settle(); emit();
+  return snap.status;
+}
+// What hasn't gone to Quarry yet, as the file to save (built ahead, so Share opens straight from a tap).
+let seqNow = null;
+export const unsentCount = () => actions.filter(a => !a.sent).length;
+export function actionsFile() {
+  const unsent = actions.filter(a => !a.sent);
+  if (!unsent.length || seqNow === null || !idNow) return null;
+  const seq = seqNow + 1, name = `${idNow}-${String(seq).padStart(8, '0')}.json`;
+  const body = { version: 1, phone: idNow, seq, time: new Date().toISOString().slice(0, 19), actions: unsent.map(({ sent, ...x }) => x) };
+  return { file: new File([JSON.stringify(body)], name, { type: 'application/json' }), seq, ns: unsent.map(a => a.n) };
+}
+export async function markSent(out) {
+  seqNow = out.seq; await S.kvSet('seq', out.seq);
+  for (const a of actions) if (out.ns.includes(a.n)) { a.sent = true; await S.actionPut(a); }
+  emit();
+}
+let idNow = null;
+export async function fileReady() { await init(); idNow = await phoneId(); seqNow = (await S.kvGet('seq')) || 0; }
 
 export async function act(a) {
   await init();

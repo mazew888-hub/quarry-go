@@ -11,6 +11,9 @@ export function createSort(root, { phone, drive, toast }) {
   root.innerHTML = `
     <div class="so-top">
       <div><div class="so-count" id="soCount"></div><div class="so-status" id="soStatus"></div></div><span class="sp"></span>
+      <button class="btn pri" id="soSend" hidden>Send</button>
+      <label class="btn" id="soBring" for="soPick" hidden>Bring in</label>
+      <input type="file" id="soPick" accept=".json,application/json" multiple hidden>
       <button class="btn" id="soRefresh" aria-label="Refresh">${REFRESH_ICON}</button>
       <button class="btn" id="soUndo" aria-label="Undo">↶ Undo</button>
     </div>
@@ -21,6 +24,29 @@ export function createSort(root, { phone, drive, toast }) {
       <button class="btn pri so-keep" id="soKeep">Keep</button>
     </div>`;
   const $ = id => root.querySelector('#' + id);
+  // Without a Drive sign-in, likes come in and decisions go out as files through the Files app.
+  const byFile = () => !(drive.configured && drive.configured() && drive.connected && drive.connected());
+  const pick = () => $('soPick').click();
+  $('soPick').onchange = async e => {
+    const files = [...e.target.files]; e.target.value = '';
+    if (!files.length) return;
+    try { await phone.bringIn(files); const v = phone.current(); toast(v.queue.length ? `${v.queue.length} to sort` : 'Nothing new to sort'); }
+    catch (err) { toast(err.message); }
+    stageKey = ''; render();
+  };
+  async function sendFile() {
+    const out = phone.actionsFile(); if (!out) return;
+    if (navigator.canShare && navigator.canShare({ files: [out.file] })) {
+      toast('Save to Files › Quarry Sync › phone › actions');
+      try { await navigator.share({ files: [out.file] }); await phone.markSent(out); toast('Sent: Quarry carries it out on your PC'); }
+      catch (err) { if (err.name !== 'AbortError') toast(err.message); }
+    } else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(out.file); a.download = out.file.name; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000); await phone.markSent(out);
+    }
+    stageKey = ''; render();
+  }
+  $('soSend').onclick = sendFile;
 
   function media(post, big) {
     const m = post.media || [], one = m[Math.min(mediaIx, m.length - 1)] || null;
@@ -42,7 +68,14 @@ export function createSort(root, { phone, drive, toast }) {
     const v = phone.current(), q = v.queue;
     $('soCount').textContent = q.length ? `${q.length} to sort` : '';
     $('soUndo').style.visibility = history.length ? 'visible' : 'hidden';
-    statusLine($('soStatus'), v, phone, { signedOut: state === 'signedout', connect });
+    const file = byFile(), unsent = phone.unsentCount ? phone.unsentCount() : 0;
+    $('soBring').hidden = !file || !v.status; $('soRefresh').hidden = file;
+    $('soSend').hidden = !file || !unsent; $('soSend').textContent = `Send ${unsent}`;
+    statusLine($('soStatus'), v, phone, { signedOut: !file && state === 'signedout', connect });
+    $('soStatus').style.visibility = file && !v.status ? 'hidden' : '';
+    if (file && !v.status) return message('Bring in your likes', `In Files, open Quarry Sync › phone and pick “${phone.BUNDLE || 'for phone.json'}”. Quarry on your PC keeps it up to date.`, { label: 'Bring in', run: pick });
+    if (file && !q.length && unsent) return message('All sorted', `Send your ${unsent} choices to Quarry: save the file in Quarry Sync › phone › actions.`, { label: `Send ${unsent}`, run: sendFile });
+    if (file && !q.length) return message('All sorted', `Bring in a newer file to see more. This one is from ${ago(v.status && v.status.written)}.`, { label: 'Bring in', run: pick });
     if (state === 'notsetup') return message('Google sign-in isn’t set up yet', 'Sort needs a Google sign-in for Quarry Go first.');
     if (state === 'signedout' && !v.status) return message('Connect Google Drive', 'Sort reads the X likes Quarry finds on your PC, through your Quarry Sync folder.', { label: 'Connect Google Drive', run: connect });
     if (state === 'loading' && !v.status) return message('Loading…', 'Checking your Quarry Sync folder.');
@@ -111,6 +144,7 @@ export function createSort(root, { phone, drive, toast }) {
   $('soUndo').onclick = async () => { const post = history.pop(); if (post) { await phone.act({ op: 'undo', id: post.id, post }); render(); } };
 
   async function reload() {
+    if (byFile()) { if (phone.fileReady) await phone.fileReady(); state = 'file'; stageKey = ''; render(); return; }
     $('soRefresh').classList.add('spin');
     try {
       const r = await phone.refresh();

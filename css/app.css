@@ -653,3 +653,7 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 /* start screen: the Quarry mark drawn on a canvas over the app (js/intro.js) */
 #intro{position:fixed;inset:0;z-index:50;pointer-events:none;background:#1E2024}
 #intro canvas{width:100%;height:100%;display:block}
+/* Library stays parked: only Sort and Review in the tab bar */
+#tab-library{display:none!important}
+.so-top [hidden]{display:none!important}
+.so-top .btn{margin-left:6px}

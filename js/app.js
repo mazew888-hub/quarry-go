@@ -16,7 +16,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.29';
+export const VERSION = '0.9.30';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -156,7 +156,7 @@ async function settings() {
     try { localStorage.setItem('qg_extra_tabs', on ? '0' : '1'); } catch {}
     $('extraTabs').textContent = on ? 'Off' : 'On'; $('tabbar').classList.toggle('show', !on); settings();
   };
-  $('gRow').style.display = on ? '' : 'none';
+  $('gRow').style.display = 'none';   // Drive sign-in is blocked on the work account: Sort goes by file instead
   const acc = G.connected() ? await G.account().catch(() => null) : null;
   $('gAccount').textContent = !G.configured() ? 'Not set up yet' : acc ? acc.email : 'Not connected';
   $('gBtn').textContent = acc ? 'Disconnect' : 'Connect';

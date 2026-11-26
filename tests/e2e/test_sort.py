@@ -34,21 +34,13 @@ def test_tabs_route(page):
     assert page.locator('#tabbar.show').count() == 1 and 'on' in page.get_attribute('#tab-review', 'class')
     page.click('#tab-sort'); page.wait_for_selector('#sort.show')
     assert 'on' in page.get_attribute('#tab-sort', 'class')
-    page.click('#tab-library'); page.wait_for_selector('#library.show')
-    assert not page.locator('#sort').is_visible()
+    assert page.locator('#tab-library').is_hidden()   # Library stays parked
     page.click('#tab-review'); page.wait_for_selector('#reviews.show')
 
 def test_settings_connect_shows_account(page):
     go(page, '#/')
     page.click('#gear'); page.wait_for_selector('#settingsVeil', state='visible')
     assert page.inner_text('#gAccount') == 'you@example.com' and page.inner_text('#gBtn') == 'Disconnect'
-
-def test_settings_connect_round_trip(page):
-    go(page, '#/', signed_in=False)
-    page.click('#gear'); page.wait_for_selector('#settingsVeil', state='visible')
-    assert page.inner_text('#gAccount') == 'Not connected'
-    page.click('#gBtn')
-    page.wait_for_function("localStorage.getItem('qg_email') === 'you@example.com'", timeout=8000)
 
 def test_swipe_left_skips(page):
     fake = go(page)
@@ -112,13 +104,6 @@ def test_all_sorted(page):
         page.click('#soSkip'); page.wait_for_timeout(260)
     page.wait_for_function("document.querySelector('.so-msg h2') && document.querySelector('.so-msg h2').textContent !== 'Loading…'")
     assert page.inner_text('.so-msg h2') == 'All sorted'
-
-def test_signed_out_prompt(page):
-    go(page, signed_in=False)
-    page.wait_for_function("document.querySelector('.so-msg h2') && document.querySelector('.so-msg h2').textContent !== 'Loading…'")
-    assert page.inner_text('.so-msg h2') == 'Connect Google Drive'
-    page.click('#soMsgBtn')
-    page.wait_for_function("document.getElementById('soCount') && document.getElementById('soCount').textContent.startsWith('4')", timeout=8000)
 
 def test_no_phone_folder(page):
     go(page, with_phone=False)
