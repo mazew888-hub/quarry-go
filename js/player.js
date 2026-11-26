@@ -113,7 +113,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   function draw() {
     if (drawQueued) { cancelAnimationFrame(drawQueued); drawQueued = 0; }
     cur = seq[pos] ?? 0;
-    if (mode === 'note') $('noteBtnTxt').textContent = `Add note at ${cur + 1}`;
+    if (mode === 'note') $('noteBtnTxt').textContent = `Add note at ${pos + 1}`;   // the frame number on screen (played), not the video's own
     const v = view();
     cx.setTransform(1, 0, 0, 1, 0, 0); cx.fillStyle = '#101114'; cx.fillRect(0, 0, cv.width, cv.height);
     cv.dataset.pic = [v.ox, v.oy, W * v.s, H * v.s].map(n => Math.round(n / v.d)).join(',');   // where the picture sits (for tests)
@@ -500,7 +500,10 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   let mode = null;
   const undoTo = slot => { $(slot).append($('undo'), $('redo')); };
   // iPhone: Size, Opacity and Smoothing live in the colour pop-up, as labelled pills (not edge sliders over the video)
-  if (!isPad()) { const pal = $('pal'); for (const id of ['sizeSl', 'opSl', 'smSl']) pal.before($(id)); $('player').classList.add('phone'); }
+  if (!isPad()) {
+    const pal = $('pal'); for (const id of ['sizeSl', 'opSl', 'smSl']) pal.before($(id)); $('player').classList.add('phone');
+    $('player').append($('pNotes'));   // iPhone: the note key is a drawer / edge key of its own, not a row in the bottom card
+  }
   function setTray(open) {   // Draw mode: the tool card beside the Draw key, the edge sliders
     if (open) { setWarpMode(false); setNoteMode(false); undoTo('drawUndoSlot'); mode = 'draw'; } else if (mode === 'draw') mode = null;
     $('tray').hidden = !open; $('sizeSl').hidden = !open; $('opSl').hidden = !open; $('smSl').hidden = !open;
@@ -511,8 +514,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   }
   function setNoteMode(open) {
     if (open) { setTray(false); setWarpMode(false); mode = 'note'; } else if (mode === 'note') mode = null;
-    $('pNotes').hidden = !open; $('noteMode').classList.toggle('on', open);
-    if (open) $('noteBtnTxt').textContent = `Add note at ${cur + 1}`;
+    $('pNotes').hidden = !open; $('noteMode').classList.toggle('on', open); $('player').classList.toggle('noting', open);
+    if (open) $('noteBtnTxt').textContent = `Add note at ${pos + 1}`;
     fitDock();
   }
   $('annBtn').onclick = () => {

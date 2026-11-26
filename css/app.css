@@ -605,3 +605,22 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
   #player.phone.drawing #dock #tp .btn:not(#play){display:none}
   #player.phone.drawing #dock #tp #play{width:64px;height:40px}
 }
+
+/* ---- iPhone Note mode: one slim row, like Draw's drawer: the mic key and the frame it notes ---- */
+#player.phone #pNotes .nhead,#player.phone #pNotes #pList,#player.phone #pNotes .none{display:none}
+#player.phone #pNotes{gap:0;max-height:none;position:absolute;z-index:3;background:var(--surf)}
+@media (orientation:portrait){
+  #player.phone #pNotes{left:0;right:0;bottom:calc(var(--dockH,200px) - 22px);padding:8px 14px 30px;border-radius:22px 22px 0 0;animation:drawerUp .22s ease-out}
+}
+#player.phone #pNotes #noteBtn{height:44px;border-radius:22px;font-size:15px}
+/* sideways: just a round mic key under the mode keys, pressed to the right edge; the bottom card slims as in Draw */
+@media (orientation:landscape) and (max-height:599px){
+  #player.phone.noting #pNotes{top:56px;bottom:auto;left:auto;right:0;z-index:5;padding:6px max(6px,env(safe-area-inset-right)) 6px 6px;background:var(--surf);border-radius:18px 0 0 18px;box-shadow:var(--raised)}
+  #player.phone.noting #pNotes #noteBtn{width:48px;height:48px;padding:0;border-radius:50%;justify-content:center}
+  #player.phone.noting #pNotes #noteBtnTxt{display:none}
+  #player.phone.noting #dock{display:flex;flex-direction:row;align-items:center;gap:10px}
+  #player.phone.noting #dock #bot{flex:1;min-width:0;order:2}
+  #player.phone.noting #dock #tp{order:1;flex:none}
+  #player.phone.noting #dock #tp .btn:not(#play){display:none}
+  #player.phone.noting #dock #tp #play{width:64px;height:40px}
+}

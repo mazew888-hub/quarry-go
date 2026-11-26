@@ -11,8 +11,8 @@ def open_clip(page, clip='clip.webm', extra=''):
 def loaded(page):
     page.wait_for_function("document.getElementById('log2').textContent.includes('loaded in')", timeout=30000)
 
-def step(page, k, x=300):  # right third of the canvas, clear of the mode pill
-    for _ in range(k): page.mouse.click(x, VY)
+def step(page, k, x=300, y=VY):  # right third of the canvas, clear of the mode pill
+    for _ in range(k): page.mouse.click(x, y)
 
 def fr(page): return page.inner_text('#fr')
 
@@ -323,16 +323,18 @@ def test_eraser_undo_restores(page):
 
 # ---------- phone layout: notes under the video, tools on the rail, sideways fills the height
 def test_notes_list_jumps_to_frame(page):
+    # the in-mode list is the iPad's (iPhone keeps Note mode to one key; its list is in •••)
+    page.set_viewport_size({'width': 1194, 'height': 834})
     open_clip(page); loaded(page)
     page.click('#noteMode'); assert 'No notes yet' in page.inner_text('#pNotes'); page.click('#noteMode')
-    step(page, 20); page.click('#noteMode'); page.click('#noteBtn'); page.fill('#noteIn', 'arc is flat'); page.click('#noteOk')
-    step(page, 5); page.click('#annBtn'); stroke(page); page.click('#noteMode')
+    [page.click('#stepFwd') for _ in range(20)]; page.click('#noteMode'); page.click('#noteBtn'); page.fill('#noteIn', 'arc is flat'); page.click('#noteOk')
+    [page.click('#stepFwd') for _ in range(5)]; page.click('#annBtn'); stroke(page); page.click('#noteMode')
     rows = page.locator('#pList .pli')
     assert rows.count() == 2
     assert rows.nth(0).inner_text().split('\n')[0] == '21' and 'arc is flat' in rows.nth(0).inner_text()
     assert 'Drawing' in rows.nth(1).inner_text()
-    assert '1 note' in page.inner_text('#pSub') and '1 drawing' in page.inner_text('#pSub')
-    step(page, 10)
+    assert '1 note' in page.text_content('#pSub') and '1 drawing' in page.text_content('#pSub')
+    [page.click('#stepFwd') for _ in range(10)]
     rows.nth(0).click()
     assert fr(page).startswith('21')
     assert 'on' in rows.nth(0).get_attribute('class')
