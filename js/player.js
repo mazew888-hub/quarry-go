@@ -6,7 +6,7 @@ import * as TW from './warp.js';
 import { exportVideo } from './export.js';
 import { renderer, roundRect } from './render.js';
 export { roundRect };
-import { steady, widthFor, SMOOTH_DEFAULT } from './stroke.js';
+import { ink, widthFor, SMOOTH_DEFAULT } from './stroke.js';
 import { isDrawn, drawingAt, drawingStarts, holdOf, legacyHolds, eraseStroke, hitsShape } from './draw.js';
 
 const $ = id => document.getElementById(id);
@@ -43,7 +43,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   const undoStack = [], redoStack = [];
   const remember = () => { redoStack.length = 0; undoStack.push({ marks: JSON.parse(JSON.stringify(marks)), holds: { ...holds }, warp: warp && warp.map(k => ({ ...k })) }); if (undoStack.length > 60) undoStack.shift(); };
   let seq = [0], segAt = [null], cutMarks = [], firstPos = new Int32Array(1), shown = null;
-  let inkP = 1;   // the eased Pencil pressure of the stroke being drawn
+  let stroke = null;   // the line being drawn (stroke.js ink)
   let cur = 0, playing = false, tool = null, drag = null, zoom = 1, panX = 0, panY = 0;
   const changed = (...keys) => {
     const o = {}; for (const k of keys) o[k] = { marks, warp: warp && { keys: warp }, retimed, inF, outF, rate, pos, holds, trace }[k]; onChange(o);
@@ -355,7 +355,6 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   // two fingers tapped together: undo; three: redo (as in Procreate)
   let multi = null, pencilSeen = false, penPressure = false;
   // pressure to a width factor: harder presses thicken the line, as much as the Pressure setting says
-  const pf = e => widthFor(e.pressure, pen.pressure ?? 1);
   on(cv, 'pointerdown', e => {
     try { cv.setPointerCapture(e.pointerId); } catch {}
     pts.set(e.pointerId, [e.clientX, e.clientY]);
@@ -380,8 +379,10 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
       if (tool === 'erase') { remember(); erasing = { path: [[x, y]], r: toVid(ERASER), hit: false }; eraseAt(); return; }
       // Drawing on a frame where an earlier drawing still holds adds to that drawing.
       const s = drawingAt(marks, holds, cur), f = s ?? cur, style = { color: pen.color, size: Math.round(toVid(penPx()) * 10) / 10, ...(pen.alpha < 1 ? { alpha: Math.round(pen.alpha * 100) / 100 } : {}) };
-      if (tool === 'draw') inkP = e.pressure ? pf(e) : null;   // the Pencil often touches down reporting no pressure: wait for the first real one
-      drag = tool === 'draw' ? { f, type: 'draw', pts: [penPressure ? [x, y, inkP ?? 0] : [x, y]], ...style } : { f, type: tool, x1: x, y1: y, x2: x, y2: y, ...style };
+      if (tool === 'draw') {
+        stroke = ink({ pen: penPressure, smooth: pen.smooth ?? SMOOTH_DEFAULT, toPoint: ev => toVideo(ev.clientX, ev.clientY), k: v.s / (devicePixelRatio || 1), a: pen.pressure ?? 1 });
+        stroke.down(e); drag = { f, type: 'draw', pts: stroke.pts, pen: isPen, ...style };
+      } else drag = { f, type: tool, x1: x, y1: y, x2: x, y2: y, ...style };
     }
   });
   on(cv, 'pointermove', e => {
@@ -401,14 +402,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
       if (drag.type === 'draw') {
         // Every pen sample (the Pencil reports many between frames), each pulled through the stabilizer;
         // a point is kept once the steadied pen has moved most of a screen pixel. Pressure is eased too.
-        const k = view().s / (devicePixelRatio || 1), evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
-        for (const ev of evs.length ? evs : [e]) {
-          const l = drag.pts[drag.pts.length - 1], [tx, ty] = steady(l, toVideo(ev.clientX, ev.clientY), pen.smooth ?? SMOOTH_DEFAULT);
-          if (penPressure) { if (inkP == null) { inkP = pf(ev); drag.pts[0][2] = inkP; } else inkP += (pf(ev) - inkP) * 0.4; }
-          if (Math.hypot(tx - l[0], ty - l[1]) * k < 0.75) continue;
-          const q = [Math.round(tx * 100) / 100, Math.round(ty * 100) / 100];   // hundredths: fine enough to stay smooth zoomed right in
-          drag.pts.push(penPressure ? [...q, Math.round(inkP * 100) / 100] : q);
-        }
+        const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+        stroke.move(evs.length ? evs : [e]);
       }
       else [drag.x2, drag.y2] = [x, y];
       draw(); return;
@@ -433,7 +428,10 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     if (pinch) { if (pts.size < 2) pinch = null; tapStart = null; return; }
     if (erasing) { if (erasing.hit) changed('marks'); else undoStack.pop(); erasing = null; draw(); return; }
     if (drag) {
-      const big = drag.type === 'draw' ? drag.pts.length > 2 : Math.hypot(drag.x2 - drag.x1, drag.y2 - drag.y1) > 6;
+      if (drag.type === 'draw') stroke.up(e);
+      // a Pencil tap leaves a dot; a finger needs a real stroke (so a stray touch doesn't mark the frame)
+      const big = drag.type === 'draw' ? drag.pts.length > 2 || (drag.pen && drag.pts.length > 0) : Math.hypot(drag.x2 - drag.x1, drag.y2 - drag.y1) > 6;
+      if (drag.type === 'draw') delete drag.pen;
       if (big) { remember(); marks.push(drag); changed('marks'); usedColor(drag.color); } drag = null; draw(); return;
     }
     if (sliding) { sliding = false; tapStart = null; poke(); changed('pos'); return; }

@@ -5,8 +5,49 @@
 
 export const SMOOTH_DEFAULT = 0.6;
 
-// Pencil pressure (0..1) to a width factor: a = how much pressure counts (always full now).
-export const widthFor = (pressure, a = 1) => { const p = Math.min(1, (pressure || 0.5) * 1.6); return Math.round((1 - a + a * p * 1.4) * 100) / 100; };
+// Pencil pressure (0..1) to a width factor, tuned from a Pencil test on iPad: most drawing reads 0.01–0.1,
+// a firm press 0.3–0.5. A square-root curve gives light lines a real width and saves the thickest for pressing
+// hard: 0.3 (no pressure) to 1.2 (half pressure and up). a = how much pressure counts (always full now).
+export const widthFor = (pressure, a = 1) => {
+  const p = Math.sqrt(Math.min(1, Math.max(0, pressure || 0) / 0.5));
+  return Math.round((1 - a + a * (0.3 + 0.9 * p)) * 100) / 100;
+};
+
+// One stroke's points from Pencil or finger samples: the same steps everywhere a line is drawn.
+// - each sample once: Safari can send a move twice, and repeats older samples in later coalesced lists
+// - the Pencil's touch-down reading (a fixed 0.08 before its real pressure) doesn't set the width
+// - stabilizer (smooth), a point once the steadied tip has moved most of a screen pixel (k = screen px per unit),
+//   eased pressure, and on lift the line catches up to where the tip left the glass
+export function ink({ pen = true, smooth = SMOOTH_DEFAULT, toPoint, k = 1, a = 1 }) {
+  let last = -Infinity, downP = null, real = false, p = null;
+  const pts = [], r = v => Math.round(v * 100) / 100;
+  const add = (x, y) => { const q = [r(x), r(y)]; if (pen) q.push(p ?? 0); pts.push(q); };
+  const pressure = e => {
+    if (!pen) return;
+    if (!real && e.pressure === downP) return;               // still the touch-down placeholder
+    const w = widthFor(e.pressure, a);
+    if (!real) { real = true; p = w; for (const q of pts) q[2] = w; } else p += (w - p) * 0.35;
+  };
+  return {
+    pts,
+    down(e) { last = e.timeStamp; downP = e.pressure; const [x, y] = toPoint(e); add(x, y); },
+    move(evs) {
+      let changed = false;
+      for (const e of evs) {
+        if (!(e.timeStamp > last)) continue;                  // seen already
+        last = e.timeStamp; pressure(e);
+        const l = pts[pts.length - 1], [tx, ty] = steady(l, toPoint(e), smooth);
+        if (Math.hypot(tx - l[0], ty - l[1]) * k < 0.75) continue;
+        add(tx, ty); changed = true;
+      }
+      return changed;
+    },
+    up(e) {
+      if (e) { const l = pts[pts.length - 1], [x, y] = toPoint(e); if (Math.hypot(x - l[0], y - l[1]) * k >= 0.75) add(x, y); }
+      return pts;
+    },
+  };
+}
 
 // last, raw: [x, y]. s: 0 (raw) to 1 (most steady; still moves a little).
 export function steady(last, raw, s) {

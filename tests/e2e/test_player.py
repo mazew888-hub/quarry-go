@@ -521,7 +521,7 @@ def test_reset_span_and_reset_curve_keep_the_keys(page):
     assert len({round(k['y'] - k['x']) for k in keys}) == 1
 
 # ---------- iPad: side panel, Apple Pencil
-def pencil_stroke(page, y, kind='pen', pressures=(0.2, 0.5, 0.9, 0.6)):
+def pencil_stroke(page, y, kind='pen', pressures=(0.08, 0.02, 0.3, 0.1)):   # as an iPad Pencil reads them
     page.evaluate("""([y, kind, ps]) => { const cv = document.getElementById('cv');
         const ev = (t, x, p) => cv.dispatchEvent(new PointerEvent(t, { pointerId: 7, pointerType: kind, pressure: p, clientX: x, clientY: y, bubbles: true }));
         ev('pointerdown', 200, ps[0]); ps.forEach((p, i) => ev('pointermove', 240 + i * 50, p)); ev('pointerup', 500, 0); }""", [y, kind, list(pressures)])
