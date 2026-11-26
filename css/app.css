@@ -647,7 +647,7 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 }
 #fr{text-align:center;font-variant-numeric:tabular-nums;box-sizing:border-box}
 /* the settings key is the Quarry icon */
-.rv-gear img{width:30px;height:30px;border-radius:8px;display:block}
+.rv-gear img{width:30px;height:30px;display:block}
 /* the notes bar lets touches through, so scrubbing across the screen works over it too */
 #noteChip{pointer-events:none}
 /* start screen: the Quarry mark drawn on a canvas over the app (js/intro.js) */

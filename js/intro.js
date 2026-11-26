@@ -109,3 +109,9 @@ export function playIntro() {
   };
   requestAnimationFrame(tick);
 }
+
+// The mark at rest, on a clear background (used to make icons/mark.png).
+export function drawMark(c, w, h) {
+  const s = Math.min(w, h) / 7, ox = w * 0.38, oy = h * 0.55;
+  drawScene(c, ox, oy, s, [{ cubes: BLOCK, tf: p => p }, { cubes: [[0, 0, 0]], tf: p => [p[0] + LOGO[0], p[1] + LOGO[1], p[2] + LOGO[2]], bias: 0.01 }]);
+}
