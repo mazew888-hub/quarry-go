@@ -14,7 +14,6 @@ import { ICONS } from './reviews.js';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const KINDS = [
   { k: 'video', label: 'Video', icon: ICONS.video },
-  { k: 'notes', label: 'Quarry notes', icon: ICONS.notes },
   { k: 'maya', label: 'Maya', icon: ICONS.maya },
 ];
 const can = (v, k) => k !== 'warp' || isRetimed(v);
@@ -32,7 +31,8 @@ export function filesFor(v, picks, name = folderFor(v)) {
 
 // veil: the sheet's veil; info: dayInfo() for the review; deps: { getClip(id), toast(msg), log(msg) }
 export function openExport(veil, info, { getClip, toast = () => {}, log = () => {} }) {
-  const picks = new Map(info.videos.map(v => [v.id, new Set(['video', 'notes', 'maya', ...(isRetimed(v) ? ['warp'] : [])])]));
+  const picks = new Map(info.videos.map(v => [v.id, new Set(['video', 'maya',   // (the .quarrynotes file for desktop Quarry isn't sent to artists)
+ ...(isRetimed(v) ? ['warp'] : [])])]));
   let onlyNotes = info.videos.some(hasNotes), running = false, stop = false;
   const shown = () => info.videos.filter(v => !onlyNotes || hasNotes(v));
   const zipName = `Review ${info.day}.zip`;

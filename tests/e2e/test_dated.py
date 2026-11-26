@@ -87,25 +87,22 @@ def test_export_notes_zip(page, tmp_path):
     page.click('#exportNotes'); page.wait_for_selector('#exportVeil .ex-sheet')
     rows = page.locator('#exportVeil .ex-list .li')
     assert rows.count() == 2  # only videos with notes
-    assert rows.nth(1).locator('.tg').count() == 4  # the retimed one has Time warp too
-    assert '7 files' in page.inner_text('#exLine')  # 3 + 4
+    assert rows.nth(1).locator('.tg').count() == 3  # video, Maya, and Time warp (it's retimed)
+    assert '5 files' in page.inner_text('#exLine')  # 2 + 3
     page.click('#exOnly'); assert rows.count() == 3; page.click('#exOnly')
     # Maya off for everyone, then back on for clip only
-    page.click('[data-flip="maya"]'); assert '5 files' in page.inner_text('#exLine')
-    rows.nth(0).locator('[data-k="maya"]').click(); assert '6 files' in page.inner_text('#exLine')
+    page.click('[data-flip="maya"]'); assert '3 files' in page.inner_text('#exLine')
+    rows.nth(0).locator('[data-k="maya"]').click(); assert '4 files' in page.inner_text('#exLine')
     with page.expect_download(timeout=90000) as dl: page.click('#exGo')
     path = tmp_path / 'r.zip'; dl.value.save_as(path)
     assert dl.value.suggested_filename == f'Review {today(page)}.zip'
     z = zipfile.ZipFile(path)
     assert z.testzip() is None
     names = sorted(n.replace('.webm', '.mp4') for n in z.namelist())  # mp4 where the browser records it
-    assert names == sorted(['clip/clip - notes.mp4', 'clip/clip - image plane.py', 'clip/clip.quarrynotes',
-                            'mixed/mixed - notes.mp4', 'mixed/mixed - time warp.py', 'mixed/mixed.quarrynotes']), names
+    # no .quarrynotes: that file is for desktop Quarry, not for artists
+    assert names == sorted(['clip/clip - notes.mp4', 'clip/clip - image plane.py',
+                            'mixed/mixed - notes.mp4', 'mixed/mixed - time warp.py']), names
     assert [i.file_size for i in z.infolist() if i.filename.startswith('clip/clip - notes.')][0] > 10000
-    notes = json.loads(z.read('clip/clip.quarrynotes'))
-    assert notes['kind'] == 'review-notes' and notes['video']['name'] == 'clip.webm'
-    assert [c['text'] for c in notes['comments']] == ['Arc is flat here'] and notes['comments'][0]['frame'] == 5
-    assert notes['annotations'][0]['kind'] == 'rect' and notes['annotations'][0]['hold'] == 3
     out = tmp_path / 'x'; z.extractall(out)
     for p in ['clip/clip - image plane.py', 'mixed/mixed - time warp.py']: py_compile.compile(str(out / p), doraise=True)
     plane = (out / 'clip/clip - image plane.py').read_text()
@@ -132,7 +129,7 @@ def test_a_stall_mid_export_doesnt_get_into_the_video(page, tmp_path):
     page.evaluate('''async () => { const S = await import('/js/store.js'); const [r] = await S.listReviews();
         S.saveReview(r.id, { marks: [{ f: 0, type: 'note', text: 'n' }] }); await S.flush(); }''')
     page.reload(); page.wait_for_selector('.rv-clip')
-    page.click('#exportNotes'); page.click('[data-flip="maya"]'); page.click('[data-flip="notes"]')
+    page.click('#exportNotes'); page.click('[data-flip="maya"]')
     with page.expect_download(timeout=90000) as dl:
         page.click('#exGo')
         page.wait_for_function("/video, frame (1\\d|[2-9]\\d) /.test(document.getElementById('exLine')?.textContent || '')", timeout=30000, polling=20)
