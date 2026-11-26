@@ -41,7 +41,7 @@ async function loadDecoded(blob, maxBytes, log) {
     output: f => {
       const i = order.get(f.timestamp);
       if (m.cancelled || i == null) { f.close(); return; }
-      pending.push(createImageBitmap(f, { resizeWidth: W, resizeHeight: H, resizeQuality: 'medium' })
+      pending.push(shrink(f, W, H)
         .then(b => { if (m.cancelled || m.frames[i]) { b.close && b.close(); return; } m.frames[i] = b; got++; first(true); m.onFrame && m.onFrame(); })
         .catch(e => { failed = failed || e; })
         .finally(() => f.close()));
@@ -72,6 +72,19 @@ async function loadDecoded(blob, maxBytes, log) {
     log(`${v.width}x${v.height}, ${v.fps} fps, ${count} frames (${v.codec})${W < Math.min(MAX_W, v.width) ? `, long clip: held at ${W}x${H}` : ''}, loaded in ${((performance.now() - t0) / 1000).toFixed(1)}s${failed ? ' — decoder: ' + failed.message : ''}`);
   })();
   return m;
+}
+
+// A picture copied down to W×H into a bitmap of its own. On iPad and iPhone, a bitmap made straight from a
+// decoded video frame can keep the frame's full-size memory alive, so a long clip ran out of graphics memory
+// and the picture went black: drawing onto a small canvas and taking that canvas's pixels avoids it.
+let oc = null, ox = null;
+function shrink(src, W, H) {
+  if (typeof OffscreenCanvas === 'undefined') return createImageBitmap(src, { resizeWidth: W, resizeHeight: H, resizeQuality: 'medium' });
+  try {
+    if (!oc || oc.width !== W || oc.height !== H) { oc = new OffscreenCanvas(W, H); ox = oc.getContext('2d'); }
+    ox.imageSmoothingQuality = 'medium'; ox.drawImage(src, 0, 0, W, H);
+    return Promise.resolve(oc.transferToImageBitmap());
+  } catch (e) { return createImageBitmap(src, { resizeWidth: W, resizeHeight: H, resizeQuality: 'medium' }); }
 }
 
 function media(fps, count, W, H) {
@@ -178,10 +191,9 @@ async function loadVideo(blob, maxBytes, log, knownFps = 0) {
   if (W < Math.min(MAX_W, v.videoWidth)) log(`long clip: held at ${W}x${H} to fit in memory`);
   const m = media(fps, count, W, H);
   m.cleanup = () => { try { v.pause(); } catch {} quit(); };
-  const opts = { resizeWidth: W, resizeHeight: H, resizeQuality: 'medium' };
   let got = 0;
   const stopped = () => m.cancelled;
-  const grab = i => createImageBitmap(v, opts).then(b => { if (m.cancelled) { b.close && b.close(); return; } if (!m.frames[i]) { m.frames[i] = b; got++; m.onFrame && m.onFrame(); } else b.close && b.close(); });
+  const grab = i => shrink(v, W, H).then(b => { if (m.cancelled) { b.close && b.close(); return; } if (!m.frames[i]) { m.frames[i] = b; got++; m.onFrame && m.onFrame(); } else b.close && b.close(); });
   m.done = (async () => {
     const t0 = performance.now();
     rvfcMisses = 0;
