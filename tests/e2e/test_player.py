@@ -432,21 +432,21 @@ def test_onion_skin_shows_nearby_drawings_faded(page):
     step(page, 10); pen(page); black_bar_stroke(page); page.click('#annBtn')
     step(page, 2)                                   # two frames on: the drawing (held 1 frame) is gone
     assert not ink(page, RED_GHOST, box=(38, 50, 48, 140))
-    page.click('#more'); page.click('#onionBtn'); page.click('#moreVeil', position={'x': 10, 'y': 10})
+    page.click('#annBtn'); page.click('#colorBtn'); page.click('#onionBtn'); page.click('#colorBtn')   # drawing aids live in the Draw tools
     assert ink(page, RED_GHOST, box=(38, 50, 48, 140))
-    page.click('#more'); page.click('#onionAfter [data-d="1"]'); assert page.inner_text('#onionAfter .n') == '3'
-    page.click('#onionBtn'); page.click('#moreVeil', position={'x': 10, 'y': 10})
+    page.click('#colorBtn'); page.click('#onionAfter [data-d="1"]'); assert page.inner_text('#onionAfter .n') == '3'
+    page.click('#onionBtn'); page.click('#colorBtn')
     assert not ink(page, RED_GHOST, box=(38, 50, 48, 140))
 
 def test_tracing_paper_lightens_the_video_and_is_saved(page):
     open_clip(page); loaded(page)
     dark = "(r, g, b) => r < 30 && g < 30 && b < 30"
     assert ink(page, dark, box=(8, 120, 20, 130))
-    page.click('#more'); page.click('#paperBtn'); page.click('#moreVeil', position={'x': 10, 'y': 10})
+    page.click('#annBtn'); page.click('#colorBtn'); page.click('#paperBtn'); page.click('#colorBtn')
     assert not ink(page, dark, box=(8, 120, 20, 130))
     assert ink(page, "(r, g, b) => r > 90 && g > 90 && b > 90", box=(8, 120, 20, 130))
     assert [c['trace'] for c in page.evaluate('window.changes') if 'trace' in c][-1] == 0.5
-    page.click('#more'); page.click('#paperAmt [data-t="0.75"]')
+    page.click('#colorBtn'); page.click('#paperAmt [data-t="0.75"]')
     assert [c['trace'] for c in page.evaluate('window.changes') if 'trace' in c][-1] == 0.75
 
 def test_tap_either_side_of_the_graph_playhead_steps(page):
@@ -587,6 +587,27 @@ def test_pencil_draws_any_time_with_pressure_and_fingers_then_navigate(page):
     pencil_stroke(page, 340, kind='touch', pressures=(0.5, 0.5, 0.5, 0.5))      # after the Pencil, a finger doesn't draw
     assert len(last(page, 'marks')) == 1
 
+def curve_view(page):
+    return [float(v) for v in page.get_attribute('#wCurve', 'data-view').split(',')]
+
+def two_finger(page, a0, b0, a1, b1, steps=6):
+    page.evaluate("""([a0, b0, a1, b1, n]) => { const c = document.getElementById('wCurve');
+        const ev = (t, id, p) => c.dispatchEvent(new PointerEvent(t, { pointerId: id, pointerType: 'touch', isPrimary: id === 21, clientX: p[0], clientY: p[1], bubbles: true }));
+        ev('pointerdown', 21, a0); ev('pointerdown', 22, b0);
+        for (let i = 1; i <= n; i++) { const t = i / n, L = (p, q) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]; ev('pointermove', 21, L(a0, a1)); ev('pointermove', 22, L(b0, b1)); }
+        ev('pointerup', 21, a1); ev('pointerup', 22, b1); }""", [a0, b0, a1, b1, steps])
+
+def test_curve_pinch_zoom_and_two_finger_slide(page):
+    open_clip(page); loaded(page); page.click('#secBtn')
+    b = page.locator('#wCurve').bounding_box(); cx, cy = b['x'] + b['width'] / 2, b['y'] + b['height'] / 2
+    x0, x1, y0, y1 = curve_view(page)
+    two_finger(page, [cx - 20, cy], [cx + 20, cy], [cx - 80, cy], [cx + 80, cy])          # pinch out: zoom in
+    z = curve_view(page); assert (z[1] - z[0]) < (x1 - x0) / 2
+    assert page.inner_text('#wFrame') == 'All'                                          # All brings the whole curve back
+    two_finger(page, [cx - 40, cy], [cx + 40, cy], [cx + 20, cy], [cx + 100, cy])       # both fingers right: slide
+    m = curve_view(page); assert m[0] < z[0] - 1 and abs((m[1] - m[0]) - (z[1] - z[0])) < 0.5
+    page.click('#wFrame'); assert curve_view(page) == [x0, x1, y0, y1]
+
 def test_retime_buttons_stay_still_while_playing(page):
     # Playing through keys used to light up and grey out the key buttons (and swap Tangent/Linear) on every key.
     open_clip(page); loaded(page); page.click('#secBtn')
@@ -599,3 +620,11 @@ def test_retime_buttons_stay_still_while_playing(page):
     page.wait_for_timeout(2500); page.evaluate("() => { window.__watch = 0; }"); page.click('#play')
     seen = page.evaluate("[...window.__seen]")
     assert len(seen) == 1, seen
+
+def test_notes_list_shows_one_line_per_drawn_frame(page):
+    # every stroke used to get its own "Drawing" line; now a frame's drawings are one line
+    open_clip(page); loaded(page); pen(page)
+    for y in (120, 150, 180): stroke(page, y=y)
+    page.click('#annBtn'); page.click('#more')
+    assert page.locator('#notes .note').count() == 1
+    page.click('#notes .note .x'); assert len(last(page, 'marks')) == 0

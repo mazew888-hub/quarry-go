@@ -105,7 +105,10 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   // ---------- drawing
   const HOLDZ = { type: 'hold' }, SLOWZ = { type: 'speed', r: 0.5 }, FASTZ = { type: 'speed', r: 2 };
   const secLabel = z => z === HOLDZ ? 'hold' : z === SLOWZ ? 'slow' : 'fast';
+  let drawQueued = 0;
+  function drawSoon() { if (!drawQueued) drawQueued = requestAnimationFrame(() => { drawQueued = 0; draw(); }); }
   function draw() {
+    if (drawQueued) { cancelAnimationFrame(drawQueued); drawQueued = 0; }
     cur = seq[pos] ?? 0;
     if (mode === 'note') $('noteBtnTxt').textContent = `Add note at ${cur + 1}`;
     const v = view();
@@ -311,7 +314,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   function openSheet(id) { $(id).style.display = 'flex'; showUi(true); }
   function closeSheets() { for (const v of document.querySelectorAll('.veil')) v.style.display = 'none'; poke(); }
   for (const v of document.querySelectorAll('.veil')) on(v, 'click', e => { if (e.target === v) closeSheets(); });
-  $('more').onclick = () => { stop(); renderNotes(); updateRetimeUi(); showAids(); openSheet('moreVeil'); };
+  $('more').onclick = () => { stop(); renderNotes(); updateRetimeUi(); openSheet('moreVeil'); };
   $('back').onclick = () => { stop(); onBack(); };
   $('reset').onclick = () => { zoom = 1; panX = panY = 0; draw(); closeSheets(); };
   // this video's whole feedback set (notes video, notes file, Maya image plane, Maya time warp), as from its day
@@ -406,7 +409,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
         stroke.move(evs.length ? evs : [e]);
       }
       else [drag.x2, drag.y2] = [x, y];
-      draw(); return;
+      drawSoon(); return;   // the Pencil sends many moves a frame: draw once per screen refresh
     }
     if (!tapStart) return;
     const dx = e.clientX - tapStart.x;
@@ -482,6 +485,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     if (open) { setWarpMode(false); setNoteMode(false); undoTo('drawUndoSlot'); mode = 'draw'; } else if (mode === 'draw') mode = null;
     $('tray').hidden = !open; $('sizeSl').hidden = !open; $('opSl').hidden = !open; $('smSl').hidden = !open;
     if (!open || isPad()) $('penRow').hidden = !open;   // iPad: the colours sit in the panel while drawing
+    if (open) showAids();
     $('annBtn').classList.toggle('on', open); $('player').classList.toggle('drawing', open);
     fitDock();
   }
@@ -496,7 +500,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     if (open) { stop(); if (!tool) pick('draw'); showPen(); } else { if (tool) pick(null); showUi(); }
   };
   $('noteMode').onclick = () => { const open = $('pNotes').hidden; if (tool) pick(null); setNoteMode(open); };
-  $('colorBtn').onclick = () => { $('penRow').hidden = !$('penRow').hidden; };
+  $('colorBtn').onclick = () => { $('penRow').hidden = !$('penRow').hidden; if (!$('penRow').hidden) showAids(); };
   // iPad: tuck the side panel away for watching, and back
   $('sideTab').onclick = () => { $('player').classList.toggle('tucked'); fitDock(); };
   // the bottom card's height places the mode pill and the tool cards just above it
@@ -617,15 +621,21 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     const here = visible(cur), rows = $('pList').children;
     listItems.forEach((it, i) => rows[i] && rows[i].classList.toggle('on', it.note ? here.includes(it.note) : here.some(m => isDrawn(m) && m.f === it.f)));
   }
+  // The ••• list: each written note, and one line per frame with drawings on it (not a line per stroke)
   function renderNotes() {
-    const box = $('notes'); box.innerHTML = marks.length ? '' : '<div style="color:var(--mut);padding:8px 2px">No notes or marks yet.</div>';
-    [...marks].map((m, i) => ({ m, i })).sort((a, b) => a.m.f - b.m.f).forEach(({ m, i }) => {
+    const box = $('notes'); box.innerHTML = marks.length ? '' : '<div style="color:var(--mut);padding:8px 2px">No notes or drawings yet.</div>';
+    const rows = [], drawn = new Map();
+    marks.forEach((m, i) => {
+      if (m.type === 'note') rows.push({ f: m.f, text: m.text, idx: [i] });
+      else { if (!drawn.has(m.f)) { const r = { f: m.f, text: 'Drawing', idx: [] }; drawn.set(m.f, r); rows.push(r); } drawn.get(m.f).idx.push(i); }
+    });
+    rows.sort((a, b) => a.f - b.f || (a.text === 'Drawing') - (b.text === 'Drawing')).forEach(r => {
       const d = document.createElement('div'); d.className = 'note';
       d.innerHTML = '<span class="f"></span><span class="t"></span><span class="x">×</span>';
-      d.querySelector('.f').textContent = `FR ${m.f + 1}`;
-      d.querySelector('.t').textContent = m.type === 'note' ? m.text : m.type === 'draw' ? 'Drawing' : m.type[0].toUpperCase() + m.type.slice(1);
-      d.querySelector('.t').onclick = () => { jumpTo(m.f); closeSheets(); };
-      d.querySelector('.x').onclick = () => { remember(); marks.splice(i, 1); changed('marks'); renderNotes(); draw(); };
+      d.querySelector('.f').textContent = `FR ${r.f + 1}`;
+      d.querySelector('.t').textContent = r.text;
+      d.querySelector('.t').onclick = () => { jumpTo(r.f); closeSheets(); };
+      d.querySelector('.x').onclick = () => { remember(); const gone = new Set(r.idx); marks = marks.filter((_, i) => !gone.has(i)); changed('marks'); renderNotes(); draw(); };
       box.append(d);
     });
   }
@@ -706,6 +716,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   function drawCurve() {
     if ($('wPanel').hidden || !warp) return;
     const d = devicePixelRatio || 1, w = wc.width, h = wc.height, v = curveView(), f = TW.sampler(warp);
+    wc.dataset.view = [v.x0, v.x1, v.y0, v.y1].map(n => Math.round(n * 10) / 10).join(',');   // for tests
     wx.clearRect(0, 0, w, h);
     // grid every 10 or 50 frames
     const stepX = (v.x1 - v.x0) > 150 ? 50 : (v.x1 - v.x0) > 30 ? 10 : 5;
@@ -747,16 +758,38 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   const wPoint = e => { const r = wc.getBoundingClientRect(), d = devicePixelRatio || 1, v = curveView();
     const px = (e.clientX - r.left) * d, py = (e.clientY - r.top) * d;
     return { px, py, x: v.x0 + px / wc.width * (v.x1 - v.x0), y: v.y0 + (wc.height - py) / wc.height * (v.y1 - v.y0), v }; };
+  // two fingers on the curve: pinch to zoom in or out, and move them to slide around the zoomed curve
+  const wTouch = new Map(); let wPinch = null;
+  const wMid = () => { const [a, b] = [...wTouch.values()]; return { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2, d: Math.hypot(a[0] - b[0], a[1] - b[1]) }; };
+  function startPinch() {
+    const r = wc.getBoundingClientRect(), v = curveView(), m = wMid();
+    const fx = (m.x - r.left) / r.width, fy = (m.y - r.top) / r.height;
+    wPinch = { v, d: Math.max(20, m.d), mx: v.x0 + fx * (v.x1 - v.x0), my: v.y1 - fy * (v.y1 - v.y0) };
+  }
+  function movePinch() {
+    const r = wc.getBoundingClientRect(), m = wMid(), v = wPinch.v, last = warp[warp.length - 1].x, n = frames.length;
+    const s = Math.max(0.05, Math.min(4, wPinch.d / Math.max(20, m.d)));
+    const W = Math.max(3, Math.min((last + 1) * 3, (v.x1 - v.x0) * s)), H = Math.max(3, Math.min(n * 3, (v.y1 - v.y0) * s));
+    const fx = (m.x - r.left) / r.width, fy = (m.y - r.top) / r.height;
+    const x0 = wPinch.mx - fx * W, y1 = wPinch.my + fy * H;
+    wView = { x0, x1: x0 + W, y0: y1 - H, y1 };
+    drawCurve();
+  }
   on(wc, 'pointerdown', e => {
+    wTouch.set(e.pointerId, [e.clientX, e.clientY]);
+    if (wTouch.size === 2) { try { wc.setPointerCapture(e.pointerId); } catch {} if (wDrag && wDrag.moved && !wDrag.scrub) changed('warp', 'retimed', 'pos'); wDrag = null; startPinch(); return; }
+    if (wTouch.size > 2) return;
     if (!warp) return; const p = wPoint(e), d = devicePixelRatio || 1;
     let best = -1, bd = 24 * d;
     warp.forEach((k, i) => { const dd = Math.hypot(CX(p.v, k.x) - p.px, CY(p.v, k.y) - p.py); if (dd < bd) { bd = dd; best = i; } });
-    wc.setPointerCapture(e.pointerId);
+    try { wc.setPointerCapture(e.pointerId); } catch {}
     if (best >= 0) { selKey = best; wDrag = { i: best, moved: false, x0: e.clientX, y0: e.clientY }; pos = Math.min(seq.length - 1, warp[best].x); draw(); drawCurve(); changed('pos'); }
     // anywhere else: a tap steps a frame towards that side of the playhead; a drag scrubs
     else wDrag = { scrub: true, moved: false, x0: e.clientX, y0: e.clientY, side: p.x < pos ? -1 : 1 };
   });
   on(wc, 'pointermove', e => {
+    if (wTouch.has(e.pointerId)) wTouch.set(e.pointerId, [e.clientX, e.clientY]);
+    if (wPinch) { if (wTouch.size >= 2) movePinch(); return; }
     if (!wDrag) return; const p = wPoint(e);
     if (wDrag.scrub) {
       if (!wDrag.moved && Math.hypot(e.clientX - wDrag.x0, e.clientY - wDrag.y0) < 8) return;
@@ -772,7 +805,9 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     else if (wDrag && wDrag.moved) changed('warp', 'retimed', 'pos');
     wDrag = null;
   };
-  on(wc, 'pointerup', wEnd); on(wc, 'pointercancel', () => { if (wDrag && wDrag.moved) wEnd(); wDrag = null; });
+  const wLift = e => { wTouch.delete(e.pointerId); if (wPinch) { if (wTouch.size < 2) wPinch = null; return true; } return false; };
+  on(wc, 'pointerup', e => { if (!wLift(e)) wEnd(); });
+  on(wc, 'pointercancel', e => { if (wLift(e)) return; if (wDrag && wDrag.moved) wEnd(); wDrag = null; });
 
   // Shape: Hold, Cut or a speed over In-Out (played frames), as keys on the curve
   let range = null;

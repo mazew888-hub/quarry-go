@@ -19,7 +19,7 @@ export const widthFor = (pressure, a = 1) => {
 // - stabilizer (smooth), a point once the steadied tip has moved most of a screen pixel (k = screen px per unit),
 //   eased pressure, and on lift the line catches up to where the tip left the glass
 export function ink({ pen = true, smooth = SMOOTH_DEFAULT, toPoint, k = 1, a = 1 }) {
-  let last = -Infinity, downP = null, real = false, p = null;
+  let last = -Infinity, lastXY = [NaN, NaN], downP = null, real = false, p = null;
   const pts = [], r = v => Math.round(v * 100) / 100;
   const add = (x, y) => { const q = [r(x), r(y)]; if (pen) q.push(p ?? 0); pts.push(q); };
   const pressure = e => {
@@ -30,12 +30,13 @@ export function ink({ pen = true, smooth = SMOOTH_DEFAULT, toPoint, k = 1, a = 1
   };
   return {
     pts,
-    down(e) { last = e.timeStamp; downP = e.pressure; const [x, y] = toPoint(e); add(x, y); },
+    down(e) { last = e.timeStamp; lastXY = [e.clientX, e.clientY]; downP = e.pressure; const [x, y] = toPoint(e); add(x, y); },
     move(evs) {
       let changed = false;
       for (const e of evs) {
-        if (!(e.timeStamp > last)) continue;                  // seen already
-        last = e.timeStamp; pressure(e);
+        // seen already: older than the last sample, or the very same one again (same time and place)
+        if (e.timeStamp < last || (e.timeStamp === last && e.clientX === lastXY[0] && e.clientY === lastXY[1])) continue;
+        last = e.timeStamp; lastXY = [e.clientX, e.clientY]; pressure(e);
         const l = pts[pts.length - 1], [tx, ty] = steady(l, toPoint(e), smooth);
         if (Math.hypot(tx - l[0], ty - l[1]) * k < 0.75) continue;
         add(tx, ty); changed = true;
@@ -93,13 +94,21 @@ export function pieces(c, w) {
   return out;
 }
 
-// Fills a varying-width stroke on a canvas context in one go.
+// Fills a varying-width stroke on a canvas context in one go. The shape is worked out once per stroke and
+// kept (a stroke's points don't change once drawn; the one being drawn is rebuilt as it grows), so redrawing a
+// frame full of drawings, and the onion skin's frames either side, stays quick.
+const shapes = new WeakMap();
 export function fillStroke(c, pts, w) {
-  const step = Math.max(0.5, w / 4);
-  c.beginPath();
-  for (const p of pieces(centreline(pts, step), w)) {
-    if (p.r != null) { c.moveTo(p.x + p.r, p.y); c.arc(p.x, p.y, p.r, 0, Math.PI * 2, false); }
-    else { c.moveTo(p.pts[0][0], p.pts[0][1]); for (let i = 1; i < 4; i++) c.lineTo(p.pts[i][0], p.pts[i][1]); c.closePath(); }
+  let e = shapes.get(pts);
+  if (!e || e.w !== w || e.n !== pts.length || typeof Path2D === 'undefined') {
+    const step = Math.max(0.5, w / 4), path = typeof Path2D !== 'undefined' ? new Path2D() : c;
+    if (path === c) c.beginPath();
+    for (const p of pieces(centreline(pts, step), w)) {
+      if (p.r != null) { path.moveTo(p.x + p.r, p.y); path.arc(p.x, p.y, p.r, 0, Math.PI * 2, false); }
+      else { path.moveTo(p.pts[0][0], p.pts[0][1]); for (let i = 1; i < 4; i++) path.lineTo(p.pts[i][0], p.pts[i][1]); path.closePath(); }
+    }
+    if (path === c) { c.fill('nonzero'); return; }
+    e = { w, n: pts.length, path }; shapes.set(pts, e);
   }
-  c.fill('nonzero');
+  c.fill(e.path, 'nonzero');
 }
