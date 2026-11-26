@@ -508,3 +508,17 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
   #dock.rt #wTop{margin-right:120px}
 }
 
+
+/* Pencil test: full screen, a card of steps across the top */
+#penTest{position:fixed;inset:0;z-index:20;background:var(--stage);touch-action:none;-webkit-user-select:none;user-select:none}
+#ptCv{position:absolute;inset:0;touch-action:none}
+#penTest .pt-top{position:absolute;z-index:1;top:calc(env(safe-area-inset-top) + 8px);left:10px;right:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border-radius:20px}
+#penTest .pt-step{flex:1 1 260px;display:flex;flex-direction:column;gap:3px;min-width:0}
+#penTest .pt-step b{font-size:15px}#penTest .pt-step span{font-size:13px;color:var(--mut)}
+#penTest .pt-live{font:12px ui-monospace,monospace;color:var(--mut);flex:1 1 200px}
+#penTest .btn{height:40px;padding:0 14px}
+#ptEnd{z-index:2}
+#ptFeels{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}
+#ptFeels .chip{height:36px;padding:0 14px;border-radius:18px;border:0;background:var(--well);color:var(--ink);font:500 14px Rubik,system-ui}
+#ptFeels .chip.on{background:var(--acc);color:#fff}
+#ptNotes{width:100%;box-sizing:border-box;margin-bottom:12px;border-radius:14px;border:0;padding:10px 12px;background:var(--well);color:var(--ink);font:15px Rubik,system-ui}

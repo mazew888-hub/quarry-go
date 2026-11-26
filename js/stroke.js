@@ -5,6 +5,9 @@
 
 export const SMOOTH_DEFAULT = 0.6;
 
+// Pencil pressure (0..1) to a width factor: a = how much pressure counts (always full now).
+export const widthFor = (pressure, a = 1) => { const p = Math.min(1, (pressure || 0.5) * 1.6); return Math.round((1 - a + a * p * 1.4) * 100) / 100; };
+
 // last, raw: [x, y]. s: 0 (raw) to 1 (most steady; still moves a little).
 export function steady(last, raw, s) {
   const k = 1 - Math.min(0.9, Math.max(0, s));

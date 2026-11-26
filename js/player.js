@@ -6,7 +6,7 @@ import * as TW from './warp.js';
 import { exportVideo } from './export.js';
 import { renderer, roundRect } from './render.js';
 export { roundRect };
-import { steady, SMOOTH_DEFAULT } from './stroke.js';
+import { steady, widthFor, SMOOTH_DEFAULT } from './stroke.js';
 import { isDrawn, drawingAt, drawingStarts, holdOf, legacyHolds, eraseStroke, hitsShape } from './draw.js';
 
 const $ = id => document.getElementById(id);
@@ -19,7 +19,7 @@ const PX_PER_FRAME = 10;  // one-finger slide
 export function log(s) { const l = $('log2'); if (l) l.textContent += s + '\n'; }
 export function status(t, p) { $('status').style.display = t ? 'block' : 'none'; $('stxt').textContent = t || ''; $('sbar').style.width = ((p || 0) * 100) + '%'; }
 
-export function openPlayer(root, { media, review = null, name = 'clip', onChange = () => {}, onBack = () => {} }) {
+export function openPlayer(root, { media, review = null, name = 'clip', onChange = () => {}, onBack = () => {}, onExportAll = null }) {
   const ac = new AbortController(), on = (el, ev, fn) => el.addEventListener(ev, fn, { signal: ac.signal });
   const cv = $('cv'), cx = cv.getContext('2d'), sc = $('scrub'), sx = sc.getContext('2d'), lane = $('drawLane'), lx = lane.getContext('2d');
   const { fps, W, H, frames } = media;
@@ -314,6 +314,9 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   $('more').onclick = () => { stop(); renderNotes(); updateRetimeUi(); showAids(); openSheet('moreVeil'); };
   $('back').onclick = () => { stop(); onBack(); };
   $('reset').onclick = () => { zoom = 1; panX = panY = 0; draw(); closeSheets(); };
+  // this video's whole feedback set (notes video, notes file, Maya image plane, Maya time warp), as from its day
+  $('exportAll').hidden = !onExportAll;
+  $('exportAll').onclick = () => { closeSheets(); onExportAll && onExportAll(); };
 
   // ---------- controls fade while playing; a tap brings them back
   let fadeT = 0;
@@ -352,7 +355,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   // two fingers tapped together: undo; three: redo (as in Procreate)
   let multi = null, pencilSeen = false, penPressure = false;
   // pressure to a width factor: harder presses thicken the line, as much as the Pressure setting says
-  const pf = e => { const a = pen.pressure ?? 0.6, p = Math.min(1, (e.pressure || 0.5) * 1.6); return Math.round((1 - a + a * p * 1.4) * 100) / 100; };
+  const pf = e => widthFor(e.pressure, pen.pressure ?? 1);
   on(cv, 'pointerdown', e => {
     try { cv.setPointerCapture(e.pointerId); } catch {}
     pts.set(e.pointerId, [e.clientX, e.clientY]);

@@ -7,13 +7,14 @@ import { videoNames } from './names.js';
 import { openExport } from './pack.js';
 import { deliver } from './export.js';
 import { packHandoff, readHandoff, mergePlan } from './handoff.js';
+import { openPenTest } from './pentest.js';
 import * as S from './store.js';
 import * as G from './drive.js';
 import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.11';
+export const VERSION = '0.9.12';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -224,6 +225,11 @@ async function sameClip(a, b) {
     return new Uint8Array(x).every((v, i) => v === new Uint8Array(y)[i]);
   } catch { return false; }
 }
+$('penTestBtn').onclick = () => {
+  hide('settingsVeil');
+  let pen = {}; try { pen = JSON.parse(localStorage.getItem('qg_pen') || '{}'); } catch {}
+  openPenTest({ version: VERSION, pen, deliver });
+};
 $('handoffFile').onchange = async e => {
   const files = [...e.target.files]; e.target.value = '';
   if (!files.length) return;
@@ -339,6 +345,11 @@ async function openReview(id) {
   $('reviews').classList.remove('show');
   player = openPlayer($('player'), {
     media, review, name: review.name,
+    onExportAll: async () => {
+      await save();
+      const v = await S.getReview(id); if (!v) return;
+      openExport($('exportVeil'), dayInfo([v], dayOf(v)), { getClip: S.getClip, toast, log });
+    },
     onChange: patch => {
       S.saveReview(id, patch);
       // Notes, shapes, loops and retimes are written at once; playhead moves wait for the next save.

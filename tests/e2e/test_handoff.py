@@ -61,3 +61,13 @@ def test_receive_several_files_at_once(page, tmp_path):
     page.set_input_files('#handoffFile', [str(z1), str(z2)])
     page.wait_for_function("document.querySelectorAll('.rv-clip').length === 2", timeout=30000)
     assert 'Added 2 videos' in page.inner_text('#toast')
+
+def test_export_feedback_from_inside_the_player(page):
+    home(page); new_review(page); in_player(page)
+    page.click('#secBtn'); page.click('#wKey')                # a key: the video counts as retimed once moved
+    page.click('#wUp'); page.click('#wUp')
+    page.click('#more'); page.click('#exportAll')
+    page.wait_for_selector('#exportVeil .ex-sheet')
+    rows = page.locator('#exportVeil .ex-list .li')
+    assert rows.count() == 1                                   # just this video
+    assert rows.first.locator('[data-k="warp"]').count() == 1  # with its Maya time warp
