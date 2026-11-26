@@ -476,7 +476,8 @@ def test_ipad_side_panel_holds_the_modes_and_tucks_away(page):
     page.set_viewport_size({'width': 1194, 'height': 834})
     open_clip(page); loaded(page)
     side = page.locator('#side').bounding_box(); assert side['x'] > 800
-    page.click('#annBtn'); assert page.locator('#penRow').is_visible() and page.locator('#prsIn').is_visible()
+    page.click('#annBtn'); assert page.locator('#penRow').is_visible() and page.locator('#smSl').is_visible()
+    assert page.locator('#prsIn').count() == 0                                # Pencil pressure is always full: no setting
     assert page.locator('#drawBtn').bounding_box()['x'] > side['x']            # the tools sit in the panel
     page.click('#secBtn'); assert page.locator('#wKey').is_visible() and page.locator('#wUp').bounding_box()['x'] > side['x']
     pic = lambda: int(page.get_attribute('#cv', 'data-pic').split(',')[2])
@@ -501,6 +502,25 @@ def test_ipad_size_opacity_and_panel_key_stay_off_the_video(page):
     assert big > 12 and small < 3                                               # right is bigger, left smaller
     page.click('#sideTab'); t2 = page.locator('#sideTab').bounding_box()
     assert t2['y'] + t2['height'] <= y + 1 or t2['y'] < 80                      # tucked: still up in the header band
+
+def zigzag(page, y):
+    page.evaluate("""(y) => { const cv = document.getElementById('cv');
+        const ev = (t, x, yy) => cv.dispatchEvent(new PointerEvent(t, { pointerId: 8, pointerType: 'pen', pressure: .5, clientX: x, clientY: yy, bubbles: true }));
+        ev('pointerdown', 150, y); for (let i = 1; i <= 80; i++) ev('pointermove', 150 + i * 4, y + (i % 2 ? 8 : -8)); ev('pointerup', 470, y); }""", y)
+    pts = last(page, 'marks')[-1]['pts']
+    return sum(abs(pts[i][1] - pts[i - 1][1]) for i in range(1, len(pts)))   # how much it zigzags
+
+def test_ipad_draw_pills_show_their_reading_and_smoothing_steadies_the_line(page):
+    page.set_viewport_size({'width': 1194, 'height': 834})
+    open_clip(page); loaded(page); page.click('#annBtn')
+    assert page.inner_text('#smSl') .replace('\n', ' ').split() == ['Smoothing', '60%']           # Quarry's default
+    assert page.inner_text('#opSl').split()[0] == 'Opacity' and page.inner_text('#sizeSl').split()[0] == 'Size'
+    steadied = zigzag(page, 300)
+    b = page.locator('#smSl').bounding_box()
+    page.mouse.move(b['x'] + 40, b['y'] + 20); page.mouse.down(); page.mouse.move(b['x'] + 2, b['y'] + 20, steps=3); page.mouse.up()
+    assert page.inner_text('#smSl').split()[-1] == '0%'
+    raw = zigzag(page, 360)
+    assert steadied < raw * 0.6, (steadied, raw)
 
 def test_pencil_draws_any_time_with_pressure_and_fingers_then_navigate(page):
     page.set_viewport_size({'width': 1194, 'height': 834})

@@ -347,6 +347,8 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
   background:rgba(42,45,51,.35);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.28)}
 #sizeSl{top:calc(env(safe-area-inset-top) + 92px)}#opSl{top:calc(env(safe-area-inset-top) + 236px)}
 .esl i{position:absolute;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.35);top:calc(var(--v,.5) * (100% - 26px) + 3px)}
+#smSl{display:none}
+.esl .lab,.esl .val,.esl .fill{display:none}
 #slBub{position:absolute;z-index:5;left:calc(max(10px,env(safe-area-inset-left)) + 40px);width:96px;height:96px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
   background:rgba(42,45,51,.45);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.28);pointer-events:none}
 #slBub span{font:500 12px Rubik,system-ui;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4)}
@@ -449,11 +451,16 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
     width:54px;height:54px;padding:0;border-radius:50%;background:var(--surf);color:var(--mut);box-shadow:var(--raised)}
   #sideTab .ic{width:22px;height:22px}
   /* size and opacity: across the panel under the tools, not over the video */
-  .esl{left:auto;right:calc(max(14px,env(safe-area-inset-right)) + 14px);width:calc(var(--sideW) - 28px);height:30px;border-radius:15px;
+  /* Quarry-style pills: the name on the left, the reading on the right, a lighter fill up to the value */
+  .esl{left:auto;right:calc(max(14px,env(safe-area-inset-right)) + 14px);width:calc(var(--sideW) - 28px);height:44px;border-radius:16px;overflow:hidden;
     background:var(--well);-webkit-backdrop-filter:none;backdrop-filter:none;border:0;box-shadow:var(--pressed-sm)}
-  .esl::before{content:attr(data-cap);position:absolute;left:2px;top:-21px;font-size:12px;color:var(--mut)}
-  .esl i{top:5px;left:calc((1 - var(--v,.5)) * (100% - 26px) + 3px)}
-  #sizeSl{top:calc(env(safe-area-inset-top) + 236px)}#opSl{top:calc(env(safe-area-inset-top) + 296px)}
+  .esl .fill{display:block;position:absolute;left:0;top:0;bottom:0;width:calc((1 - var(--v,.5)) * 100%);background:rgba(255,255,255,.12);pointer-events:none}
+  .esl .lab,.esl .val{display:block;position:absolute;top:0;line-height:44px;font-size:14px;pointer-events:none}
+  .esl .lab{left:16px;color:var(--mut);font-weight:500}
+  .esl .val{right:16px;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  .esl i{display:none}
+  #smSl{display:block}
+  #sizeSl{top:calc(env(safe-area-inset-top) + 226px)}#opSl{top:calc(env(safe-area-inset-top) + 278px)}#smSl{top:calc(env(safe-area-inset-top) + 330px)}
   #player:not(.drawing) .esl,#player.tucked .esl{display:none}
   #slBub{left:auto;right:calc(max(14px,env(safe-area-inset-right)) + var(--sideW) + 14px)}
   #top{right:auto;width:440px}
@@ -470,7 +477,7 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
   #tray::after{display:none}
   #tray .rk,#tray .slot .rk{width:auto;height:50px;border-radius:16px;box-shadow:var(--raised)}
   #tray #colorBtn{display:none}
-  #penRow{display:flex!important;position:absolute;top:calc(env(safe-area-inset-top) + 346px);bottom:auto!important;right:calc(max(14px,env(safe-area-inset-right)) + 14px);width:calc(var(--sideW) - 28px);
+  #penRow{display:flex!important;position:absolute;top:calc(env(safe-area-inset-top) + 392px);bottom:auto!important;right:calc(max(14px,env(safe-area-inset-right)) + 14px);width:calc(var(--sideW) - 28px);
     background:none;box-shadow:none;padding:0;flex-wrap:wrap;gap:12px}
   #player:not(.drawing) #penRow{display:none!important}
   #penRow .sw{width:36px;height:36px}
@@ -496,8 +503,4 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
   #dock.rt #wCap,#dock.rt #wInfo{display:none}
   #dock.rt #wTop{margin-right:120px}
 }
-.prs{display:none}
-@media (min-width:900px) and (min-height:600px){
-  .prs{display:flex;flex-direction:column;gap:8px;flex-basis:100%;font-size:12px;color:var(--mut)}
-  .prs input{width:100%;accent-color:var(--acc)}
-}
+

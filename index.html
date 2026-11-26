@@ -51,12 +51,12 @@
     <button class="sw" data-color="#4FA3FF" style="--c:#4FA3FF" aria-label="Blue"></button>
     <button class="sw" data-color="#ECEEF1" style="--c:#ECEEF1" aria-label="White"></button>
     <button class="sw" data-color="#111111" style="--c:#111111" aria-label="Black"></button>
-    <label class="prs" id="prsRow"><span>Pencil pressure</span><input type="range" id="prsIn" min="0" max="1" step="0.05" aria-label="How much Pencil pressure changes the line"></label>
     <button class="btn" id="clearBtn" style="color:var(--late)">Clear frame</button>
   </div>
   <!-- Draw: size and opacity, frosted sliders on the left edge -->
-  <div class="esl" id="sizeSl" hidden aria-label="Pen size" data-cap="Size"><i></i></div>
-  <div class="esl" id="opSl" hidden aria-label="Pen opacity" data-cap="Opacity"><i></i></div>
+  <div class="esl" id="sizeSl" hidden aria-label="Pen size"><b class="fill"></b><span class="lab">Size</span><span class="val"></span><i></i></div>
+  <div class="esl" id="opSl" hidden aria-label="Pen opacity"><b class="fill"></b><span class="lab">Opacity</span><span class="val"></span><i></i></div>
+  <div class="esl" id="smSl" hidden aria-label="Stroke smoothing"><b class="fill"></b><span class="lab">Smoothing</span><span class="val"></span><i></i></div>
   <div id="slBub" hidden><span></span><b></b></div>
   <!-- the bottom card: the mode's panel, the ruler, the transport -->
   <div class="ui fcard" id="dock">

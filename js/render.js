@@ -2,6 +2,7 @@
 // can be exported too. state() gives the review's current {marks, holds, retimed, shown}: shown is the
 // set of video frames the time warp plays (null when it plays them all), so marks on frames it skips stay hidden.
 import { isDrawn, drawingAt, drawingStarts } from './draw.js';
+import { fillStroke } from './stroke.js';
 
 export const HOLD = 12; // frames a note stays on screen (drawings use their own holds)
 
@@ -21,16 +22,8 @@ export function renderer({ frames, W, H, state }) {
       // freehand: smoothed through the midpoints of the points the finger left
       const p = m.pts, w = c.lineWidth;
       if (p[0].length > 2) {
-        // Apple Pencil pressure: each point carries a width factor; draw the curve piece by piece
-        const mid = i => [(p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2];
-        let at = [p[0][0], p[0][1]];
-        for (let i = 1; i < p.length; i++) {
-          const end = i < p.length - 1 ? mid(i) : [p[i][0], p[i][1]];
-          c.lineWidth = Math.max(0.5, w * ((p[i - 1][2] ?? 1) + (p[i][2] ?? 1)) / 2);
-          c.beginPath(); c.moveTo(at[0], at[1]);
-          if (i < p.length - 1) c.quadraticCurveTo(p[i][0], p[i][1], end[0], end[1]); else c.lineTo(end[0], end[1]);
-          c.stroke(); at = end;
-        }
+        // Apple Pencil pressure: each point carries a width factor; filled as one shape so see-through ink stays even
+        fillStroke(c, p, w);
       } else {
         c.beginPath(); c.moveTo(p[0][0], p[0][1]);
         for (let i = 1; i < p.length - 1; i++) c.quadraticCurveTo(p[i][0], p[i][1], (p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2);

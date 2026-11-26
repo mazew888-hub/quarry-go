@@ -6,6 +6,7 @@ import * as TW from './warp.js';
 import { exportVideo } from './export.js';
 import { renderer, roundRect } from './render.js';
 export { roundRect };
+import { steady, SMOOTH_DEFAULT } from './stroke.js';
 import { isDrawn, drawingAt, drawingStarts, holdOf, legacyHolds, eraseStroke, hitsShape } from './draw.js';
 
 const $ = id => document.getElementById(id);
@@ -32,15 +33,17 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   let inF = r0.inF ?? null, outF = r0.outF ?? null, rate = r0.rate || 1, pos = r0.pos || 0;
   // How long each frame's drawing holds. Reviews from before holds existed keep their 12 frames.
   let holds = r0.holds ? { ...r0.holds } : legacyHolds(marks);
-  let pen = { color: '#FF3B5C', size: 2, alpha: 1, pressure: 0.6 };
+  let pen = { color: '#FF3B5C', size: 2, alpha: 1, pressure: 1, smooth: SMOOTH_DEFAULT };
   const penPx = () => pen.px ?? PEN_SIZES[pen.size] ?? 4.5;   // the stroke's on-screen width: the size slider sets it
   // Drawing aids: tracing paper is kept with the review (Quarry keeps it with the video); onion skin is a preference.
   let trace = r0.trace || 0, lastTrace = trace || 0.5, onion = { on: false, before: 2, after: 2 }, quietAids = false;
   try { onion = { ...onion, ...JSON.parse(localStorage.getItem('qg_onion') || '{}') }; } catch {}
   try { pen = { ...pen, ...JSON.parse(localStorage.getItem('qg_pen') || '{}') }; } catch {}
+  pen.pressure = 1;   // Pencil pressure always at full: the most difference between a light and a heavy stroke
   const undoStack = [], redoStack = [];
   const remember = () => { redoStack.length = 0; undoStack.push({ marks: JSON.parse(JSON.stringify(marks)), holds: { ...holds }, warp: warp && warp.map(k => ({ ...k })) }); if (undoStack.length > 60) undoStack.shift(); };
   let seq = [0], segAt = [null], cutMarks = [], firstPos = new Int32Array(1), shown = null;
+  let inkP = 1;   // the eased Pencil pressure of the stroke being drawn
   let cur = 0, playing = false, tool = null, drag = null, zoom = 1, panX = 0, panY = 0;
   const changed = (...keys) => {
     const o = {}; for (const k of keys) o[k] = { marks, warp: warp && { keys: warp }, retimed, inF, outF, rate, pos, holds, trace }[k]; onChange(o);
@@ -375,7 +378,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
       if (tool === 'erase') { remember(); erasing = { path: [[x, y]], r: toVid(ERASER), hit: false }; eraseAt(); return; }
       // Drawing on a frame where an earlier drawing still holds adds to that drawing.
       const s = drawingAt(marks, holds, cur), f = s ?? cur, style = { color: pen.color, size: Math.round(toVid(penPx()) * 10) / 10, ...(pen.alpha < 1 ? { alpha: Math.round(pen.alpha * 100) / 100 } : {}) };
-      drag = tool === 'draw' ? { f, type: 'draw', pts: [penPressure ? [x, y, pf(e)] : [x, y]], ...style } : { f, type: tool, x1: x, y1: y, x2: x, y2: y, ...style };
+      if (tool === 'draw') inkP = pf(e);
+      drag = tool === 'draw' ? { f, type: 'draw', pts: [penPressure ? [x, y, inkP] : [x, y]], ...style } : { f, type: tool, x1: x, y1: y, x2: x, y2: y, ...style };
     }
   });
   on(cv, 'pointermove', e => {
@@ -392,7 +396,18 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     if (erasing) { erasing.path.push(toVideo(e.clientX, e.clientY)); eraseAt(); return; }
     if (drag) {
       const [x, y] = toVideo(e.clientX, e.clientY);
-      if (drag.type === 'draw') { const l = drag.pts[drag.pts.length - 1]; if (Math.hypot(x - l[0], y - l[1]) * view().s / (devicePixelRatio || 1) > 2) drag.pts.push(penPressure ? [Math.round(x * 10) / 10, Math.round(y * 10) / 10, pf(e)] : [Math.round(x * 10) / 10, Math.round(y * 10) / 10]); }
+      if (drag.type === 'draw') {
+        // Every pen sample (the Pencil reports many between frames), each pulled through the stabilizer;
+        // a point is kept once the steadied pen has moved most of a screen pixel. Pressure is eased too.
+        const k = view().s / (devicePixelRatio || 1), evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+        for (const ev of evs.length ? evs : [e]) {
+          const l = drag.pts[drag.pts.length - 1], [tx, ty] = steady(l, toVideo(ev.clientX, ev.clientY), pen.smooth ?? SMOOTH_DEFAULT);
+          if (penPressure) inkP += (pf(ev) - inkP) * 0.4;
+          if (Math.hypot(tx - l[0], ty - l[1]) * k < 0.75) continue;
+          const q = [Math.round(tx * 10) / 10, Math.round(ty * 10) / 10];
+          drag.pts.push(penPressure ? [...q, Math.round(inkP * 100) / 100] : q);
+        }
+      }
       else [drag.x2, drag.y2] = [x, y];
       draw(); return;
     }
@@ -465,7 +480,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   const undoTo = slot => { $(slot).append($('undo'), $('redo')); };
   function setTray(open) {   // Draw mode: the tool card beside the Draw key, the edge sliders
     if (open) { setWarpMode(false); setNoteMode(false); undoTo('drawUndoSlot'); mode = 'draw'; } else if (mode === 'draw') mode = null;
-    $('tray').hidden = !open; $('sizeSl').hidden = !open; $('opSl').hidden = !open;
+    $('tray').hidden = !open; $('sizeSl').hidden = !open; $('opSl').hidden = !open; $('smSl').hidden = !open;
     if (!open || isPad()) $('penRow').hidden = !open;   // iPad: the colours sit in the panel while drawing
     $('annBtn').classList.toggle('on', open); $('player').classList.toggle('drawing', open);
     fitDock();
@@ -482,8 +497,6 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   };
   $('noteMode').onclick = () => { const open = $('pNotes').hidden; if (tool) pick(null); setNoteMode(open); };
   $('colorBtn').onclick = () => { $('penRow').hidden = !$('penRow').hidden; };
-  $('prsIn').value = pen.pressure ?? 0.6;
-  $('prsIn').oninput = () => { pen.pressure = +$('prsIn').value; savePen(); };
   // iPad: tuck the side panel away for watching, and back
   $('sideTab').onclick = () => { $('player').classList.toggle('tucked'); fitDock(); };
   // the bottom card's height places the mode pill and the tool cards just above it
@@ -505,6 +518,11 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     for (const b of document.querySelectorAll('#penRow .sw')) b.classList.toggle('on', b.dataset.color === pen.color);
     $('colorBtn').style.setProperty('--c', pen.color);
     $('sizeSl').style.setProperty('--v', 1 - (penPx() - 1.5) / 12.5); $('opSl').style.setProperty('--v', 1 - pen.alpha);
+    $('smSl').style.setProperty('--v', 1 - (pen.smooth ?? SMOOTH_DEFAULT));
+    // the reading inside each pill, as Quarry shows it
+    $('sizeSl').querySelector('.val').textContent = Math.round(penPx() * 2) / 2;
+    $('opSl').querySelector('.val').textContent = `${Math.round(pen.alpha * 100)}%`;
+    $('smSl').querySelector('.val').textContent = `${Math.round((pen.smooth ?? SMOOTH_DEFAULT) * 100)}%`;
     $('eraseBtn').classList.toggle('on', tool === 'erase');
   };
   $('penRow').onclick = e => {
@@ -517,6 +535,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   for (const [id, set, label] of [
     ['sizeSl', v => { pen.px = 1.5 + (1 - v) * 12.5; }, () => `Size ${Math.round((penPx() - 1.5) / 12.5 * 100)}%`],
     ['opSl', v => { pen.alpha = Math.max(.1, 1 - v); }, () => `Opacity ${Math.round(pen.alpha * 100)}%`],
+    ['smSl', v => { pen.smooth = Math.round((1 - v) * 100) / 100; }, () => `Smoothing ${Math.round(pen.smooth * 100)}%`],
   ]) {
     const el = $(id); let on_ = false;
     const move = e => {
