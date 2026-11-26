@@ -380,8 +380,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
       if (tool === 'erase') { remember(); erasing = { path: [[x, y]], r: toVid(ERASER), hit: false }; eraseAt(); return; }
       // Drawing on a frame where an earlier drawing still holds adds to that drawing.
       const s = drawingAt(marks, holds, cur), f = s ?? cur, style = { color: pen.color, size: Math.round(toVid(penPx()) * 10) / 10, ...(pen.alpha < 1 ? { alpha: Math.round(pen.alpha * 100) / 100 } : {}) };
-      if (tool === 'draw') inkP = pf(e);
-      drag = tool === 'draw' ? { f, type: 'draw', pts: [penPressure ? [x, y, inkP] : [x, y]], ...style } : { f, type: tool, x1: x, y1: y, x2: x, y2: y, ...style };
+      if (tool === 'draw') inkP = e.pressure ? pf(e) : null;   // the Pencil often touches down reporting no pressure: wait for the first real one
+      drag = tool === 'draw' ? { f, type: 'draw', pts: [penPressure ? [x, y, inkP ?? 0] : [x, y]], ...style } : { f, type: tool, x1: x, y1: y, x2: x, y2: y, ...style };
     }
   });
   on(cv, 'pointermove', e => {
@@ -404,9 +404,9 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
         const k = view().s / (devicePixelRatio || 1), evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
         for (const ev of evs.length ? evs : [e]) {
           const l = drag.pts[drag.pts.length - 1], [tx, ty] = steady(l, toVideo(ev.clientX, ev.clientY), pen.smooth ?? SMOOTH_DEFAULT);
-          if (penPressure) inkP += (pf(ev) - inkP) * 0.4;
+          if (penPressure) { if (inkP == null) { inkP = pf(ev); drag.pts[0][2] = inkP; } else inkP += (pf(ev) - inkP) * 0.4; }
           if (Math.hypot(tx - l[0], ty - l[1]) * k < 0.75) continue;
-          const q = [Math.round(tx * 10) / 10, Math.round(ty * 10) / 10];
+          const q = [Math.round(tx * 100) / 100, Math.round(ty * 100) / 100];   // hundredths: fine enough to stay smooth zoomed right in
           drag.pts.push(penPressure ? [...q, Math.round(inkP * 100) / 100] : q);
         }
       }
@@ -535,13 +535,15 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   const swatch = c => `<button class="sw" data-color="${c}" style="--c:${c}" aria-label="${c}"></button>`;
   $('pal').innerHTML = PAL.flat().map(swatch).join('');
   let recent = []; try { recent = JSON.parse(localStorage.getItem('qg_recent') || '[]'); } catch {}
+  // near-identical colours (left by an earlier picker bug) count once
+  const rgb = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+  recent = recent.filter((c, i) => !recent.slice(0, i).some(d => rgb(c).reduce((n, v, k) => n + Math.abs(v - rgb(d)[k]), 0) < 24));
   function showRecent() { $('palRecent').innerHTML = recent.map(swatch).join(''); }
   const usedColor = c => { recent = [c, ...recent.filter(x => x.toLowerCase() !== c.toLowerCase())].slice(0, 8); try { localStorage.setItem('qg_recent', JSON.stringify(recent)); } catch {} showRecent(); };
   // + : the system colour picker, for any colour; the colour joins Recent
-  $('palPick').oninput = $('palPick').onchange = () => {
-    pen.color = $('palPick').value.toUpperCase(); if (tool === 'erase' || !tool) pick('draw');
-    usedColor(pen.color); savePen(); showPen(); poke();
-  };
+  // dragging in the picker sends every colour passed through: only the one settled on joins Recent
+  $('palPick').oninput = () => { pen.color = $('palPick').value.toUpperCase(); if (tool === 'erase' || !tool) pick('draw'); savePen(); showPen(); poke(); };
+  $('palPick').onchange = () => { $('palPick').oninput(); usedColor(pen.color); };
   $('penRow').onclick = e => {
     const c = e.target.closest('.sw'), z = e.target.closest('.sz');
     if (c) { pen.color = c.dataset.color; if (tool === 'erase' || !tool) pick('draw'); if (!isPad()) $('penRow').hidden = true; }   // iPad: the colours stay in the panel

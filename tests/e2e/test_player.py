@@ -229,6 +229,26 @@ def test_palette_recent_and_any_colour(page):
     page.click('#colorBtn'); stroke(page, y=170)
     assert last(page, 'marks')[-1]['color'] == '#123456'
 
+def test_pencil_stroke_starts_without_a_blob_and_keeps_fine_detail_zoomed_in(page):
+    # the Pencil often reports no pressure on touch-down: that used to count as half pressure, a big dot
+    # at the start of every light stroke. And points were rounded to a tenth of a video pixel: jagged when zoomed in.
+    open_clip(page); loaded(page); pen(page)
+    page.evaluate("""() => { const cv = document.getElementById('cv');
+        const ev = (t, x, y, p) => cv.dispatchEvent(new PointerEvent(t, { pointerId: 7, pointerType: 'pen', pressure: p, clientX: x, clientY: y, bubbles: true }));
+        ev('pointerdown', 100, 150, 0); for (let i = 1; i <= 30; i++) ev('pointermove', 100 + i * 4, 150 + i * 0.37, 0.15); ev('pointerup', 220, 161, 0.15); }""")
+    p = last(page, 'marks')[-1]['pts']
+    assert p[0][2] <= p[5][2] * 1.2, (p[0], p[5])                 # no fat start
+    assert any(abs(q[1] * 100 - round(q[1] * 10) * 10) > 0.5 for q in p)   # finer than a tenth of a pixel
+
+def test_picking_a_colour_adds_it_to_recent_once(page):
+    # dragging around the colour picker sends many in-between colours: only the one picked counts
+    open_clip(page); loaded(page)
+    page.evaluate("localStorage.removeItem('qg_recent')"); pen(page); page.click('#colorBtn')
+    page.evaluate("""() => { const i = document.getElementById('palPick');
+        for (const c of ['#e8344f', '#e9354f', '#ea364f']) { i.value = c; i.dispatchEvent(new Event('input')); }
+        i.dispatchEvent(new Event('change')); }""")
+    assert page.locator('#palRecent .sw').count() == 1
+
 def test_ipad_colours_stay_put_when_one_is_picked(page):
     page.set_viewport_size({'width': 1194, 'height': 834})
     open_clip(page); loaded(page); page.click('#annBtn')
