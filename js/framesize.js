@@ -3,7 +3,7 @@
 // smaller instead, to fit the budget; a clip that would end up under MIN_W wide is refused.
 export const MAX_W = 960, MIN_W = 320;
 export const IOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
-export const BUDGET = IOS ? 256e6 : 900e6;
+export const BUDGET = IOS ? 512e6 : 900e6;   // iPad/iPhone: a 240-frame clip fits at full size
 
 export function frameSize(count, w, h, budget = BUDGET) {
   const s = Math.min(1, MAX_W / w, Math.sqrt(budget / (count * w * h * 4)));
