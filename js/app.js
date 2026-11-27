@@ -20,7 +20,7 @@ import { mirrorCorners } from './loader.js';
 import { videoTiming } from './demux.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.48';
+export const VERSION = '0.9.49';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -417,13 +417,13 @@ function rippleIn(els, x, y, ms = 950) {
   for (let i = 0; i <= n; i++) {
     const k = i / n, o = Math.min(1, k / 0.8), open = o * o * (3 - 2 * o);   // the circle widens over most of it, eased in and out
     const w = Math.exp(-k * 4.2) * Math.cos(k * Math.PI * 3.2);
-    frames.push({ k, r: R * open, tf: `perspective(900px) rotateX(${(10 * w).toFixed(2)}deg) rotateY(${(-10 * w).toFixed(2)}deg) scale(${(1 - 0.1 * w).toFixed(4)})` });
+    frames.push({ k, r: R * open, tf: `scale(${(1 - 0.1 * w).toFixed(4)}) skew(${(4 * w).toFixed(2)}deg, ${(-4 * w).toFixed(2)}deg)` });   // flat (2D) on purpose: a 3D tilt left iPhone's copy of the page blurry afterwards
   }
   return Promise.all(els.filter(Boolean).map(el => {
     const b = el.getBoundingClientRect(), cx = x - b.left, cy = y - b.top;
     el.style.transformOrigin = `${cx}px ${cy}px`;
     const a = el.animate(frames.map(f => ({ offset: f.k, clipPath: `circle(${f.r.toFixed(1)}px at ${cx}px ${cy}px)`, transform: f.tf })), { duration: ms, easing: 'linear' });
-    return a.finished.catch(() => {}).then(() => { el.style.transformOrigin = ''; });
+    return a.finished.catch(() => {}).then(() => { a.cancel(); el.style.transformOrigin = ''; el.style.transform = ''; });
   }));
 }
 function setTab(name) {

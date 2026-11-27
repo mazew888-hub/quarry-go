@@ -199,7 +199,8 @@ export function pageWarp(t, target) {
   const k = clamp(hitT / (RIPPLE + 0.35)); if (k >= 1) return '';
   const wave = Math.exp(-k * 4.2) * Math.cos(k * Math.PI * 3.2);     // a damped swing: in, out a little, settled
   const sc = 1 - 0.1 * wave, rx = 10 * wave, ry = -10 * wave;
-  return `perspective(900px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) scale(${sc.toFixed(4)})`;
+  // flat (2D) on purpose: a 3D tilt left iPhone's copy of the page blurry afterwards
+  return `scale(${sc.toFixed(4)}) skew(${(rx * 0.4).toFixed(2)}deg, ${(ry * 0.4).toFixed(2)}deg)`;
 }
 
 // The mark at rest, on a clear background (used to make icons/mark.png).
