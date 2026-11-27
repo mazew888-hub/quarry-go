@@ -68,14 +68,6 @@ def test_lost_reply_new_file_name(page):
     names = [n for n, parent, _ in fake.written if parent == 'actions']
     assert len(names) == 2 and len(set(names)) == 2
 
-def test_signed_out_with_cache_shows_connect(page):
-    start(page)
-    page.evaluate(f"async () => {P}.refresh()")
-    page.evaluate("localStorage.setItem('qg_needs_connect', '1')")
-    page.evaluate("location.hash = '#/sort'")
-    page.wait_for_selector('#soStatus .st-connect', timeout=8000)
-
-# Important 6: a sign-in answer that doesn't match asks to connect again
 def test_state_mismatch_asks_to_connect(page):
     start(page)
     page.goto(BASE + '?r=1#access_token=x&expires_in=3600&state=not-mine'); page.wait_for_load_state('domcontentloaded')

@@ -58,32 +58,6 @@ def test_small_swipe_snaps_back(page):
     page.wait_for_timeout(300)
     assert count(page) == 4 and sent(fake) == []
 
-def test_keep_asks_folder(page):
-    fake = go(page); count(page)
-    swipe(page, 220)
-    page.wait_for_selector('#folderVeil', state='visible')
-    assert page.locator('#tagsBox').is_hidden()   # tagging is its own job, not part of Keep
-    page.click('#folderList [data-f="Anatomy/Hands"]')
-    page.click('#folderOk')
-    page.wait_for_function("document.getElementById('soCount').textContent.startsWith('3')")
-    page.wait_for_timeout(300)
-    a = sent(fake)[0]
-    assert (a['op'], a['id'], a['folder'], a['tags']) == ('keep', '1800', 'Anatomy/Hands', [])
-
-def test_keep_cancel_keeps_post(page):
-    fake = go(page); count(page)
-    page.click('#soKeep'); page.wait_for_selector('#folderVeil', state='visible')
-    page.click('#folderNo')
-    assert count(page) == 4 and sent(fake) == []
-
-def test_recent_folder_first(page):
-    fake = go(page); count(page)
-    page.click('#soKeep'); page.click('#folderList [data-f="Poses"]'); page.click('#folderOk')
-    page.wait_for_function("document.getElementById('soCount').textContent.startsWith('3')")
-    page.click('#soKeep'); page.wait_for_selector('#folderVeil', state='visible')
-    assert page.inner_text('#recentFolders').strip() == 'Poses'
-    assert 'on' in page.get_attribute('#folderList [data-f="Poses"]', 'class')
-
 def test_undo_steps_back(page):
     fake = go(page); count(page)
     page.click('#soSkip'); page.wait_for_function("document.getElementById('soCount').textContent.startsWith('3')")
@@ -117,14 +91,11 @@ def test_sort_refresh_button(page):
     page.click('#soRefresh')
     page.wait_for_function("window.__n > 0", timeout=4000)
 
-def test_keep_into_new_folder(page):
+
+def test_keep_is_one_swipe(page):
     fake = go(page); count(page)
-    page.click('#soKeep'); page.wait_for_selector('#folderVeil', state='visible')
-    page.fill('#folderSearch', 'Pose / Wall Run')
-    page.click('#folderList [data-new]')
-    assert page.inner_text('#folderOk') == 'Keep'
-    page.click('#folderOk')
+    swipe(page, 220)
     page.wait_for_function("document.getElementById('soCount').textContent.startsWith('3')"); page.wait_for_timeout(300)
-    assert sent(fake)[0]['folder'] == 'Pose/Wall Run'
-    page.click('#soKeep'); page.wait_for_selector('#folderVeil', state='visible')   # still offered next time
-    assert page.locator('#folderList [data-f="Pose/Wall Run"]').count() == 1
+    assert page.locator('#folderVeil').is_hidden()
+    a = sent(fake)[0]
+    assert (a['op'], a['id'], a['folder'], a['tags']) == ('keep', '1800', None, [])

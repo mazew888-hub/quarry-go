@@ -1,5 +1,5 @@
 // Sort: your X likes and reposts one at a time. Swipe right (or Keep) to keep, left (or Skip) to skip.
-import { esc, statusLine, openFolderSheet, ago, pullToRefresh, REFRESH_ICON } from './ui.js';
+import { esc, statusLine, ago, pullToRefresh, REFRESH_ICON } from './ui.js';
 
 const THRESHOLD = 120; // px of swipe that counts as a decision
 
@@ -139,12 +139,10 @@ export function createSort(root, { phone, drive, toast }) {
   async function keep(post) {
     if (busy) return; busy = true;
     try {
-      const v = phone.current();
-      const pick = await openFolderSheet({ title: 'Keep in folder', folders: v.folders, allowNew: true });
-      if (!pick) { snapBack(); return; }
+      // Keep is one swipe: no folder or tags here. Filing goes in a separate library tagging tab.
       stageKey = '';
       await flyOut(1);
-      await phone.act({ op: 'keep', id: post.id, folder: pick.folder, tags: pick.tags, post });
+      await phone.act({ op: 'keep', id: post.id, folder: null, tags: [], post });
       history.push(post);
     } finally { busy = false; render(); }
   }
