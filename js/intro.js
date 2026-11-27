@@ -204,3 +204,25 @@ export function drawMark(c, w, h) {
   const s = Math.min(w, h) / 7, ox = w * 0.38, oy = h * 0.55;
   drawScene(c, ox, oy, s, [{ cubes: BLOCK, tf: p => p }, { cubes: [[0, 0, 0]], tf: p => [p[0] + LOGO[0], p[1] + LOGO[1], p[2] + LOGO[2]], bias: 0.01 }]);
 }
+
+// ---------- loader: the Quarry mark as a looping loading indicator (samples A and B) ----------
+// The same creep, whip, settle and hold as the mirror-squares loader, on the mark itself.
+const loaderEase = u => { const v = Math.min(1, u / 0.85); return v < 0.5 ? 0.5 * Math.pow(2 * v, 3.2) : 1 - 0.5 * Math.pow(2 * (1 - v), 3.6); };
+export function drawLoaderMark(c, size, t, variant = 'A', cycle = 2) {
+  const s = size / 5.6, ox = size / 2 - s * 0.6, oy = size * 0.66;
+  const n = Math.floor(t / cycle), u = t / cycle - n, e = loaderEase(u);
+  c.clearRect(0, 0, size, size);
+  if (variant === 'A') {
+    // the corner hops out to its place and back into the notch, turn about
+    const out = n % 2 === 0, k = out ? e : 1 - e;
+    const pos = [lerp(HOME[0], LOGO[0], k), lerp(HOME[1], LOGO[1], k), lerp(HOME[2], LOGO[2], k) + Math.sin(k * Math.PI) * 0.7];
+    drawScene(c, ox, oy, s, [{ cubes: BLOCK, tf: p => p }, { cubes: [[0, 0, 0]], tf: p => [p[0] + pos[0], p[1] + pos[1], p[2] + pos[2]], bias: 0.25 }]);
+  } else {
+    // the whole mark turns a quarter about its middle each cycle, and the corner cube hops as it goes
+    const a = (n + e) * Math.PI / 2, hop = Math.sin(e * Math.PI) * 0.45;
+    const rz = (p, cx, cy) => { const co = Math.cos(a), si = Math.sin(a), x = p[0] - cx, y = p[1] - cy; return [cx + x * co - y * si, cy + x * si + y * co, p[2]]; };
+    const C = [1.4, 0.6];
+    drawScene(c, ox, oy - s * 0.1, s, [{ cubes: BLOCK, tf: p => rz(p, ...C) },
+      { cubes: [[0, 0, 0]], tf: p => { const q = rz([p[0] + LOGO[0], p[1] + LOGO[1], p[2] + LOGO[2]], ...C); return [q[0], q[1], q[2] + hop]; }, bias: 0.25 }]);
+  }
+}

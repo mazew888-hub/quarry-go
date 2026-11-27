@@ -199,3 +199,8 @@ def test_check_frame_rates_finds_and_fixes_wrong_reviews(page):
     assert r['fps'] == 30 and r['marks'][0]['f'] == 10
     page.click('#fpsOk'); page.click('#gear'); page.click('#fpsCheckBtn'); page.wait_for_selector('#fpsVeil', state='visible')
     assert 'real frame rate' in page.inner_text('#fpsList')
+
+def test_opening_loader_comes_and_goes(page):
+    # the loader covers the screen while a video opens, and is gone once it's in
+    home(page); new_review(page, FIX / 'ramp.mp4'); in_player(page)
+    page.wait_for_selector('#opening', state='hidden')

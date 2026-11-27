@@ -695,3 +695,8 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 .pli .ed{flex:none;border:0;background:none;color:var(--faint);font-size:16px;line-height:1;padding:0 6px}
 .so-head{display:flex;align-items:center;gap:10px}.so-head .so-author{flex:1;min-width:0}
 .so-onx{flex:none;padding:6px 11px;border-radius:999px;background:var(--well);box-shadow:var(--raised);color:var(--ink,#ECEDEF);font:600 13px/1 inherit;text-decoration:none}
+/* opening a video: the mirror-squares loader in the middle of a dimmed screen */
+#opening{position:fixed;inset:0;z-index:12;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:rgba(14,16,19,.72);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:var(--ink,#ECEDEF);font:600 15px/1 "Rubik",system-ui;pointer-events:none}
+#opening.show{display:flex}
+#opening canvas{width:104px;height:104px;color:var(--ink,#ECEDEF)}

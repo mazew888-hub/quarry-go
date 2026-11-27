@@ -16,10 +16,11 @@ import { createSort } from './sort.js';
 import { createTag } from './tag.js';
 import { rescaleReview, findWrongRates } from './rescale.js';
 import { esc } from './ui.js';
+import { mirrorCorners } from './loader.js';
 import { videoTiming } from './demux.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.44';
+export const VERSION = '0.9.45';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -356,9 +357,9 @@ async function openReview(id) {
     const clip = await S.getClip(id);
     if (stale()) return;
     if (!clip) { $('reviews').classList.remove('busy'); fileMode = { kind: 'repick', id, day: dayOf(review) }; $('reviews').classList.add('show'); show('missing'); return; }
-    try { status('Opening…', 0); media = await loadFrames(clip, { log, fps: review.fps }); }
-    catch (err) { status(''); if (!stale()) { toast(err.message); location.hash = '#/'; } return; }
-    status('');
+    try { opening(true); media = await loadFrames(clip, { log, fps: review.fps }); }
+    catch (err) { opening(false); if (!stale()) { toast(err.message); location.hash = '#/'; } return; }
+    opening(false);
     if (stale()) { media.cancel(); return; }
     // the clip was read at the wrong rate before (a 30 fps playblast taken for 24): move this review's
     // notes, drawings and time warp onto the real frames
@@ -389,6 +390,13 @@ $('missingBack').onclick = () => { hide('missing'); const d = fileMode.day; loca
 // ---------- tabs: Review, Sort, Library
 let sortTab = null, libTab = null, tagTab = null;
 // Quarry Go is a review app first: Sort and Library stay hidden until switched on in Settings.
+// Opening a video: the loader in the middle of the screen until the first frames are in
+let stopOpening = null;
+function opening(on) {
+  const el = $('opening');
+  if (on && !stopOpening) { el.classList.add('show'); stopOpening = mirrorCorners(el.querySelector('canvas')); }
+  if (!on && stopOpening) { stopOpening(); stopOpening = null; el.classList.remove('show'); }
+}
 const extraTabs = () => { try { return DL.isUnlocked() && localStorage.getItem('qg_extra_tabs') === '1'; } catch { return false; } };
 // Dev lab: opened by holding the Quarry logo key, behind Face ID (js/devlab.js).
 async function openDevLab() {
