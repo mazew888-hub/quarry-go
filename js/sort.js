@@ -24,11 +24,6 @@ export function createSort(root, { phone, drive, toast }) {
       <button class="btn pri so-keep" id="soKeep">Keep</button>
     </div>`;
   const $ = id => root.querySelector('#' + id);
-  // iPhone sometimes keeps a blurry copy of the header (seen after the Share sheet and coming back to the
-  // app); taking it out and putting it back makes Safari draw it fresh and sharp
-  const redrawTop = () => { const t = root.querySelector('.so-top'); if (!t) return; t.style.display = 'none'; void t.offsetHeight; t.style.display = ''; };
-  addEventListener('pageshow', redrawTop); addEventListener('focus', redrawTop);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(redrawTop, 50); });
   // Without a Drive sign-in, likes come in and decisions go out as files through the Files app.
   const byFile = () => !(drive.configured && drive.configured() && drive.connected && drive.connected());
   const pick = () => $('soPick').click();
@@ -45,7 +40,6 @@ export function createSort(root, { phone, drive, toast }) {
       toast('Save to Files › Quarry Sync › phone › actions');
       try { await navigator.share({ files: [out.file] }); await phone.markSent(out); toast('Sent: Quarry carries it out on your PC'); }
       catch (err) { if (err.name !== 'AbortError') toast(err.message); }
-      finally { setTimeout(redrawTop, 60); }
     } else {
       const a = document.createElement('a'); a.href = URL.createObjectURL(out.file); a.download = out.file.name; a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 60000); await phone.markSent(out);

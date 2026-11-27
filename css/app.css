@@ -101,7 +101,7 @@ input[type=file]{display:none}
 
 /* ---- tab bar (Review, Sort, Library) ---- */
 #tabbar{position:fixed;left:0;right:0;bottom:0;z-index:8;display:none;justify-content:space-around;align-items:stretch;
-  padding:6px 8px calc(env(safe-area-inset-bottom) + 6px);background:rgba(29,32,36,.86);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  padding:6px 8px calc(env(safe-area-inset-bottom) + 6px);background:rgb(29,32,36);   /* solid, no frosted blur: on iPhone the blur got drawn at the top of the screen and smeared the Sort header */
   box-shadow:0 -1px 0 rgba(255,255,255,.05),0 -8px 24px rgba(0,0,0,.35)}
 #tabbar.show{display:flex}
 .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border-radius:12px;color:var(--faint);
