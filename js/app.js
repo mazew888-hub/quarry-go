@@ -20,7 +20,7 @@ import { mirrorCorners } from './loader.js';
 import { videoTiming } from './demux.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.46';
+export const VERSION = '0.9.47';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -511,7 +511,8 @@ else {
     // When a new version takes over, reload once, unless a review is open (it updates next time instead).
     let had = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (had && !/^#\/r\//.test(location.hash)) location.reload();
+      // wait for the start screen to finish, so it isn't cut off (and it won't play again after the reload)
+      if (had && !/^#\/r\//.test(location.hash)) Promise.resolve(window.__introDone).then(() => location.reload());
       had = true;
     });
   }

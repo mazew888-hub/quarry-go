@@ -101,9 +101,9 @@ export function drawIntro(c, w, h, t, target = null) {
   if (go > 0) {
     const B = MARK_BOX, k = E.inOut(clamp((go - ANTIC) / (FLY - ANTIC)));
     const cx0 = ox + s * (B.x0 + B.x1) / 2, cy0 = oy + s * (B.y0 + B.y1) / 2;
-    const s1 = target.width / 1.06 / Math.max(B.x1 - B.x0, B.y1 - B.y0);
+    const s1 = target.width / 1.06 / Math.max(B.x1 - B.x0, B.y1 - B.y0) * 0.965;   // measured against mark.png, so the hand-over doesn't jump in size
     const cx1 = target.left + target.width / 2, cy1 = target.top + target.height / 2;
-    const hitT = go - FLY, punch = hitT > 0 && hitT < 0.22 ? 1 + 0.22 * Math.sin(Math.PI * hitT / 0.22) * (1 - hitT / 0.22) : 1;
+    const hitT = go - FLY, punch = 1;   // no bump on landing: it settles into the key at exactly the key's size
     // a jump: a quick crouch, then it leaps up and out toward you (it grows on the way) and drops onto the key
     // the antic: the landing drives it straight down into the crouch (no ease-in, so no pause), it gathers, then springs out into the jump
     const ak = clamp(go / ANTIC), gather = go < ANTIC ? E.out(ak) : Math.max(0, 1 - (go - ANTIC) / 0.07);
@@ -165,13 +165,16 @@ export function drawIntro(c, w, h, t, target = null) {
 // Plays once on launch over the app; never blocks touches, and skipped for reduced motion.
 export function playIntro() {
   const el = document.getElementById('intro'); if (!el) return;
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { el.remove(); return; }
+  // Once per launch: a reload in the same session (a new version taking over) doesn't play it again
+  let seen = false; try { seen = sessionStorage.getItem('qg_intro') === '1'; sessionStorage.setItem('qg_intro', '1'); } catch {}
+  if (seen || matchMedia('(prefers-reduced-motion: reduce)').matches) { el.remove(); window.__introDone = Promise.resolve(); return; }
+  let finished; window.__introDone = new Promise(r => { finished = r; });
   const cv = el.querySelector('canvas'), dpr = Math.min(3, devicePixelRatio || 1);
   const size = () => { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; };
   size();
   const c = cv.getContext('2d'); let t0 = null, target;
   document.documentElement.classList.add('intro-on');   // the Quarry logo key waits for the mark to land in it
-  const done = () => { el.remove(); document.documentElement.classList.remove('intro-on'); };
+  const done = () => { el.remove(); document.documentElement.classList.remove('intro-on'); finished(); };
   const tick = now => {
     if (t0 === null) t0 = now;
     const t = (now - t0) / 1000;
