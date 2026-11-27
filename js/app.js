@@ -14,10 +14,12 @@ import * as G from './drive.js';
 import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createTag } from './tag.js';
-import { rescaleReview } from './rescale.js';
+import { rescaleReview, findWrongRates } from './rescale.js';
+import { esc } from './ui.js';
+import { videoTiming } from './demux.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.41';
+export const VERSION = '0.9.42';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -28,7 +30,7 @@ export function toast(msg, ms = 3500) {
 }
 const show = id => { $(id).style.display = 'flex'; $(id).classList.add('show'); };
 const hide = id => { $(id).style.display = 'none'; $(id).classList.remove('show'); };
-for (const v of ['cardVeil', 'settingsVeil', 'confirmVeil']) $(v).addEventListener('click', e => { if (e.target === $(v)) hide(v); });
+for (const v of ['cardVeil', 'settingsVeil', 'confirmVeil', 'fpsVeil']) $(v).addEventListener('click', e => { if (e.target === $(v)) hide(v); });
 
 // ---------- confirm sheet (never the browser's confirm())
 function confirmSheet(text) {
@@ -222,6 +224,28 @@ async function sameClip(a, b) {
     return new Uint8Array(x).every((v, i) => v === new Uint8Array(y)[i]);
   } catch { return false; }
 }
+// Settings › Check frame rates: every review whose clip file says a different frame rate from the one it
+// was reviewed at (a 30 fps playblast read as 24) is moved onto its real frames, and listed so the
+// feedback given on it can be looked at again.
+$('fpsCheckBtn').onclick = async () => {
+  const b = $('fpsCheckBtn'); b.disabled = true; b.textContent = 'Checking…';
+  try {
+    const found = await findWrongRates(await S.listReviews(), async r => {
+      const clip = await S.getClip(r.id); return clip ? videoTiming(await clip.arrayBuffer()) : null;
+    });
+    for (const x of found) S.saveReview(x.review.id, x.patch);
+    await S.flush();
+    $('fpsCap').textContent = found.length ? `${found.length} review${found.length > 1 ? 's' : ''} fixed` : 'Frame rates';
+    $('fpsList').innerHTML = found.length
+      ? '<p style="margin:0 2px 10px;color:var(--mut)">These were reviewed at the wrong frame rate. Their notes, drawings and time warp are now on the right frames. Frame numbers in notes you wrote, and anything already exported from them, were off: look at these again and re-export.</p>' +
+        found.map(x => `<div class="note"><span class="t">${esc(x.review.name || 'clip')}<br><span style="color:var(--mut);font-size:13px">${esc(dayTitle(dayOf(x.review)))} · read as ${x.from} fps, really ${x.to} fps</span></span></div>`).join('')
+      : '<p style="margin:0 2px;color:var(--mut)">Every review is at its video\'s real frame rate.</p>';
+    hide('settingsVeil'); show('fpsVeil');
+  } catch (e) { toast(e.message); }
+  finally { b.disabled = false; b.textContent = 'Check'; }
+};
+$('fpsOk').onclick = () => hide('fpsVeil');
+
 $('penTestBtn').onclick = () => {
   hide('settingsVeil');
   let pen = {}; try { pen = JSON.parse(localStorage.getItem('qg_pen') || '{}'); } catch {}

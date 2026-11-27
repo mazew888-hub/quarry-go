@@ -166,6 +166,7 @@
   <div class="list"><div class="note"><span class="t">Space used</span><span id="spaceUsed" style="color:var(--mut)"></span></div>
     <div class="note" id="gRow"><span class="t">Google Drive<br><span id="gAccount" style="color:var(--mut);font-size:13px"></span></span><button class="btn" id="gBtn">Connect</button></div>
     <div class="note" id="gCheckRow"><span class="t" id="gCheck" style="color:var(--mut);font-size:13px;white-space:pre-wrap">Check what this phone can see in your Drive.</span><button class="btn" id="gCheckBtn">Check Drive</button></div>
+    <div class="note"><span class="t">Check frame rates<br><span style="color:var(--mut);font-size:13px">Find reviews whose video was read at the wrong frame rate, and fix them</span></span><button class="btn" id="fpsCheckBtn">Check</button></div>
     <div class="note"><span class="t">Pencil test<br><span style="color:var(--mut);font-size:13px">Record how the Pencil feels, to send back for tuning</span></span><button class="btn" id="penTestBtn">Record</button></div>
     <div class="note"><span class="t">Version</span><span id="version" style="color:var(--mut)"></span></div></div>
   <p style="margin:12px 2px;color:var(--mut);font-size:13px">Clips stay on this phone. Nothing is uploaded.</p>
@@ -178,6 +179,11 @@
   <div class="row"><span class="sp"></span><button class="btn" id="confirmNo">Cancel</button><button class="btn pri" id="confirmYes" style="background:var(--late)">Delete</button></div>
 </div></div>
 
+<div class="veil" id="fpsVeil" style="z-index:11"><div class="sheet grain">
+  <div class="cap" id="fpsCap">Frame rates</div>
+  <div id="fpsList" style="max-height:50vh;overflow:auto"></div>
+  <div class="row" style="margin-top:12px"><span class="sp"></span><button class="btn pri" id="fpsOk">Done</button></div>
+</div></div>
 <div class="veil" id="exportVeil"></div>
 
 <div class="veil" id="shareVeil" style="z-index:11"><div class="sheet grain">

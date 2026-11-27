@@ -185,3 +185,17 @@ def test_review_made_at_the_wrong_rate_moves_onto_the_real_frames(page):
     in_player(page)
     r = page.evaluate("async () => { const S = await import('/js/store.js'); await S.flush(); const [r] = await S.listReviews(); return r; }")
     assert r['fps'] == 30 and r['frameCount'] == 30 and r['marks'][0]['f'] == 10
+
+def test_check_frame_rates_finds_and_fixes_wrong_reviews(page):
+    home(page); new_review(page, FIX / 'ramp.mp4'); in_player(page); back(page)
+    page.evaluate('''async () => { const S = await import('/js/store.js'); const [r] = await S.listReviews();
+        S.saveReview(r.id, { fps: 24, frameCount: 24, marks: [{ f: 8, type: 'note', text: 'here' }] }); await S.flush(); }''')
+    page.goto(BASE); page.wait_for_selector('#reviews.show', timeout=8000)
+    page.wait_for_selector('#intro', state='detached', timeout=8000)   # the start screen has played
+    page.click('#gear'); page.wait_for_selector('#settingsVeil', state='visible')
+    page.click('#fpsCheckBtn'); page.wait_for_selector('#fpsVeil', state='visible')
+    assert page.text_content('#fpsCap') == '1 review fixed' and 'really 30 fps' in page.inner_text('#fpsList')
+    r = page.evaluate("async () => { const S = await import('/js/store.js'); const [r] = await S.listReviews(); return r; }")
+    assert r['fps'] == 30 and r['marks'][0]['f'] == 10
+    page.click('#fpsOk'); page.click('#gear'); page.click('#fpsCheckBtn'); page.wait_for_selector('#fpsVeil', state='visible')
+    assert 'real frame rate' in page.inner_text('#fpsList')

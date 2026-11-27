@@ -23,3 +23,16 @@ export function rescaleReview(r, fps, count) {
   if (r.secs) p.secs = r.secs.map(s => ({ ...s, a: fr(s.a), b: fr(s.b) }));
   return p;
 }
+
+// Every review whose saved frame rate differs from what its clip file says (timingOf(review) → {fps, count}
+// or null when the file doesn't say): [{ review, from, to, patch }]. Used by Settings › Check frame rates.
+export async function findWrongRates(reviews, timingOf) {
+  const out = [];
+  for (const r of reviews) {
+    let t = null; try { t = await timingOf(r); } catch {}
+    if (!t) continue;
+    const patch = rescaleReview(r, t.fps, t.count);
+    if (patch) out.push({ review: r, from: r.fps, to: t.fps, patch });
+  }
+  return out;
+}
