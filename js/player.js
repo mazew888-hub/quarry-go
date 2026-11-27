@@ -113,7 +113,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   function draw() {
     if (drawQueued) { cancelAnimationFrame(drawQueued); drawQueued = 0; }
     cur = seq[pos] ?? 0;
-    if (mode === 'note') $('noteBtnTxt').textContent = `Add note at ${pos + 1}`;   // the frame number on screen (played), not the video's own
+    if (mode === 'note') $('noteBtnTxt').textContent = `${marks.some(m => m.type === 'note' && m.f === cur) ? 'Edit' : 'Add'} note at ${pos + 1}`;   // the frame number on screen (played), not the video's own
     const v = view();
     cx.setTransform(1, 0, 0, 1, 0, 0); cx.fillStyle = '#101114'; cx.fillRect(0, 0, cv.width, cv.height);
     cv.dataset.pic = [v.ox, v.oy, W * v.s, H * v.s].map(n => Math.round(n / v.d)).join(',');   // where the picture sits (for tests)
@@ -543,7 +543,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     if (!open) $('pNotes').classList.remove('open');
     if (open) { setTray(false); setWarpMode(false); mode = 'note'; } else if (mode === 'note') mode = null;
     $('pNotes').hidden = !open; $('noteMode').classList.toggle('on', open); $('player').classList.toggle('noting', open);
-    if (open) $('noteBtnTxt').textContent = `Add note at ${pos + 1}`;
+    if (open) $('noteBtnTxt').textContent = `${marks.some(m => m.type === 'note' && m.f === cur) ? 'Edit' : 'Add'} note at ${pos + 1}`;
     fitDock();
   }
   $('annBtn').onclick = () => {
@@ -631,9 +631,20 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     remember(); marks = marks.filter(m => !(isDrawn(m) && m.f === s)); delete holds[s];
     changed('marks', 'holds'); draw(); poke();
   };
-  $('noteBtn').onclick = () => { stop(); if (tool) pick(null); hideIo(); $('noteCap').textContent = `Note on frame ${cur + 1}`; $('noteIn').value = ''; openSheet('noteVeil'); $('noteIn').focus(); };
+  // Add note: on a frame that already has a note, this edits it instead (and so does ✎ in the notes list)
+  let editing = null;
+  function editNote(m) {
+    stop(); if (tool) pick(null); hideIo(); editing = m || null;
+    $('noteCap').textContent = `${m ? 'Edit note' : 'Note'} on frame ${pos + 1}`; $('noteIn').value = m ? m.text : '';
+    openSheet('noteVeil'); $('noteIn').focus();
+  }
+  $('noteBtn').onclick = () => editNote(marks.find(m => m.type === 'note' && m.f === cur));
   $('noteNo').onclick = closeSheets;
-  $('noteOk').onclick = () => { const t = $('noteIn').value.trim(); closeSheets(); if (t) { remember(); marks.push({ f: cur, type: 'note', text: t }); changed('marks'); draw(); } };
+  $('noteOk').onclick = () => {
+    const t = $('noteIn').value.trim(), m = editing; editing = null; closeSheets();
+    if (m) { if (t === m.text) return; remember(); if (t) m.text = t; else marks = marks.filter(x => x !== m); changed('marks'); draw(); }
+    else if (t) { remember(); marks.push({ f: cur, type: 'note', text: t }); changed('marks'); draw(); }
+  };
   function jumpTo(f) {
     stop(); if (retimed && shown && !shown.has(f)) setView(false);
     pos = firstPos[f] >= 0 ? firstPos[f] : posAtOrAfter(seq, f); inF = outF = null; draw(); changed('pos', 'inF', 'outF');
@@ -641,6 +652,8 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
   // ---------- this video's notes and drawings, under the scrub bar: tap one to go to its frame
   const kindName = { draw: 'stroke', arrow: 'arrow', box: 'box', circle: 'circle' };
   let listItems = [];
+  // a frame's number as you see it: in the retimed view that's where it plays, the same number the notes bar shows
+  const shownNo = f => (firstPos[f] >= 0 ? firstPos[f] : f) + 1;
   function renderList() {
     const notes = marks.filter(m => m.type === 'note'), starts = drawingStarts(marks);
     listItems = [
@@ -650,7 +663,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
         return { f: st, drawing: true, color: (ms[0] && ms[0].color) || '#FF3B5C',
           text: `Drawing · ${ms.length === 1 ? kinds[0] : `${ms.length} ${kinds.length === 1 ? kinds[0] + 's' : 'marks'}`}${holdOf(holds, st) > 1 ? ` · holds ${holdOf(holds, st)}` : ''}` };
       }),
-    ].sort((a, b) => a.f - b.f || (a.drawing ? 1 : -1));
+    ].sort((a, b) => shownNo(a.f) - shownNo(b.f) || (a.drawing ? 1 : -1));
     const nNotes = notes.length, nDraw = starts.length;
     $('pSub').textContent = [`${seq.length} frames`, nNotes && `${nNotes} note${nNotes === 1 ? '' : 's'}`, nDraw && `${nDraw} drawing${nDraw === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
     $('pNotesCap').textContent = listItems.length ? `Notes · ${listItems.length}` : 'Notes';
@@ -659,13 +672,15 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
     for (const it of listItems) {
       const d = document.createElement('div'); d.className = 'pli';
       d.innerHTML = '<span class="f"></span><span class="dot"></span><span class="x"></span>';
-      d.querySelector('.f').textContent = it.f + 1; d.querySelector('.x').textContent = it.text;
+      d.querySelector('.f').textContent = shownNo(it.f); d.querySelector('.x').textContent = it.text;
       if (it.drawing) d.querySelector('.dot').style.background = it.color;
       d.onclick = () => jumpTo(it.f);
       if (it.note) {   // a note can be taken away from the list
         const del = document.createElement('button'); del.className = 'del'; del.setAttribute('aria-label', 'Remove note'); del.textContent = '×';
         del.onclick = ev => { ev.stopPropagation(); remember(); marks = marks.filter(m => m !== it.note); changed('marks'); draw(); };
-        d.append(del);
+        const ed = document.createElement('button'); ed.className = 'ed'; ed.setAttribute('aria-label', 'Edit note'); ed.textContent = '✎';
+        ed.onclick = ev => { ev.stopPropagation(); jumpTo(it.f); editNote(it.note); };
+        d.append(ed, del);
       }
       box.append(d);
     }

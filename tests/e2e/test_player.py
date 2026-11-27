@@ -664,3 +664,27 @@ def test_ruler_doesnt_shift_as_the_frame_number_grows(page):
     w1 = page.locator('#scrub').bounding_box()['width']
     step(page, 12)                                   # 1 digit to 2
     assert page.locator('#scrub').bounding_box()['width'] == w1
+
+def test_edit_a_note(page):
+    # ✎ in All notes, or Add note on a frame that has one, opens the note to fix; emptying it removes it
+    open_clip(page); loaded(page)
+    page.click('#noteMode'); page.click('#noteBtn'); page.fill('#noteIn', 'arc is flta'); page.click('#noteOk')
+    assert page.inner_text('#noteBtnTxt').startswith('Edit note at')
+    page.click('#allNotes'); page.click('#pList .pli .ed')
+    assert page.input_value('#noteIn') == 'arc is flta'
+    page.fill('#noteIn', 'arc is flat'); page.click('#noteOk')
+    notes = [m for m in last(page, 'marks') if m['type'] == 'note']
+    assert [n['text'] for n in notes] == ['arc is flat']
+    page.click('#noteBtn'); assert page.input_value('#noteIn') == 'arc is flat'
+    page.fill('#noteIn', ''); page.click('#noteOk')
+    assert not [m for m in last(page, 'marks') if m['type'] == 'note']
+
+def test_note_numbers_match_in_retimed_view(page):
+    # All notes shows the frame number you see (the bar's "F n"), not the video's own frame
+    open_clip(page); loaded(page)
+    make_sections(page)
+    step(page, 40)
+    page.click('#noteMode'); page.click('#noteBtn'); page.fill('#noteIn', 'hold here'); page.click('#noteOk')
+    shown = page.inner_text('#noteBtnTxt').split(' at ')[1]
+    page.click('#allNotes')
+    assert page.locator('#pList .pli .f').first.inner_text() == shown
