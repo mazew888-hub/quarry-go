@@ -105,3 +105,11 @@ def test_on_x_link_opens_the_post(page):
     a = page.locator('#soOnX')
     assert a.get_attribute('href').startswith('https://x.com/') and a.get_attribute('href').endswith('/status/1800')
     assert a.get_attribute('target') == '_blank'
+
+def test_next_card_moves_up_without_being_rebuilt(page):
+    # the card underneath (already loaded) becomes the top card as it is: no blank flash between posts
+    go(page); count(page)
+    page.evaluate("window.__under = document.querySelector('#soStage .so-card.under')")
+    page.click('#soSkip'); page.wait_for_function("document.getElementById('soCount').textContent.startsWith('3')")
+    page.wait_for_timeout(300)
+    assert page.evaluate("document.getElementById('soCard') === window.__under")

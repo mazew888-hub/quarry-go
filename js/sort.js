@@ -53,7 +53,7 @@ export function createSort(root, { phone, drive, toast }) {
     if (!one) return '<div class="so-nomedia">No picture</div>';
     const dots = m.length > 1 ? `<div class="so-dots">${m.map((_, i) => `<i class="${i === mediaIx ? 'on' : ''}"></i>`).join('')}</div>` : '';
     if (one.type === 'photo') return `<img class="so-media" alt="" src="${esc(one.url)}">${dots}`;
-    return `<video class="so-media" src="${esc(one.url)}" ${one.poster ? `poster="${esc(one.poster)}"` : ''} muted loop playsinline ${big ? 'autoplay' : ''} preload="metadata"></video>${dots}`;
+    return `<video class="so-media" src="${esc(one.url)}" ${one.poster ? `poster="${esc(one.poster)}"` : ''} muted loop playsinline ${big ? 'autoplay' : ''} preload="${big ? 'metadata' : 'auto'}"></video>${dots}`;
   }
 
   function message(title, body, button) {
@@ -88,8 +88,19 @@ export function createSort(root, { phone, drive, toast }) {
     if (k === stageKey || dragging) return;
     stageKey = k;
     $('soKeys').style.visibility = 'visible';
-    $('soStage').innerHTML = (next ? `<div class="so-card under">${media(next, false)}</div>` : '') + `<div class="so-card top" id="soCard">${media(post, true)}
-        <div class="so-stamp keep">KEEP</div><div class="so-stamp skip">SKIP</div></div>`;
+    // The card underneath already holds the next post, loaded: when it comes up it's moved to the top as it
+    // is, rather than built again, so its picture never blanks out for a moment (the flash between posts)
+    const stage = $('soStage'), under = stage.querySelector('.so-card.under');
+    const stamps = '<div class="so-stamp keep">KEEP</div><div class="so-stamp skip">SKIP</div>';
+    const underHtml = next ? `<div class="so-card under" data-id="${esc(next.id)}">${media(next, false)}</div>` : '';
+    if (under && under.dataset.id === String(post.id) && mediaIx === 0) {
+      for (const el of [...stage.children]) if (el !== under) el.remove();
+      under.className = 'so-card top'; under.id = 'soCard'; under.removeAttribute('data-id');
+      under.insertAdjacentHTML('beforeend', stamps);
+      under.insertAdjacentHTML('beforebegin', underHtml);
+    } else {
+      stage.innerHTML = underHtml + `<div class="so-card top" id="soCard">${media(post, true)}${stamps}</div>`;
+    }
     // "On X" opens the post in the X app (or x.com) to look at it there; nothing is changed on X
     const xUrl = `https://x.com/${encodeURIComponent(post.author || 'i')}/status/${encodeURIComponent(post.id)}`;
     $('soInfo').innerHTML = `<div class="so-head"><div class="so-author"><b>${esc(post.author_name || post.author)}</b> <span>@${esc(post.author)}</span></div>
