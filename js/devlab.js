@@ -1,5 +1,5 @@
-// Dev lab: features in testing (X likes for now), kept off other people's phones. There's no way in
-// from Settings: hold the Quarry logo key for 3 seconds, then Face ID. The first time, this phone saves a
+// Dev lab: X likes, kept off other people's phones. There's no way in from Settings: hold the Quarry
+// logo key for 3 seconds, then Face ID, and it opens straight into Sort. The first time, this phone saves a
 // passkey for it; after that only that passkey (and so your face) opens it. Unlocked until the app closes.
 const KEY = 'qg_devlab_cred';
 export const HOLD_MS = 3000;

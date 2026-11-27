@@ -17,7 +17,7 @@ import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.34';
+export const VERSION = '0.9.35';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -28,7 +28,7 @@ export function toast(msg, ms = 3500) {
 }
 const show = id => { $(id).style.display = 'flex'; $(id).classList.add('show'); };
 const hide = id => { $(id).style.display = 'none'; $(id).classList.remove('show'); };
-for (const v of ['cardVeil', 'settingsVeil', 'confirmVeil', 'devVeil']) $(v).addEventListener('click', e => { if (e.target === $(v)) hide(v); });
+for (const v of ['cardVeil', 'settingsVeil', 'confirmVeil']) $(v).addEventListener('click', e => { if (e.target === $(v)) hide(v); });
 
 // ---------- confirm sheet (never the browser's confirm())
 function confirmSheet(text) {
@@ -365,13 +365,8 @@ const extraTabs = () => { try { return DL.isUnlocked() && localStorage.getItem('
 // Dev lab: opened by holding the Quarry logo key, behind Face ID (js/devlab.js).
 async function openDevLab() {
   try { await DL.unlock(); } catch (e) { if (e.name !== 'NotAllowedError') toast(e.message); return; }
-  const paint = () => { const on = extraTabs(); $('extraTabs').textContent = on ? 'On' : 'Off'; $('extraTabs').classList.toggle('on', on); };
-  $('extraTabs').onclick = () => {
-    try { localStorage.setItem('qg_extra_tabs', localStorage.getItem('qg_extra_tabs') === '1' ? '0' : '1'); } catch {}
-    paint(); $('tabbar').classList.toggle('show', extraTabs());
-  };
-  $('devLock').onclick = () => { DL.lock(); hide('devVeil'); $('tabbar').classList.remove('show'); if (location.hash !== '#/') location.hash = '#/'; };
-  paint(); show('devVeil');
+  try { localStorage.setItem('qg_extra_tabs', '1'); } catch {}
+  if (location.hash === '#/sort') route(); else location.hash = '#/sort';   // straight into X likes
 }
 function setTab(name) {
   $('tabbar').classList.toggle('show', !!name && extraTabs());

@@ -14,6 +14,6 @@ def test_review_only_by_default(browser, server):
     assert page.locator('#reviews.show').count() == 1
     page.click('#gear'); page.wait_for_selector('#settingsVeil', state='visible')
     assert not page.locator('#gAccount').is_visible()
-    assert page.inner_text('#extraTabs') == 'Off'
+    assert 'X likes' not in page.inner_text('#settingsVeil')
     ctx.close()
 
