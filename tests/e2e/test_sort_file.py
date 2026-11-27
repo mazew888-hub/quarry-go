@@ -25,9 +25,9 @@ def test_asks_for_the_file_first(page):
 
 def test_bring_in_then_send(page):
     go(page); bring(page, BUNDLE)
-    page.wait_for_function("/2 to sort/.test(document.getElementById('soCount').textContent)", timeout=8000)
+    page.wait_for_function("/2 left/.test(document.getElementById('soCount').textContent)", timeout=8000)
     page.click('#soSkip')
-    page.wait_for_selector('#soSend:has-text("Send 1")')
+    page.wait_for_selector('#soSend[aria-label="Send 1"]')
     with page.expect_download() as d: page.click('#soSend')
     dl = d.value
     assert dl.suggested_filename.startswith('p-') and dl.suggested_filename.endswith('-00000001.json')

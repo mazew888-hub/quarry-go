@@ -2,6 +2,14 @@
 import { esc, statusLine, ago, pullToRefresh, REFRESH_ICON } from './ui.js';
 
 const THRESHOLD = 120; // px of swipe that counts as a decision
+const svg = (d, w = 2.4) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const I = {
+  bring: svg('<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>', 2),
+  send: svg('<path d="M12 16V5"/><path d="M7 10l5-5 5 5"/><path d="M5 20h14"/>', 2),
+  undo: svg('<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>', 2.2),
+  check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 2.8),
+  cross: svg('<path d="M6 6l12 12M18 6L6 18"/>', 2.8),
+};
 
 export function createSort(root, { phone, drive, toast }) {
   const history = [];   // this session's decisions, for Undo: {id, post}
@@ -10,18 +18,19 @@ export function createSort(root, { phone, drive, toast }) {
 
   root.innerHTML = `
     <div class="so-top">
-      <div><div class="so-count" id="soCount"></div><div class="so-status" id="soStatus"></div></div><span class="sp"></span>
-      <button class="btn pri" id="soSend" hidden>Send</button>
-      <label class="btn" id="soBring" for="soPick" hidden>Bring in</label>
+      <h1>Sort <small class="so-count" id="soCount"></small></h1>
+      <label class="btn so-key" id="soBring" for="soPick" aria-label="Bring in" hidden>${I.bring}</label>
       <input type="file" id="soPick" accept=".json,application/json" multiple hidden>
-      <button class="btn" id="soRefresh" aria-label="Refresh">${REFRESH_ICON}</button>
-      <button class="btn" id="soUndo" aria-label="Undo">↶ Undo</button>
+      <button class="btn so-key" id="soRefresh" aria-label="Refresh">${REFRESH_ICON}</button>
+      <button class="btn pri so-key" id="soSend" aria-label="Send" hidden>${I.send}<b id="soSendN"></b></button>
     </div>
+    <div class="so-status" id="soStatus"></div>
+    <div class="so-bar"><span id="soBar"></span></div>
     <div class="so-stage" id="soStage"></div>
-    <div class="so-info" id="soInfo"></div>
     <div class="so-keys" id="soKeys">
-      <button class="btn so-skip" id="soSkip">Skip</button>
-      <button class="btn pri so-keep" id="soKeep">Keep</button>
+      <button class="btn so-big so-skip" id="soSkip" aria-label="Skip">${I.cross}</button>
+      <button class="btn so-key so-undo" id="soUndo" aria-label="Undo">${I.undo}</button>
+      <button class="btn pri so-big so-keep" id="soKeep" aria-label="Keep">${I.check}</button>
     </div>`;
   const $ = id => root.querySelector('#' + id);
   // Without a Drive sign-in, likes come in and decisions go out as files through the Files app.
@@ -52,25 +61,42 @@ export function createSort(root, { phone, drive, toast }) {
     const m = post.media || [], one = m[Math.min(mediaIx, m.length - 1)] || null;
     if (!one) return '<div class="so-nomedia">No picture</div>';
     const dots = m.length > 1 ? `<div class="so-dots">${m.map((_, i) => `<i class="${i === mediaIx ? 'on' : ''}"></i>`).join('')}</div>` : '';
-    if (one.type === 'photo') return `<img class="so-media" alt="" src="${esc(one.url)}">${dots}`;
-    return `<video class="so-media" src="${esc(one.url)}" ${one.poster ? `poster="${esc(one.poster)}"` : ''} muted loop playsinline ${big ? 'autoplay' : ''} preload="${big ? 'metadata' : 'auto'}"></video>${dots}`;
+    // behind the picture: a soft, blurred, darkened copy of it, so the card isn't empty dark around the video
+    const still = one.type === 'photo' ? one.url : one.poster;
+    const bg = still ? `<div class="so-bg" style="background-image:url('${esc(still)}')"></div>` : '';
+    if (one.type === 'photo') return `${bg}<img class="so-media" alt="" src="${esc(one.url)}">${dots}`;
+    return `${bg}<video class="so-media" src="${esc(one.url)}" ${one.poster ? `poster="${esc(one.poster)}"` : ''} muted loop playsinline ${big ? 'autoplay' : ''} preload="${big ? 'metadata' : 'auto'}"></video>${dots}`;
   }
+  // the name and words sit on the bottom of the card, over a shade
+  function who(post) {
+    const xUrl = `https://x.com/${encodeURIComponent(post.author || 'i')}/status/${encodeURIComponent(post.id)}`;
+    const name = post.author_name || post.author || '';
+    return `<div class="so-shade"></div><div class="so-who"><div class="so-head"><div class="so-av">${esc((name[0] || '?').toUpperCase())}</div>
+      <div class="so-author"><b>${esc(name)}</b><span>@${esc(post.author)}</span></div>
+      <a class="so-onx" href="${esc(xUrl)}" target="_blank" rel="noreferrer">On X ↗</a></div>
+      ${post.text ? `<div class="so-text">${esc(post.text)}</div>` : ''}</div>`;
+  }
+  const FEEL = `<div class="so-dim"></div><div class="so-badge keep">${I.check}<em>KEEP</em></div><div class="so-badge skip">${I.cross}<em>SKIP</em></div>`;
 
   function message(title, body, button) {
     const k = 'msg:' + title; if (stageKey === k) return; stageKey = k;
     $('soStage').innerHTML = `<div class="so-msg"><h2>${esc(title)}</h2><p>${esc(body)}</p>${button ? `<button class="btn pri" id="soMsgBtn">${esc(button.label)}</button>` : ''}</div>`;
     if (button) $('soMsgBtn').onclick = button.run;
-    $('soInfo').innerHTML = ''; $('soKeys').style.visibility = 'hidden';
+    $('soKeys').style.visibility = 'hidden';
   }
 
   function render() {
     if (!root.classList.contains('show')) return;
     const v = phone.current(), q = v.queue;
-    $('soCount').textContent = q.length ? `${q.length} to sort` : '';
-    $('soUndo').style.visibility = history.length ? 'visible' : 'hidden';
+    $('soCount').textContent = q.length ? `${q.length} left` : '';
+    $('soCount').hidden = !q.length;
+    $('soUndo').disabled = !history.length;
     const file = byFile(), unsent = phone.unsentCount ? phone.unsentCount() : 0;
     $('soBring').hidden = !file || !v.status; $('soRefresh').hidden = file;
-    $('soSend').hidden = !file || !unsent; $('soSend').textContent = `Send ${unsent}`;
+    $('soSend').hidden = !file || !unsent; $('soSendN').textContent = unsent; $('soSend').setAttribute('aria-label', `Send ${unsent}`);
+    // how far through the pile: what's been sorted (and not sent yet, or this visit) against what's left
+    const done = Math.max(unsent, history.length);
+    $('soBar').style.width = (done + q.length ? Math.round(100 * done / (done + q.length)) : 0) + '%';
     statusLine($('soStatus'), v, phone, { signedOut: !file && state === 'signedout', connect });
     $('soStatus').style.visibility = file && !v.status ? 'hidden' : '';
     if (file && !v.status) return message('Bring in your likes', `In Files, open Quarry Sync › phone and pick “${phone.BUNDLE || 'for phone.json'}”. Quarry on your PC keeps it up to date.`, { label: 'Bring in', run: pick });
@@ -91,22 +117,19 @@ export function createSort(root, { phone, drive, toast }) {
     // The card underneath already holds the next post, loaded: when it comes up it's moved to the top as it
     // is, rather than built again, so its picture never blanks out for a moment (the flash between posts)
     const stage = $('soStage'), under = stage.querySelector('.so-card.under');
-    const stamps = '<div class="so-stamp keep">KEEP</div><div class="so-stamp skip">SKIP</div>';
-    const underHtml = next ? `<div class="so-card under" data-id="${esc(next.id)}">${media(next, false)}</div>` : '';
+    const underHtml = next ? `<div class="so-card under" data-id="${esc(next.id)}">${media(next, false)}${who(next)}${FEEL}</div>` : '';
     if (under && under.dataset.id === String(post.id) && mediaIx === 0) {
       for (const el of [...stage.children]) if (el !== under) el.remove();
-      under.className = 'so-card top'; under.id = 'soCard'; under.removeAttribute('data-id');
-      under.insertAdjacentHTML('beforeend', stamps);
+      under.className = 'so-card top'; under.id = 'soCard'; under.removeAttribute('data-id'); under.style.cssText = ''; under.querySelector('.so-who').style.opacity = '';
       under.insertAdjacentHTML('beforebegin', underHtml);
     } else {
-      stage.innerHTML = underHtml + `<div class="so-card top" id="soCard">${media(post, true)}${stamps}</div>`;
+      stage.innerHTML = underHtml + `<div class="so-card top" id="soCard">${media(post, true)}${who(post)}${FEEL}</div>`;
     }
     // "On X" opens the post in the X app (or x.com) to look at it there; nothing is changed on X
-    const xUrl = `https://x.com/${encodeURIComponent(post.author || 'i')}/status/${encodeURIComponent(post.id)}`;
-    $('soInfo').innerHTML = `<div class="so-head"><div class="so-author"><b>${esc(post.author_name || post.author)}</b> <span>@${esc(post.author)}</span></div>
-      <a class="so-onx" id="soOnX" href="${esc(xUrl)}" target="_blank" rel="noreferrer">On X ↗</a></div>
-      <div class="so-text">${esc(post.text || '')}</div>`;
-    wire($('soCard'), post);
+    const top = $('soCard'); top.querySelector('.so-who').id = 'soInfo'; top.querySelector('.so-onx').id = 'soOnX';
+    top.querySelector('.so-who').addEventListener('pointerdown', e => { if (e.target.closest('.so-onx')) e.stopPropagation(); });
+    $('soKeep').style.transform = $('soSkip').style.transform = '';
+    wire(top, post);
     startVideo($('soCard'), post);
   }
 
@@ -123,51 +146,90 @@ export function createSort(root, { phone, drive, toast }) {
     go();
   }
 
+  // The feel: the card follows the finger and leans from where you grabbed it (gently, at most 8°), lifting
+  // a touch while held. Toward Keep, a soft glow rings the card and the ✓ badge grows in; toward Skip the
+  // picture dims and the ✕ badge grows in; the matching key swells. The next card rises behind it.
+  function pose(card, dx, dy, grabTop, held) {
+    const w = card.offsetWidth || innerWidth, p = Math.max(-1, Math.min(1, dx / THRESHOLD)), a = Math.abs(p), e = a * a * (3 - 2 * a);
+    const lean = (grabTop ? 1 : -1) * Math.max(-8, Math.min(8, dx / w * 14));
+    card.style.transformOrigin = `50% ${grabTop ? '115%' : '-15%'}`;
+    card.style.transform = dx || dy || held ? `translate(${dx}px,${dy}px) rotate(${lean.toFixed(2)}deg) scale(${held ? 1.02 : 1})` : '';
+    card.style.boxShadow = p > 0 ? `0 18px 40px rgba(0,0,0,.5),0 0 0 ${(2 * e).toFixed(2)}px rgba(255,138,155,${(.9 * e).toFixed(2)}),0 0 ${(34 * e).toFixed(1)}px rgba(255,77,103,${(.45 * e).toFixed(2)})` : '';
+    const bk = card.querySelector('.so-badge.keep'), bs = card.querySelector('.so-badge.skip'), ek = p > 0 ? e : 0, es = p < 0 ? e : 0;
+    bk.style.opacity = ek; bk.style.transform = `scale(${.5 + .5 * ek}) rotate(${(1 - ek) * -30}deg)`;
+    bs.style.opacity = es; bs.style.transform = `scale(${.5 + .5 * es}) rotate(${(1 - es) * 30}deg)`;
+    card.querySelector('.so-dim').style.opacity = es;
+    const u = $('soStage').querySelector('.so-card.under'), r = Math.min(1, Math.abs(dx) / w);
+    if (u) { u.style.transform = `scale(${.94 + .06 * r}) translateY(${14 - 14 * r}px)`; u.style.opacity = .5 + .5 * r; u.querySelector('.so-who').style.opacity = r; }
+    $('soKeep').style.transform = ek ? `scale(${1 + .14 * ek})` : ''; $('soSkip').style.transform = es ? `scale(${1 + .14 * es})` : '';
+  }
   function wire(card, post) {
-    let x0 = null, dx = 0, moved = false;
-    card.onpointerdown = e => { if (busy) return; dragging = true; x0 = e.clientX; dx = 0; moved = false; card.setPointerCapture(e.pointerId); card.style.transition = 'none'; };
+    let x0 = null, y0 = 0, dx = 0, dy = 0, moved = false, grabTop = true;
+    card.onpointerdown = e => {
+      if (busy) return; dragging = true; x0 = e.clientX; y0 = e.clientY; dx = dy = 0; moved = false;
+      const b = card.getBoundingClientRect(); grabTop = e.clientY < b.top + b.height / 2;
+      card.getAnimations().forEach(a => a.cancel());
+      card.setPointerCapture(e.pointerId); card.style.transition = 'none'; pose(card, 0, 0, grabTop, true);
+    };
     card.onpointermove = e => {
-      if (x0 === null) return; dx = e.clientX - x0; if (Math.abs(dx) > 6) moved = true;
-      card.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
-      card.querySelector('.keep').style.opacity = Math.max(0, Math.min(1, dx / THRESHOLD));
-      card.querySelector('.skip').style.opacity = Math.max(0, Math.min(1, -dx / THRESHOLD));
+      if (x0 === null) return; dx = e.clientX - x0; dy = (e.clientY - y0) * .25; if (Math.abs(dx) > 6) moved = true;
+      pose(card, dx, dy, grabTop, true);
     };
     const end = () => {
-      if (x0 === null) return; x0 = null; dragging = false; card.style.transition = '';
-      if (dx > THRESHOLD) keep(post);
-      else if (dx < -THRESHOLD) skip(post);
-      else { card.style.transform = ''; for (const s of card.querySelectorAll('.so-stamp')) s.style.opacity = 0;
-        if (!moved && (post.media || []).length > 1) { mediaIx = (mediaIx + 1) % post.media.length; render(); } }
+      if (x0 === null) return; x0 = null; dragging = false;
+      if (dx > THRESHOLD) keep(post, { dx, dy, grabTop });
+      else if (dx < -THRESHOLD) skip(post, { dx, dy, grabTop });
+      else {
+        springBack(card, dx, dy, grabTop);
+        if (!moved && (post.media || []).length > 1) { mediaIx = (mediaIx + 1) % post.media.length; render(); }
+      }
       render();
     };
     card.onpointerup = end; card.onpointercancel = end;
   }
-
-  function flyOut(dir) {
-    const c = $('soCard'); if (!c) return Promise.resolve();
-    c.style.transition = 'transform .22s ease-in, opacity .22s'; c.style.transform = `translateX(${dir * innerWidth * 1.2}px) rotate(${dir * 18}deg)`; c.style.opacity = 0;
-    return new Promise(r => setTimeout(r, 200));
+  // let go before the line: it springs back with a small wobble
+  function springBack(card, dx, dy, grabTop) {
+    const t0 = performance.now(), D = 600;
+    const step = now => {
+      if (dragging || !card.isConnected) return;
+      const t = (now - t0) / 1000, k = Math.exp(-t * 7) * Math.cos(t * 11);
+      if (now - t0 >= D) { pose(card, 0, 0, grabTop, false); card.style.transformOrigin = ''; return; }
+      pose(card, dx * k, dy * k, grabTop, false); requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   }
-  function snapBack() { const c = $('soCard'); if (c) { c.style.transform = ''; for (const s of c.querySelectorAll('.so-stamp')) s.style.opacity = 0; } }
+  // past the line (or a key): it carries on off the screen the way it was going, speeding up
+  function flyOut(dir, from = null) {
+    const c = $('soCard'); if (!c) return Promise.resolve();
+    const f = from || { dx: 0, dy: 0, grabTop: true }, t0 = performance.now(), D = 280;
+    return new Promise(res => {
+      const step = now => {
+        const k = Math.min(1, (now - t0) / D);
+        if (c.isConnected) pose(c, f.dx + dir * (500 * k * k + 120 * k), f.dy + 10 * k, f.grabTop, false);
+        if (k < 1) requestAnimationFrame(step); else res();
+      };
+      requestAnimationFrame(step);
+    });
+  }
 
-  async function keep(post) {
+  async function keep(post, from) {
     if (busy) return; busy = true;
     try {
       // Keep is one swipe: no folder or tags here. Filing goes in a separate library tagging tab.
       stageKey = '';
-      await flyOut(1);
+      await flyOut(1, from);
       await phone.act({ op: 'keep', id: post.id, folder: null, tags: [], post });
       history.push(post);
     } finally { busy = false; render(); }
   }
-  async function skip(post) {
+  async function skip(post, from) {
     if (busy) return; busy = true;
-    try { await flyOut(-1); stageKey = ''; await phone.act({ op: 'skip', id: post.id, post }); history.push(post); }
+    try { await flyOut(-1, from); stageKey = ''; await phone.act({ op: 'skip', id: post.id, post }); history.push(post); }
     finally { busy = false; render(); }
   }
   $('soKeep').onclick = () => { const q = phone.current().queue; if (q[0]) keep(q[0]); };
   $('soSkip').onclick = () => { const q = phone.current().queue; if (q[0]) skip(q[0]); };
-  $('soUndo').onclick = async () => { const post = history.pop(); if (post) { await phone.act({ op: 'undo', id: post.id, post }); render(); } };
+  $('soUndo').onclick = async () => { const post = history.pop(); if (post) { stageKey = ''; await phone.act({ op: 'undo', id: post.id, post }); render(); } };
 
   async function reload() {
     if (byFile()) { if (phone.fileReady) await phone.fileReady(); state = 'file'; stageKey = ''; render(); return; }

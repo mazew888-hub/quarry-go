@@ -21,7 +21,7 @@ def go(page, hash='#/sort', signed_in=True, **kw):
     return fake
 
 def count(page):
-    page.wait_for_function("document.getElementById('soCount') && /to sort/.test(document.getElementById('soCount').textContent)", timeout=8000)
+    page.wait_for_function("document.getElementById('soCount') && /left/.test(document.getElementById('soCount').textContent)", timeout=8000)
     return int(page.inner_text('#soCount').split()[0])
 
 def swipe(page, dx):
@@ -76,7 +76,7 @@ def test_video_post_plays_muted_loop(page):
 def test_all_sorted(page):
     go(page); count(page)
     for i in range(4):
-        page.click('#soSkip'); page.wait_for_timeout(260)
+        page.click('#soSkip'); page.wait_for_timeout(380)
     page.wait_for_function("document.querySelector('.so-msg h2') && document.querySelector('.so-msg h2').textContent !== 'Loading…'")
     assert page.inner_text('.so-msg h2') == 'All sorted'
 
