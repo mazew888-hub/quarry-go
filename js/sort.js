@@ -93,6 +93,20 @@ export function createSort(root, { phone, drive, toast }) {
     $('soInfo').innerHTML = `<div class="so-author"><b>${esc(post.author_name || post.author)}</b> <span>@${esc(post.author)}</span></div>
       <div class="so-text">${esc(post.text || '')}</div>`;
     wire($('soCard'), post);
+    startVideo($('soCard'), post);
+  }
+
+  // iOS only autoplays a video that is muted as a property and started from script; a picture that
+  // won't play gets a tap-to-play key, and one that can't load says so with a link to the post on X.
+  function startVideo(card, post) {
+    const v = card.querySelector('video'); if (!v) return;
+    v.muted = true; v.defaultMuted = true; v.playsInline = true;
+    const badge = (html, cls) => { card.querySelector('.so-vbadge')?.remove(); if (!html) return;
+      const b = document.createElement('div'); b.className = 'so-vbadge ' + cls; b.innerHTML = html;
+      b.addEventListener('pointerdown', e => e.stopPropagation()); card.append(b); return b; };
+    const go = () => v.play().then(() => badge(''), () => { const b = badge('▶ Play', 'play'); if (b) b.onclick = () => go(); });
+    v.addEventListener('error', () => badge(`Can't play this video here · <a href="https://x.com/i/status/${encodeURIComponent(post.id)}" target="_blank" rel="noreferrer">Open on X</a>`, 'err'), { once: true });
+    go();
   }
 
   function wire(card, post) {
