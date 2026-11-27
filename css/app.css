@@ -691,3 +691,4 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 .tg-keys .btn{flex:1;height:50px;font-size:16px;border-radius:16px}.tg-keys .pri{flex:1.6}
 #tag .so-msg{position:absolute;inset:0}
 #tag [hidden]{display:none!important}
+.intro-on #gear img{visibility:hidden}

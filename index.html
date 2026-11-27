@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<style>html,body{background:#1E2024;margin:0}</style>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <title>Quarry Go</title>
 <meta name="referrer" content="no-referrer">
@@ -17,6 +18,7 @@
 </head>
 <body>
 <div id="intro" aria-hidden="true"><canvas></canvas></div>
+<script type="module">import { playIntro } from "./js/intro.js"; playIntro();</script>
 <input id="file" type="file" accept="video/*,image/gif" multiple>
 <input id="handoffFile" type="file" accept="application/zip,.zip" multiple>
 
