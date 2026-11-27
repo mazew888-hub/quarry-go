@@ -72,7 +72,7 @@ const HOME = [1, 0, 1], LOGO = [2.25, -0.85, 1.9], MID = [0.5, 0.5, 0];
 // up a little, tumbles over and drops into its place, rocking to rest. No text: just the mark.
 // HOLD is the moment the corner lands: the landing goes straight into the antic's compression.
 export const SPIN = 0.6, REL = 0.68, FLIGHT = 0.52, LANDS = 0.68 + 0.52, HOLD = LANDS,
-  ANTIC = 0.7, FLY = 0.7 + 0.56, RIPPLE = 0.6, END = LANDS + 1.26 + 0.6;
+  ANTIC = 0.7, FLY = 0.7 + 0.56, RIPPLE = 0.6, SETTLE = RIPPLE + 0.35, END = LANDS + FLY + SETTLE;   // ends once the page has stopped moving
 const back = (k, c1 = 1.4) => 1 + (c1 + 1) * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2);
 const TURN = -Math.PI * 2.5;
 const spinAt = t => TURN * (1 - back(clamp(t / SPIN)));
@@ -93,7 +93,9 @@ const MARK_BOX = (() => { let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
     x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py); }
   return { x0, x1, y0, y1 }; })();
 
-export function drawIntro(c, w, h, t, target = null) {
+// Where the mark sits inside icons/mark.png (fractions of the image): its width, and its middle
+const PNG_W = 0.911, PNG_CX = 0.45, PNG_CY = 0.494;   // measured against the picture itself
+export function drawIntro(c, w, h, t, target = null, markImg = null) {
   let s = Math.min(w, h) * 0.085, ox = w / 2 - s * 0.6, oy = h * 0.47;
   // the hand-off: the mark shrinks and flies into the Quarry logo key; when it hits, the page ripples
   // out from that corner: the dark opens in a widening soft circle while the page itself warps and settles (pageWarp)
@@ -101,8 +103,10 @@ export function drawIntro(c, w, h, t, target = null) {
   if (go > 0) {
     const B = MARK_BOX, k = E.inOut(clamp((go - ANTIC) / (FLY - ANTIC)));
     const cx0 = ox + s * (B.x0 + B.x1) / 2, cy0 = oy + s * (B.y0 + B.y1) / 2;
-    const s1 = target.width / 1.06 / Math.max(B.x1 - B.x0, B.y1 - B.y0) * 0.965;   // measured against mark.png, so the hand-over doesn't jump in size
-    const cx1 = target.left + target.width / 2, cy1 = target.top + target.height / 2;
+    // lands exactly where and how big the mark is drawn inside the key's picture, so nothing shifts at the hand-over
+    const s1 = target.width * PNG_W / (B.x1 - B.x0);
+    const cx1 = target.left + target.width * PNG_CX, cy1 = target.top + target.height * PNG_CY;
+    const kx = target.left + target.width / 2, ky = target.top + target.height / 2;
     const hitT = go - FLY, punch = 1;   // no bump on landing: it settles into the key at exactly the key's size
     // a jump: a quick crouch, then it leaps up and out toward you (it grows on the way) and drops onto the key
     // the antic: the landing drives it straight down into the crouch (no ease-in, so no pause), it gathers, then springs out into the jump
@@ -113,11 +117,20 @@ export function drawIntro(c, w, h, t, target = null) {
     c.clearRect(0, 0, w, h);
     c.fillStyle = '#1E2024'; c.fillRect(0, 0, w, h);
     if (hitT > 0) {
-      const R = Math.hypot(Math.max(cx1, w - cx1), Math.max(cy1, h - cy1)) * 1.05, rk = E.out(clamp(hitT / RIPPLE)), r = R * rk;
+      const R = Math.hypot(Math.max(kx, w - kx), Math.max(ky, h - ky)) * 1.05, rk = E.out(clamp(hitT / RIPPLE)), r = R * rk;
       c.save(); c.globalCompositeOperation = 'destination-out';
-      const soft = Math.max(1, r * 0.18), gr = c.createRadialGradient(cx1, cy1, Math.max(0, r - soft), cx1, cy1, r);
+      const soft = Math.max(1, r * 0.18), gr = c.createRadialGradient(kx, ky, Math.max(0, r - soft), kx, ky, r);
       gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-      c.fillStyle = gr; c.beginPath(); c.arc(cx1, cy1, r, 0, Math.PI * 2); c.fill(); c.restore();
+      c.fillStyle = gr; c.beginPath(); c.arc(kx, ky, r, 0, Math.PI * 2); c.fill(); c.restore();
+      // landed: from here it is the key's own picture, moving with the page as it warps, so when the
+      // page settles and the real key takes over it is the very same pixels in the very same place
+      if (markImg && markImg.complete && markImg.naturalWidth) {
+        const wp = warpAt(t);
+        c.save(); c.translate(kx, ky);
+        if (wp) { c.scale(wp.sc, wp.sc); c.transform(1, Math.tan(wp.ay * Math.PI / 180), Math.tan(wp.ax * Math.PI / 180), 1, 0, 0); }
+        c.drawImage(markImg, -target.width / 2, -target.height / 2, target.width, target.height); c.restore();
+        return;
+      }
     }
     drawScene(c, cx - sk * (B.x0 + B.x1) / 2, cy - sk * (B.y0 + B.y1) / 2, sk, [{ cubes: BLOCK, tf: p => p }, { cubes: [[0, 0, 0]], tf: p => [p[0] + LOGO[0], p[1] + LOGO[1], p[2] + LOGO[2]], bias: 0.01 }]);
     return;
@@ -173,6 +186,7 @@ export function playIntro() {
   const size = () => { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; };
   size();
   const c = cv.getContext('2d'); let t0 = null, target;
+  const markImg = new Image(); markImg.src = 'icons/mark.png';
   document.documentElement.classList.add('intro-on');   // the Quarry logo key waits for the mark to land in it
   const done = () => { el.remove(); document.documentElement.classList.remove('intro-on'); finished(); };
   const tick = now => {
@@ -182,9 +196,11 @@ export function playIntro() {
       const img = document.querySelector('#gear img'), r = img && img.getBoundingClientRect();
       target = r && r.width > 4 && r.top >= 0 && r.top < innerHeight ? r : null;
       el.style.background = 'transparent';
+    } else if (target && t < HOLD + FLY) {   // keep aiming at the key's real place until it lands (the page can still settle)
+      const r = document.querySelector('#gear img')?.getBoundingClientRect(); if (r && r.width > 4) target = r;
     }
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (t < END) drawIntro(c, innerWidth, innerHeight, t, target || null); else { c.clearRect(0, 0, innerWidth, innerHeight); document.documentElement.classList.remove('intro-on'); }
+    if (t < END) drawIntro(c, innerWidth, innerHeight, t, target || null, markImg); else { c.clearRect(0, 0, innerWidth, innerHeight); document.documentElement.classList.remove('intro-on'); }
     const page = document.querySelector('#reviews.show'), wv = pageWarp(t, target);
     if (page && wv !== null) { page.style.transformOrigin = `${target.left + target.width / 2}px ${target.top + target.height / 2}px`; page.style.transform = wv; }
     if (t < END + 0.35) requestAnimationFrame(tick); else { if (page) page.style.transform = ''; done(); }
@@ -194,13 +210,17 @@ export function playIntro() {
 
 // The page's warp as it ripples into view: it swells out from the corner the mark hit, tipped a little
 // away from it, and springs back flat. A CSS transform for the page (applied by playIntro).
-export function pageWarp(t, target) {
-  const hitT = t - HOLD - FLY; if (!target || hitT <= 0) return null;
-  const k = clamp(hitT / (RIPPLE + 0.35)); if (k >= 1) return '';
+function warpAt(t) {
+  const hitT = t - HOLD - FLY; if (hitT <= 0) return null;
+  const k = clamp(hitT / SETTLE); if (k >= 1) return null;
   const wave = Math.exp(-k * 4.2) * Math.cos(k * Math.PI * 3.2);     // a damped swing: in, out a little, settled
-  const sc = 1 - 0.1 * wave, rx = 10 * wave, ry = -10 * wave;
+  return { sc: +(1 - 0.1 * wave).toFixed(4), ax: +(4 * wave).toFixed(2), ay: +(-4 * wave).toFixed(2) };
+}
+export function pageWarp(t, target) {
+  if (!target || t - HOLD - FLY <= 0) return null;
+  const w = warpAt(t); if (!w) return '';
   // flat (2D) on purpose: a 3D tilt left iPhone's copy of the page blurry afterwards
-  return `scale(${sc.toFixed(4)}) skew(${(rx * 0.4).toFixed(2)}deg, ${(ry * 0.4).toFixed(2)}deg)`;
+  return `scale(${w.sc}) skew(${w.ax}deg, ${w.ay}deg)`;
 }
 
 // The mark at rest, on a clear background (used to make icons/mark.png).
