@@ -19,7 +19,7 @@ import { esc } from './ui.js';
 import { videoTiming } from './demux.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.43';
+export const VERSION = '0.9.44';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -444,7 +444,9 @@ async function testPlayer(q) {
     const blob = await (await fetch(`tests/fixtures/${name}`)).blob();
     const maxBytes = q.has('maxBytes') ? +q.get('maxBytes') : undefined;
     const media = await loadFrames(blob, { maxBytes, log });
-    const review = q.has('secs') ? { secs: JSON.parse(q.get('secs')), retimed: true } : null;  // a review from before time warp
+    window.__media = media;   // for tests
+    let review = q.has('secs') ? { secs: JSON.parse(q.get('secs')), retimed: true } : null;  // a review from before time warp
+    if (q.has('warp')) review = { warp: { keys: JSON.parse(q.get('warp')) }, retimed: true };  // a given time warp (stress tests)
     openPlayer($('player'), { media, review, name: name.replace(/\.[^.]+$/, ''), onChange: p => window.changes.push(p), onBack: () => {} });
   } catch (e) { toast(e.message); }
 }
