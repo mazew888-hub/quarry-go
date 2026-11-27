@@ -90,7 +90,10 @@ export function createSort(root, { phone, drive, toast }) {
     $('soKeys').style.visibility = 'visible';
     $('soStage').innerHTML = (next ? `<div class="so-card under">${media(next, false)}</div>` : '') + `<div class="so-card top" id="soCard">${media(post, true)}
         <div class="so-stamp keep">KEEP</div><div class="so-stamp skip">SKIP</div></div>`;
-    $('soInfo').innerHTML = `<div class="so-author"><b>${esc(post.author_name || post.author)}</b> <span>@${esc(post.author)}</span></div>
+    // "On X" opens the post in the X app (or x.com) to look at it there; nothing is changed on X
+    const xUrl = `https://x.com/${encodeURIComponent(post.author || 'i')}/status/${encodeURIComponent(post.id)}`;
+    $('soInfo').innerHTML = `<div class="so-head"><div class="so-author"><b>${esc(post.author_name || post.author)}</b> <span>@${esc(post.author)}</span></div>
+      <a class="so-onx" id="soOnX" href="${esc(xUrl)}" target="_blank" rel="noreferrer">On X ↗</a></div>
       <div class="so-text">${esc(post.text || '')}</div>`;
     wire($('soCard'), post);
     startVideo($('soCard'), post);

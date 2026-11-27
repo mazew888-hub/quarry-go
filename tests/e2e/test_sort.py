@@ -99,3 +99,9 @@ def test_keep_is_one_swipe(page):
     assert page.locator('#folderVeil').is_hidden()
     a = sent(fake)[0]
     assert (a['op'], a['id'], a['folder'], a['tags']) == ('keep', '1800', None, [])
+
+def test_on_x_link_opens_the_post(page):
+    go(page); count(page)
+    a = page.locator('#soOnX')
+    assert a.get_attribute('href').startswith('https://x.com/') and a.get_attribute('href').endswith('/status/1800')
+    assert a.get_attribute('target') == '_blank'
