@@ -175,3 +175,13 @@ def test_videos_from_photos_with_code_names_become_video_1_2(page, tmp_path):
     page.wait_for_function("document.querySelectorAll('.rv-clip').length === 3", timeout=30000)
     names = sorted(page.locator('.rv-name').all_inner_texts())
     assert names == ['Video 1', 'Video 2', 'clip'], names
+
+def test_review_made_at_the_wrong_rate_moves_onto_the_real_frames(page):
+    # a 30 fps clip that was once read as 24 fps: its notes move to the real frames when it opens
+    home(page); new_review(page, FIX / 'ramp.mp4'); in_player(page); back(page)
+    rid = page.evaluate('''async () => { const S = await import('/js/store.js'); const [r] = await S.listReviews();
+        S.saveReview(r.id, { fps: 24, frameCount: 24, marks: [{ f: 8, type: 'note', text: 'here' }] }); await S.flush(); return r.id; }''')
+    page.goto(BASE + '#/r/' + rid); page.reload()
+    in_player(page)
+    r = page.evaluate("async () => { const S = await import('/js/store.js'); await S.flush(); const [r] = await S.listReviews(); return r; }")
+    assert r['fps'] == 30 and r['frameCount'] == 30 and r['marks'][0]['f'] == 10

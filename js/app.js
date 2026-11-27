@@ -14,9 +14,10 @@ import * as G from './drive.js';
 import * as phone from './phone.js';
 import { createSort } from './sort.js';
 import { createTag } from './tag.js';
+import { rescaleReview } from './rescale.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.40';
+export const VERSION = '0.9.41';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -335,6 +336,10 @@ async function openReview(id) {
     catch (err) { status(''); if (!stale()) { toast(err.message); location.hash = '#/'; } return; }
     status('');
     if (stale()) { media.cancel(); return; }
+    // the clip was read at the wrong rate before (a 30 fps playblast taken for 24): move this review's
+    // notes, drawings and time warp onto the real frames
+    const fix = media.fpsSure && rescaleReview(review, media.fps, media.count);
+    if (fix) { log(`frame rate corrected: ${review.fps} → ${media.fps} fps; notes and time warp moved to match`); Object.assign(review, fix); S.saveReview(id, fix); }
   }
   $('reviews').classList.remove('busy');
   if (player) player.close();

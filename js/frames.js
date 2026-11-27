@@ -1,7 +1,7 @@
 // Loads every frame of a clip into memory, so scrubbing and any play rate are exact.
 // Returns as soon as the size and frame rate are known; frames fill in while the player is in use.
 import { decodeGif, scanGif, gifTimeline } from './gif.js';
-import { demux } from './demux.js';
+import { demux, videoTiming } from './demux.js';
 
 import { frameSize, MAX_W, BUDGET } from './framesize.js';
 export const CANT_OPEN = "This clip can't be opened here";
@@ -15,7 +15,15 @@ export async function loadFrames(blob, { maxBytes = BUDGET, log = () => {}, fps 
   const isGif = blob.type === 'image/gif' || String.fromCharCode(...head).startsWith('GIF8');
   if (isGif) return loadGif(blob, maxBytes, log);
   const fast = await loadDecoded(blob, maxBytes, log).catch(e => { if (e.message.startsWith('This clip is too long')) throw e; log('decoder: ' + e.message); return null; });
-  return fast || loadVideo(blob, maxBytes, log, fps);
+  if (fast) { fast.fpsSure = true; return fast; }
+  // The decoder couldn't take it (an MPEG-4 Part 2 playblast, say): the file still says its frame rate, which
+  // beats measuring it by playing (unreliable on iPhone, where it fell back to 24) or a rate saved from that.
+  let timing = null;
+  try { timing = videoTiming(await blob.arrayBuffer()); } catch {}
+  if (timing) log(`from the file: ${timing.fps} fps, ${timing.count} frames`);
+  const m = await loadVideo(blob, maxBytes, log, (timing && timing.fps) || fps);
+  if (timing) m.fpsSure = true;   // read from the file, not measured
+  return m;
 }
 
 // The fast way, where the phone has a video decoder (WebCodecs): read the file's pictures straight out

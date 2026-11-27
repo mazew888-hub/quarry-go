@@ -32,3 +32,12 @@ test('an HEVC clip (what iPhones record) gets its codec string', () => {
   assert.equal(v.codec, 'hvc1.1.6.L60.90');
   assert.equal(v.samples.length, 30);
 });
+
+// A clip in a codec the phone's decoder doesn't take (MPEG-4 Part 2, as some Maya playblasts are) still
+// has its frame rate and frame count read from the file, so it isn't guessed as 24 fps.
+test('videoTiming reads rate and frame count from any MP4/MOV video track', async () => {
+  const { videoTiming } = await import('../js/demux.js');
+  const b = readFileSync(new URL('./fixtures/mp4v30.mov', import.meta.url));
+  const t = videoTiming(b.buffer.slice(b.byteOffset, b.byteOffset + b.length));
+  assert.deepEqual(t, { fps: 30, count: 60 });
+});

@@ -105,3 +105,27 @@ export function demux(buf) {
   }
   return null;
 }
+
+// Just the timing of the first video track (whatever its codec): its frame rate from the usual gap between
+// pictures, and how many pictures there are. For clips the decoder can't take, so the <video> path
+// knows the real rate instead of guessing. Null when the file has no video track it can read.
+export function videoTiming(buf) {
+  try {
+    const d = new DataView(buf);
+    const moov = boxes(d, 0, buf.byteLength).find(b => b.type === 'moov'); if (!moov) return null;
+    for (const trak of boxes(d, moov.start, moov.end).filter(b => b.type === 'trak')) {
+      const hdlr = find(d, trak, 'mdia', 'hdlr');
+      if (!hdlr || type(d, hdlr.start + 8) !== 'vide') continue;
+      const mdhd = find(d, trak, 'mdia', 'mdhd'); if (!mdhd) return null;
+      const timescale = u32(d, mdhd.start + (d.getUint8(mdhd.start) === 1 ? 20 : 12));
+      const stts = find(d, trak, 'mdia', 'minf', 'stbl', 'stts'); if (!stts || !timescale) return null;
+      const runs = [], k = u32(d, stts.start + 4); let count = 0;
+      for (let e = 0; e < k; e++) { const cnt = u32(d, stts.start + 8 + e * 8), dl = u32(d, stts.start + 12 + e * 8); runs.push([cnt, dl]); count += cnt; }
+      // the gap most pictures have (a last odd one doesn't count)
+      let best = null; for (const [cnt, dl] of runs) if (dl > 0 && (!best || cnt > best[0])) best = [cnt, dl];
+      if (!best || !count) return null;
+      return { fps: snapFps(timescale / best[1]), count };
+    }
+  } catch {}
+  return null;
+}
