@@ -700,3 +700,4 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
   background:rgba(14,16,19,.72);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:var(--ink,#ECEDEF);font:600 15px/1 "Rubik",system-ui;pointer-events:none}
 #opening.show{display:flex}
 #opening canvas{width:104px;height:104px;color:var(--ink,#ECEDEF)}
+#reviews.stay{display:block}   /* stays underneath while the new tabs ripple in over it */

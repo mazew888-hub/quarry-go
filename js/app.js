@@ -20,7 +20,7 @@ import { mirrorCorners } from './loader.js';
 import { videoTiming } from './demux.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.47';
+export const VERSION = '0.9.48';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -399,10 +399,32 @@ function opening(on) {
 }
 const extraTabs = () => { try { return DL.isUnlocked() && localStorage.getItem('qg_extra_tabs') === '1'; } catch { return false; } };
 // Dev lab: opened by holding the Quarry logo key, behind Face ID (js/devlab.js).
-async function openDevLab() {
-  try { await DL.unlock(); } catch (e) { if (e.name !== 'NotAllowedError') toast(e.message); return; }
+function openDevLab() {
+  DL.unlock();
   try { localStorage.setItem('qg_extra_tabs', '1'); } catch {}
-  if (location.hash === '#/sort') route(); else location.hash = '#/sort';   // straight into X likes
+  // the new tabs ripple in from the logo key, the way the app opens: Reviews stays underneath while
+  // X likes opens out over it in a widening circle, warping a little and settling
+  const g = $('gear').getBoundingClientRect(), x = g.left + g.width / 2, y = g.top + g.height / 2;
+  $('reviews').classList.add('stay');
+  if (location.hash === '#/sort') route(); else location.hash = '#/sort';
+  requestAnimationFrame(() => rippleIn([$('sort'), $('tabbar')], x, y).then(() => $('reviews').classList.remove('stay')));
+}
+// A page opening out from a point (x, y on screen): a soft-edged circle that widens, while the page swells
+// from that point, tips back a little and springs flat. The same feel as the start screen's reveal.
+function rippleIn(els, x, y, ms = 950) {
+  const R = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) * 1.05;
+  const frames = [], n = 16;
+  for (let i = 0; i <= n; i++) {
+    const k = i / n, o = Math.min(1, k / 0.8), open = o * o * (3 - 2 * o);   // the circle widens over most of it, eased in and out
+    const w = Math.exp(-k * 4.2) * Math.cos(k * Math.PI * 3.2);
+    frames.push({ k, r: R * open, tf: `perspective(900px) rotateX(${(10 * w).toFixed(2)}deg) rotateY(${(-10 * w).toFixed(2)}deg) scale(${(1 - 0.1 * w).toFixed(4)})` });
+  }
+  return Promise.all(els.filter(Boolean).map(el => {
+    const b = el.getBoundingClientRect(), cx = x - b.left, cy = y - b.top;
+    el.style.transformOrigin = `${cx}px ${cy}px`;
+    const a = el.animate(frames.map(f => ({ offset: f.k, clipPath: `circle(${f.r.toFixed(1)}px at ${cx}px ${cy}px)`, transform: f.tf })), { duration: ms, easing: 'linear' });
+    return a.finished.catch(() => {}).then(() => { el.style.transformOrigin = ''; });
+  }));
 }
 function setTab(name) {
   $('tabbar').classList.toggle('show', !!name && extraTabs());
