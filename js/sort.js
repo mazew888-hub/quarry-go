@@ -43,10 +43,35 @@ export function createSort(root, { phone, drive, toast }) {
     catch (err) { toast(err.message); }
     stageKey = ''; render();
   };
+  // One-tap Send: an iPhone Shortcut ("Send to Quarry") saves the file straight into Quarry Sync › phone ›
+  // actions, so Send is two taps with no folder to find. Until it's set up, Send shows how first.
+  const tip = document.createElement('div'); tip.className = 'veil'; tip.id = 'soTipVeil';
+  tip.innerHTML = `<div class="sheet grain so-tip">
+    <div class="cap">One-tap Send</div>
+    <p>Make an iPhone Shortcut once, and Send becomes: tap Send, then tap <b>Send to Quarry</b>. No folders to find.</p>
+    <ol>
+      <li>Open the <b>Shortcuts</b> app and tap <b>+</b>. Name it <b>Send to Quarry</b>.</li>
+      <li>Tap <b>ⓘ</b> (or the name at the top › Details) and turn on <b>Show in Share Sheet</b>. Set what it receives to <b>Files</b> only.</li>
+      <li>Add the action <b>Save File</b>. Use <b>Shortcut Input</b> as the file, turn off <b>Ask Where to Save</b>, then tap the folder and pick <b>Google Drive › Quarry Sync › phone › actions</b>.</li>
+      <li>Tap <b>Done</b>. Next time the Share sheet opens, scroll its row of actions to <b>Edit Actions</b> and add Send to Quarry to Favorites, so it sits at the top.</li>
+    </ol>
+    <div class="row"><button class="btn" id="soTipLater">Send now</button><span class="sp"></span><button class="btn pri" id="soTipDone">It’s set up, send</button></div>
+  </div>`;
+  document.body.append(tip);
+  const tipShown = v => { tip.style.display = v ? 'flex' : 'none'; tip.classList.toggle('show', v); };
+  tip.addEventListener('click', e => { if (e.target === tip) tipShown(false); });
+  const hasShortcut = () => { try { return localStorage.getItem('qg_send_shortcut') === '1'; } catch { return false; } };
+  tip.querySelector('#soTipLater').onclick = () => { tipShown(false); share(); };
+  tip.querySelector('#soTipDone').onclick = () => { try { localStorage.setItem('qg_send_shortcut', '1'); } catch {} tipShown(false); share(); };
   async function sendFile() {
     const out = phone.actionsFile(); if (!out) return;
+    if (navigator.canShare && navigator.canShare({ files: [out.file] }) && !hasShortcut()) return tipShown(true);
+    return share();
+  }
+  async function share() {
+    const out = phone.actionsFile(); if (!out) return;
     if (navigator.canShare && navigator.canShare({ files: [out.file] })) {
-      toast('Save to Files › Quarry Sync › phone › actions');
+      toast(hasShortcut() ? 'Pick “Send to Quarry”' : 'Save to Files › Quarry Sync › phone › actions');
       try { await navigator.share({ files: [out.file] }); await phone.markSent(out); toast('Sent: Quarry carries it out on your PC'); }
       catch (err) { if (err.name !== 'AbortError') toast(err.message); }
     } else {
