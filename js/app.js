@@ -15,9 +15,10 @@ import * as S from './store.js';
 import * as G from './drive.js';
 import * as phone from './phone.js';
 import { createSort } from './sort.js';
+import { createTag } from './tag.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.36';
+export const VERSION = '0.9.37';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -359,7 +360,7 @@ $('missingBack').onclick = () => { hide('missing'); const d = fileMode.day; loca
 
 // ---------- routing and lifecycle
 // ---------- tabs: Review, Sort, Library
-let sortTab = null, libTab = null;
+let sortTab = null, libTab = null, tagTab = null;
 // Quarry Go is a review app first: Sort and Library stay hidden until switched on in Settings.
 const extraTabs = () => { try { return DL.isUnlocked() && localStorage.getItem('qg_extra_tabs') === '1'; } catch { return false; } };
 // Dev lab: opened by holding the Quarry logo key, behind Face ID (js/devlab.js).
@@ -370,9 +371,10 @@ async function openDevLab() {
 }
 function setTab(name) {
   $('tabbar').classList.toggle('show', !!name && extraTabs());
-  for (const t of ['review', 'sort', 'library']) $('tab-' + t).classList.toggle('on', t === name);
+  for (const t of ['review', 'sort', 'tag', 'library']) $('tab-' + t).classList.toggle('on', t === name);
   if (name !== 'review') $('reviews').classList.remove('show');
   if (name !== 'sort' && sortTab) sortTab.close();
+  if (name !== 'tag' && tagTab) tagTab.close();
   if (name !== 'library' && libTab) libTab.close();
 }
 async function showSort() {
@@ -386,8 +388,14 @@ function route() {
   const h = location.hash;
   const m = h.match(/^#\/r\/(.+)$/);
   if (m) { setTab(null); openReview(decodeURIComponent(m[1])); }
-  else if ((h === '#/sort' || h === '#/library') && !extraTabs()) { location.replace('#/'); }
+  else if ((h === '#/sort' || h === '#/tag' || h === '#/library') && !extraTabs()) { location.replace('#/'); }
   else if (h === '#/sort') showSort();
+  else if (h === '#/tag') {
+    openSeq++; if (player) { player.close(); player = null; }
+    setTab('tag');
+    if (!tagTab) tagTab = createTag($('tag'), { phone, toast });
+    tagTab.open();
+  }
   else if (h === '#/library') {
     openSeq++; if (player) { player.close(); player = null; }
     setTab('library');

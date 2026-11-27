@@ -80,7 +80,7 @@ export function readParts(named) {   // [{name, json}] → the snapshot's parts,
   const got = {};
   for (const { name, json } of named) {
     if (!json || typeof json !== 'object') continue;
-    if (json.kind === 'quarry-phone') { for (const k of [...PARTS, 'applied']) if (json[k]) got[k] = json[k]; continue; }
+    if (json.kind === 'quarry-phone') { for (const k of [...PARTS, 'applied', 'thumbs']) if (json[k]) got[k] = json[k]; continue; }
     const n = name.replace(/\.json$/i, '').replace(/[ -]\(?\d+\)?$/, '').toLowerCase();
     if (PARTS.includes(n)) got[n] = json;
     else if (typeof json.last === 'number' && Array.isArray(json.failed)) got.appliedOne = json;
@@ -98,6 +98,7 @@ export async function bringIn(files) {
   await S.kvSet('snap', snap);
   const a = (got.applied && got.applied[await phoneId()]) || got.appliedOne;
   if (a) { applied = { last: a.last || 0, failed: a.failed || [], time: a.time || null }; await S.kvSet('applied', applied); }
+  if (got.thumbs) await keepThumbs(got.thumbs);
   await settle(); emit();
   return snap.status;
 }
@@ -163,6 +164,18 @@ export async function retry(n) {
 // worker running, the picture is served from that cache by its own address (no copies held in memory);
 // before it runs (the very first visit), a temporary blob address is used instead.
 const urls = new Map();
+// Thumbnails that came inside the bundle ({name: data URL}) go into the same cache Drive thumbs use.
+async function keepThumbs(map) {
+  try {
+    const cache = await caches.open('qg-thumbs');
+    for (const [name, data] of Object.entries(map)) {
+      if (typeof data !== 'string' || !data.startsWith('data:image/')) continue;
+      const url = new URL('qg-thumbs/' + encodeURIComponent(name), document.baseURI).href;
+      await cache.put(url, new Response(await (await fetch(data)).blob(), { headers: { 'Content-Type': data.slice(5, data.indexOf(';')) } }));
+      urls.delete(name);
+    }
+  } catch {}
+}
 export async function thumbUrl(name) {
   if (!name) return null;
   if (urls.has(name)) return urls.get(name);
