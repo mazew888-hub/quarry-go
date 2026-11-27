@@ -46,11 +46,14 @@ const label = a => a.op === 'keep' ? `Keep post by @${a.post ? a.post.author : a
 
 // The folder sheet: recent folders first, a search, the full list; with tags when asked.
 // Resolves {folder, tags} or null when cancelled.
-export async function openFolderSheet({ title, folders, tags = [], withTags = false, okLabel = 'Keep', current = null }) {
+export async function openFolderSheet({ title, folders, tags = [], withTags = false, okLabel = 'Keep', current = null, allowNew = false }) {
+  // Folders made here (Keep): kept on the phone until Quarry's next file lists them; Quarry makes them on Keep.
+  if (allowNew) folders = [...new Set([...folders, ...((await S.kvGet('newFolders')) || [])])].sort((a, b) => a.localeCompare(b));
   const recent = ((await S.kvGet('recentFolders')) || []).filter(f => folders.includes(f));
   let chosen = current && folders.includes(current) ? current : (recent[0] ?? null), picked = [];
   $('folderCap').textContent = title; $('folderOk').textContent = okLabel;
   $('folderSearch').value = ''; $('tagIn').value = '';
+  $('folderSearch').placeholder = allowNew ? 'Search or name a new folder' : 'Search folders';
   $('tagsBox').style.display = withTags ? '' : 'none';
   const depth = f => f.split('/').length - 1, leaf = f => f.split('/').pop();
   const renderFolders = () => {
@@ -58,9 +61,12 @@ export async function openFolderSheet({ title, folders, tags = [], withTags = fa
     $('recentFolders').innerHTML = q ? '' : recent.map(f => `<button class="chip${f === chosen ? ' on' : ''}" data-f="${esc(f)}">${esc(leaf(f))}</button>`).join('');
     $('recentWrap').style.display = !q && recent.length ? '' : 'none';
     const list = folders.filter(f => !q || f.toLowerCase().includes(q));
-    $('folderList').innerHTML = list.map(f => `<div class="fl${f === chosen ? ' on' : ''}" data-f="${esc(f)}" style="padding-left:${12 + (q ? 0 : depth(f) * 16)}px">
+    const typed = $('folderSearch').value.trim().replace(/\s*\/\s*/g, '/').replace(/^\/+|\/+$/g, '');
+    const make = allowNew && typed && !folders.some(f => f.toLowerCase() === typed.toLowerCase())
+      ? `<div class="fl new" data-new="${esc(typed)}"><span>+ New folder “${esc(typed)}”</span></div>` : '';
+    $('folderList').innerHTML = make + list.map(f => `<div class="fl${f === chosen ? ' on' : ''}" data-f="${esc(f)}" style="padding-left:${12 + (q ? 0 : depth(f) * 16)}px">
         <span>${esc(q ? f : leaf(f))}</span>${f === chosen ? '<span class="ck">✓</span>' : ''}</div>`).join('')
-      || '<div style="color:var(--mut);padding:12px">No folder by that name.</div>';
+      || (make ? '' : '<div style="color:var(--mut);padding:12px">No folder by that name.</div>');
     $('folderOk').disabled = chosen === null;
     $('folderOk').textContent = chosen === null ? 'Pick a folder' : okLabel;
   };
@@ -71,7 +77,15 @@ export async function openFolderSheet({ title, folders, tags = [], withTags = fa
       .map(t => `<button class="chip" data-add="${esc(t)}">${esc(t)}</button>`).join('');
   };
   renderFolders(); renderTags(); show('folderVeil');
-  const pickF = e => { const f = e.target.closest('[data-f]'); if (f) { chosen = f.dataset.f; renderFolders(); } };
+  const pickF = async e => {
+    const n = e.target.closest('[data-new]');
+    if (n) {
+      const f = n.dataset.new; folders = [...folders, f].sort((a, b) => a.localeCompare(b));
+      chosen = f; $('folderSearch').value = ''; renderFolders();
+      await S.kvSet('newFolders', [...new Set([...((await S.kvGet('newFolders')) || []), f])]); return;
+    }
+    const f = e.target.closest('[data-f]'); if (f) { chosen = f.dataset.f; renderFolders(); }
+  };
   $('folderList').onclick = pickF; $('recentFolders').onclick = pickF;
   $('folderSearch').oninput = renderFolders;
   $('tagIn').oninput = renderTags;

@@ -116,3 +116,15 @@ def test_sort_refresh_button(page):
     page.evaluate("window.__n = 0; const f = window.fetch; window.fetch = (...a) => { if (String(a[0]).includes('googleapis')) window.__n++; return f(...a); }")
     page.click('#soRefresh')
     page.wait_for_function("window.__n > 0", timeout=4000)
+
+def test_keep_into_new_folder(page):
+    fake = go(page); count(page)
+    page.click('#soKeep'); page.wait_for_selector('#folderVeil', state='visible')
+    page.fill('#folderSearch', 'Pose / Wall Run')
+    page.click('#folderList [data-new]')
+    assert page.inner_text('#folderOk') == 'Keep'
+    page.click('#folderOk')
+    page.wait_for_function("document.getElementById('soCount').textContent.startsWith('3')"); page.wait_for_timeout(300)
+    assert sent(fake)[0]['folder'] == 'Pose/Wall Run'
+    page.click('#soKeep'); page.wait_for_selector('#folderVeil', state='visible')   # still offered next time
+    assert page.locator('#folderList [data-f="Pose/Wall Run"]').count() == 1
