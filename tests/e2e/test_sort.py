@@ -62,13 +62,13 @@ def test_keep_asks_folder(page):
     fake = go(page); count(page)
     swipe(page, 220)
     page.wait_for_selector('#folderVeil', state='visible')
+    assert page.locator('#tagsBox').is_hidden()   # tagging is its own job, not part of Keep
     page.click('#folderList [data-f="Anatomy/Hands"]')
-    page.fill('#tagIn', 'hands'); page.keyboard.press('Enter')
     page.click('#folderOk')
     page.wait_for_function("document.getElementById('soCount').textContent.startsWith('3')")
     page.wait_for_timeout(300)
     a = sent(fake)[0]
-    assert (a['op'], a['id'], a['folder'], a['tags']) == ('keep', '1800', 'Anatomy/Hands', ['hands'])
+    assert (a['op'], a['id'], a['folder'], a['tags']) == ('keep', '1800', 'Anatomy/Hands', [])
 
 def test_keep_cancel_keeps_post(page):
     fake = go(page); count(page)

@@ -62,6 +62,7 @@ export async function openFolderSheet({ title, folders, tags = [], withTags = fa
         <span>${esc(q ? f : leaf(f))}</span>${f === chosen ? '<span class="ck">✓</span>' : ''}</div>`).join('')
       || '<div style="color:var(--mut);padding:12px">No folder by that name.</div>';
     $('folderOk').disabled = chosen === null;
+    $('folderOk').textContent = chosen === null ? 'Pick a folder' : okLabel;
   };
   const renderTags = () => {
     $('tagChips').innerHTML = picked.map(t => `<button class="chip on" data-rm="${esc(t)}">${esc(t)} ✕</button>`).join('');
@@ -84,7 +85,7 @@ export async function openFolderSheet({ title, folders, tags = [], withTags = fa
     $('folderVeil').onclick = e => { if (e.target === $('folderVeil')) close(null); };
     $('folderOk').onclick = async () => {
       if (chosen === null) return;
-      if ($('tagIn').value.trim()) addTag($('tagIn').value);
+      if (withTags && $('tagIn').value.trim()) addTag($('tagIn').value);
       await S.kvSet('recentFolders', [chosen, ...recent.filter(f => f !== chosen)].slice(0, 6));
       close({ folder: chosen, tags: picked });
     };

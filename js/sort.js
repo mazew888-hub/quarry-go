@@ -140,7 +140,7 @@ export function createSort(root, { phone, drive, toast }) {
     if (busy) return; busy = true;
     try {
       const v = phone.current();
-      const pick = await openFolderSheet({ title: 'Keep in folder', folders: v.folders, tags: v.tags, withTags: true });
+      const pick = await openFolderSheet({ title: 'Keep in folder', folders: v.folders });
       if (!pick) { snapBack(); return; }
       stageKey = '';
       await flyOut(1);
