@@ -1,6 +1,6 @@
 // Dev lab: X likes and Tag, kept out of the way on other people's phones. There's no way in from
-// Settings: hold the Quarry logo key for 5 seconds and they open. Unlocked until the app closes.
-export const HOLD_MS = 5000;
+// Settings: hold the Quarry logo key for 3 seconds and they open. Unlocked until the app closes.
+export const HOLD_MS = 3000;
 // Tests on this machine (localhost only) may start unlocked; the real site never can.
 let unlocked = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && localStorage.getItem('qg_devlab_test') === '1';
 export const isUnlocked = () => unlocked;
