@@ -39,7 +39,7 @@ export function createSort(root, { phone, drive, toast }) {
   $('soPick').onchange = async e => {
     const files = [...e.target.files]; e.target.value = '';
     if (!files.length) return;
-    try { await phone.bringIn(files); const v = phone.current(); toast(v.queue.length ? `${v.queue.length} to sort` : 'Nothing new to sort'); }
+    try { const st = await phone.bringIn(files); const v = phone.current(); toast(st && st.same ? 'Already up to date' : v.queue.length ? `${v.queue.length} to sort` : 'Nothing new to sort'); }
     catch (err) { toast(err.message); }
     stageKey = ''; render();
   };

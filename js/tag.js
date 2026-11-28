@@ -70,7 +70,9 @@ export function createTag(root, { phone, toast }) {
     $('tgDone').disabled = !picked.length; $('tgDone').textContent = picked.length ? 'Done ✓' : 'Pick a tag';
   }
 
-  const picUrl = it => it.thumb ? phone.thumbUrl(it.thumb) : Promise.resolve(it.media_url || null);
+  // the picture Quarry sent; media_url only when it's a picture itself (usually it's the post's page)
+  const isPic = u => !!u && (/^https?:\/\/pbs\.twimg\.com\//.test(u) || /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u));
+  const picUrl = async it => (it.thumb && await phone.thumbUrl(it.thumb)) || (isPic(it.media_url) ? it.media_url : null);
   function drawCard(it, next) {
     $('tgDeck').innerHTML = `${next ? '<div class="tg-ghost"></div>' : ''}
       <div class="tg-card" id="tgCard">

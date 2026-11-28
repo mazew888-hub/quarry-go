@@ -89,9 +89,16 @@ export function readParts(named) {   // [{name, json}] → the snapshot's parts,
 }
 export async function bringIn(files) {
   await init();
+  // Quarry puts a fingerprint ("sig") of the bundle's contents in its first few hundred bytes: the same
+  // sig as last time means nothing changed, so the big file needn't be read again
+  if (files.length === 1) {
+    const m = (await files[0].slice(0, 600).text()).match(/"sig"\s*:\s*"([0-9a-f]{16,64})"/);
+    if (m && snap && m[1] === (await S.kvGet('bundleSig'))) { await settle(); emit(); return { ...snap.status, same: true }; }
+  }
   const named = [];
   for (const f of files) { try { named.push({ name: f.name, json: JSON.parse(await f.text()) }); } catch {} }
   const got = readParts(named);
+  const sig = (named.find(n => n.json && n.json.kind === 'quarry-phone') || {}).json?.sig || null;
   if (!got.status) throw new Error(`That isn't the file from Quarry. Pick "${BUNDLE}" in Quarry Sync › phone.`);
   snap = { status: got.status, library: got.library || snap?.library || { items: [] }, folders: got.folders || snap?.folders || null,
            tags: got.tags || snap?.tags || null, xqueue: got.xqueue || { posts: [] } };
@@ -99,6 +106,7 @@ export async function bringIn(files) {
   const a = (got.applied && got.applied[await phoneId()]) || got.appliedOne;
   if (a) { applied = { last: a.last || 0, failed: a.failed || [], time: a.time || null }; await S.kvSet('applied', applied); }
   if (got.thumbs) await keepThumbs(got.thumbs);
+  await S.kvSet('bundleSig', sig);
   await settle(); emit();
   return snap.status;
 }

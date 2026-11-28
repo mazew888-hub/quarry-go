@@ -38,3 +38,11 @@ def test_bring_in_then_send(page):
 def test_wrong_file_is_refused(page):
     go(page); bring(page, {'hello': 1}, 'notes.json')
     page.wait_for_selector('.so-msg h2:has-text("Bring in your likes")')
+
+def test_same_bundle_twice_is_skipped(page):
+    go(page)
+    body = {'kind': 'quarry-phone', 'version': 1, 'sig': 'a' * 40, **{k: v for k, v in BUNDLE.items() if k != 'kind'}}
+    bring(page, body); page.wait_for_function("/2 left/.test(document.getElementById('soCount').textContent)", timeout=8000)
+    bring(page, body); page.wait_for_function("document.getElementById('toast').textContent.includes('Already up to date')", timeout=8000)
+    body2 = {**body, 'sig': 'b' * 40}; body2['xqueue'] = {'posts': BUNDLE['xqueue']['posts'][:1]}
+    bring(page, body2); page.wait_for_function("/1 left/.test(document.getElementById('soCount').textContent)", timeout=8000)
