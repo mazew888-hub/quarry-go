@@ -113,3 +113,14 @@ def test_next_card_moves_up_without_being_rebuilt(page):
     page.click('#soSkip'); page.wait_for_function("document.getElementById('soCount').textContent.startsWith('3')")
     page.wait_for_timeout(300)
     assert page.evaluate("document.getElementById('soCard') === window.__under")
+
+def test_swipe_keep_doesnt_rebuild_the_card_mid_flight(page):
+    # the flicker: a redraw during the fly-out used to put the old post back in the middle for a moment
+    go(page); count(page)
+    page.evaluate("window.__top = document.getElementById('soCard'); window.__who = __top.querySelector('.so-who').textContent; window.__bad = false;"
+                  "new MutationObserver(() => { const t = document.getElementById('soCard'); if (t && t !== __top && t.querySelector('.so-who').textContent === __who) __bad = true; })"
+                  ".observe(document.getElementById('soStage'), { childList: true, subtree: true })")
+    b = page.locator('#soCard').bounding_box(); x, y = b['x'] + b['width'] / 2, b['y'] + b['height'] / 3
+    page.mouse.move(x, y); page.mouse.down(); page.mouse.move(x + 80, y); page.mouse.move(x + 180, y); page.mouse.up()
+    page.wait_for_timeout(700)
+    assert not page.evaluate("__bad")

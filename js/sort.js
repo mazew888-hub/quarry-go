@@ -70,7 +70,7 @@ export function createSort(root, { phone, drive, toast }) {
     const still = one.type === 'photo' ? one.url : one.poster;
     const bg = still ? `<div class="so-bg" style="background-image:url('${esc(still)}')"></div>` : '';
     if (one.type === 'photo') return `${bg}<img class="so-media" alt="" src="${esc(one.url)}">${dots}`;
-    return `${bg}<video class="so-media" src="${esc(one.url)}" ${one.poster ? `poster="${esc(one.poster)}"` : ''} muted loop playsinline ${big ? 'autoplay' : ''} preload="${big ? 'metadata' : 'auto'}"></video>${dots}`;
+    return `${bg}<video class="so-media" src="${esc(one.url)}" ${one.poster ? `poster="${esc(one.poster)}"` : ''} muted loop playsinline autoplay preload="auto"></video>${dots}`;
   }
   // the name and words sit on the bottom of the card, over a shade
   function who(post) {
@@ -137,6 +137,7 @@ export function createSort(root, { phone, drive, toast }) {
     top.querySelector('.so-onx').addEventListener('click', () => { Feel.tap(); Feel.sound('mouse'); });
     wire(top, post);
     startVideo($('soCard'), post);
+    const uv = stage.querySelector('.so-card.under video'); if (uv) { uv.muted = true; uv.playsInline = true; uv.play().catch(() => {}); }
   }
 
   // iOS only autoplays a video that is muted as a property and started from script; a picture that
@@ -225,8 +226,8 @@ export function createSort(root, { phone, drive, toast }) {
     if (busy) return; busy = true; Feel.tap(); Feel.sound(from ? 'swipeKeep' : 'key');
     try {
       // Keep is one swipe: no folder or tags here. Filing goes in a separate library tagging tab.
-      stageKey = '';
       await flyOut(1, from);
+      stageKey = '';   // only now: cleared earlier, a redraw during the fly-out rebuilt the old card in the middle (the flicker)
       await phone.act({ op: 'keep', id: post.id, folder: null, tags: [], post });
       history.push(post);
     } finally { busy = false; render(); }
