@@ -1,7 +1,6 @@
-// Feel: small sounds and taps for X likes, each sound with its tap: slides when a card is swiped away, a
+// Feel: small sounds for X likes: slides when a card is swiped away, a
 // keyboard-key click for the big buttons, a mouse click for the small ones, a deep whoomph for the ripple. Sounds are made on the spot (no files) and follow the
-// iPhone's silent switch. Taps: iPhone Safari has no vibrate, but flipping a hidden on/off switch gives
-// the same light tap the system switches give (iOS 18 and later); elsewhere navigator.vibrate is used.
+// iPhone's silent switch and media volume.
 
 let ctx = null;
 
@@ -17,17 +16,10 @@ export function prime() {
     const b = ctx.createBuffer(1, 1, 22050), src = ctx.createBufferSource(); src.buffer = b; src.connect(ctx.destination); src.start(0);
   } catch {}
 }
+// Taps: iPhone gives web apps no way to make them (the hidden-switch trick Apple allowed in iOS 17.4 to 26.4
+// was closed in 26.5), so this only does anything where navigator.vibrate exists (Android).
 export function tap(strong = false) {
-  try {
-    if (navigator.vibrate) { navigator.vibrate(strong ? [10, 60, 10] : 10); return; }
-    // iPhone: a fresh hidden on/off switch, flipped through its label (iOS 18 and later give a tap for it)
-    const once = () => {
-      const l = document.createElement('label'), i = document.createElement('input');
-      i.type = 'checkbox'; i.setAttribute('switch', ''); l.setAttribute('aria-hidden', 'true'); l.style.display = 'none';
-      l.append(i); document.head.append(l); l.click(); l.remove();
-    };
-    once(); if (strong) setTimeout(once, 70);
-  } catch {}
+  try { if (navigator.vibrate) navigator.vibrate(strong ? [10, 60, 10] : 10); } catch {}
 }
 
 // Tactile sounds: short taps, clicks and paper-soft swishes made from filtered noise, with only a low
@@ -94,15 +86,3 @@ export function sound(name) {
 for (const ev of ['touchend', 'click', 'pointerup']) addEventListener(ev, () => { if (!ctx || ctx.state !== 'running') prime(); }, { capture: true, passive: true });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && ctx && ctx.state !== 'running') { try { ctx.close(); } catch {} ctx = null; noiseBuf = null; } });
 
-// Test: three ways of making the iPhone tap, one after another, each shown as a number, to find the one this
-// iPhone answers to.
-export function tapWays(show) {
-  const make = (where, style) => { const l = document.createElement('label'), i = document.createElement('input');
-    i.type = 'checkbox'; i.setAttribute('switch', ''); l.setAttribute('aria-hidden', 'true'); l.style.cssText = style; l.append(i); where.append(l); return { l, i }; };
-  const ways = [
-    () => { const { l } = make(document.head, 'display:none'); l.click(); l.remove(); },
-    () => { const { l } = make(document.body, 'position:fixed;left:0;bottom:0;width:40px;height:30px;opacity:.02;z-index:99'); l.click(); setTimeout(() => l.remove(), 200); },
-    () => { const { l, i } = make(document.body, 'position:fixed;left:0;bottom:0;width:40px;height:30px;opacity:.02;z-index:99'); i.click(); setTimeout(() => l.remove(), 200); },
-  ];
-  ways.forEach((w, n) => setTimeout(() => { show(n + 1); try { w(); } catch {} }, n * 350));
-}
