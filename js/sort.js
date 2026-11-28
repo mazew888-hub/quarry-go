@@ -173,7 +173,7 @@ export function createSort(root, { phone, drive, toast }) {
   function wire(card, post) {
     let x0 = null, y0 = 0, dx = 0, dy = 0, moved = false, grabTop = true;
     card.onpointerdown = e => {
-      if (busy) return; Feel.prime(); side = 0; dragging = true; x0 = e.clientX; y0 = e.clientY; dx = dy = 0; moved = false;
+      if (busy) return; Feel.prime(); Feel.sound('mouse'); side = 0; dragging = true; x0 = e.clientX; y0 = e.clientY; dx = dy = 0; moved = false;
       const b = card.getBoundingClientRect(); grabTop = e.clientY < b.top + b.height / 2;
       card.getAnimations().forEach(a => a.cancel());
       card.setPointerCapture(e.pointerId); card.style.transition = 'none'; pose(card, 0, 0, grabTop, true);
@@ -182,8 +182,8 @@ export function createSort(root, { phone, drive, toast }) {
     card.onpointermove = e => {
       if (x0 === null) return; dx = e.clientX - x0; dy = (e.clientY - y0) * .25; if (Math.abs(dx) > 6) moved = true;
       pose(card, dx, dy, grabTop, true);
-      const now = dx > THRESHOLD ? 1 : dx < -THRESHOLD ? -1 : 0;   // a tick each time it crosses the keep/skip line
-      if (now !== side) { side = now; if (now) { Feel.tap(); Feel.sound('line'); } }
+      const now = dx > THRESHOLD ? 1 : dx < -THRESHOLD ? -1 : 0;   // (crossing the keep/skip line: Android tap only; the sound is on pick-up)
+      if (now !== side) { side = now; if (now) Feel.tap(); }
     };
     const end = () => {
       if (x0 === null) return; x0 = null; dragging = false;
