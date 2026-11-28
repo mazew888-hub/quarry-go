@@ -394,7 +394,7 @@ export function openPlayer(root, { media, review = null, name = 'clip', onChange
       // Drawing on a frame where an earlier drawing still holds adds to that drawing.
       const s = drawingAt(marks, holds, cur), f = s ?? cur, style = { color: pen.color, size: Math.round(toVid(penPx()) * 10) / 10, ...(pen.alpha < 1 ? { alpha: Math.round(pen.alpha * 100) / 100 } : {}) };
       if (tool === 'draw') {
-        stroke = ink({ pen: penPressure, smooth: pen.smooth ?? SMOOTH_DEFAULT, toPoint: ev => toVideo(ev.clientX, ev.clientY), k: v.s / (devicePixelRatio || 1), a: pen.pressure ?? 1 });
+        stroke = ink({ pen: penPressure, brush: !isPen, smooth: pen.smooth ?? SMOOTH_DEFAULT, toPoint: ev => toVideo(ev.clientX, ev.clientY), k: v.s / (devicePixelRatio || 1), a: pen.pressure ?? 1 });   // finger: thick-thin from speed
         stroke.down(e); drag = { f, type: 'draw', pts: stroke.pts, pen: isPen, ...style };
       } else drag = { f, type: tool, x1: x, y1: y, x2: x, y2: y, ...style };
     }

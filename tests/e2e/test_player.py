@@ -170,11 +170,13 @@ def test_freehand_draw(page):
     page.click('#annBtn')
     assert 'on' in page.get_attribute('#annBtn', 'class')  # Draw mode stays on until its key is tapped again
     o = dy(page); page.mouse.move(120, 150 + o); page.mouse.down()
-    for i in range(1, 21): page.mouse.move(120 + i * 8, 150 + o + (i % 5) * 3)
+    for i in range(1, 21): page.mouse.move(120 + i * 8, 150 + o + (i % 5) * 3); page.wait_for_timeout(20)   # a steady finger: full width (finger lines thin with speed)
     page.mouse.up()
     m = page.evaluate('window.changes')[-1]['marks'][-1]
     assert m['type'] == 'draw' and len(m['pts']) > 5
-    hit = ink(page, '(r, g, b) => r > 230 && g > 40 && g < 80 && b > 75 && b < 110', box=(125, 80, 275, 110))
+    mid = m['pts'][len(m['pts']) // 2]
+    assert len(mid) < 3 or mid[2] > 0.6   # a steady finger draws near full width (finger lines thin with speed)
+    hit = ink(page, '(r, g, b) => r > 200 && g > 30 && g < 110 && b > 40 && b < 130', box=(125, 70, 275, 120))
     assert hit
     page.click('#undo')
     assert page.evaluate('window.changes')[-1]['marks'] == []

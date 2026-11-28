@@ -18,10 +18,21 @@ export const widthFor = (pressure, a = 1) => {
 // - the Pencil's touch-down reading (a fixed 0.08 before its real pressure) doesn't set the width
 // - stabilizer (smooth), a point once the steadied tip has moved most of a screen pixel (k = screen px per unit),
 //   eased pressure, and on lift the line catches up to where the tip left the glass
-export function ink({ pen = true, smooth = SMOOTH_DEFAULT, toPoint, k = 1, a = 1 }) {
+// Finger lines (no pressure) get their thick-thin from speed instead, like a brush: slow is full width, a
+// quick flick thins out; they start from a fine point, swell in, and taper off when the finger lifts.
+export const speedWidth = v => Math.round((0.22 + 1.48 * Math.exp(-v / 0.65)) * 100) / 100;   // v: screen px per ms
+const TAPER_IN = 0.06, TAPER_OUT = 12;   // starting width factor; points the lift tapers over
+export function ink({ pen = true, smooth = SMOOTH_DEFAULT, toPoint, k = 1, a = 1, brush = false }) {
   let last = -Infinity, lastXY = [NaN, NaN], downP = null, real = false, p = null;
   const pts = [], r = v => Math.round(v * 100) / 100;
-  const add = (x, y) => { const q = [r(x), r(y)]; if (pen) q.push(p ?? 0); pts.push(q); };
+  const add = (x, y) => { const q = [r(x), r(y)]; if (pen) q.push(p ?? 0); else if (brush) q.push(r(p ?? TAPER_IN)); pts.push(q); };
+  let vEase = 0;   // the finger's speed, eased, so the width breathes rather than jitters
+  const speed = e => {
+    if (pen || !brush) return;
+    const dt = Math.max(1, e.timeStamp - last), d = Math.hypot(e.clientX - lastXY[0], e.clientY - lastXY[1]);
+    vEase += (Math.min(6, d / dt) - vEase) * 0.25;
+    p = (p ?? TAPER_IN) + (speedWidth(vEase) - (p ?? TAPER_IN)) * 0.22;
+  };
   const pressure = e => {
     if (!pen) return;
     if (!real && e.pressure === downP) return;               // still the touch-down placeholder
@@ -36,7 +47,7 @@ export function ink({ pen = true, smooth = SMOOTH_DEFAULT, toPoint, k = 1, a = 1
       for (const e of evs) {
         // seen already: older than the last sample, or the very same one again (same time and place)
         if (e.timeStamp < last || (e.timeStamp === last && e.clientX === lastXY[0] && e.clientY === lastXY[1])) continue;
-        last = e.timeStamp; lastXY = [e.clientX, e.clientY]; pressure(e);
+        speed(e); last = e.timeStamp; lastXY = [e.clientX, e.clientY]; pressure(e);
         const l = pts[pts.length - 1], [tx, ty] = steady(l, toPoint(e), smooth);
         if (Math.hypot(tx - l[0], ty - l[1]) * k < 0.75) continue;
         add(tx, ty); changed = true;
@@ -45,6 +56,10 @@ export function ink({ pen = true, smooth = SMOOTH_DEFAULT, toPoint, k = 1, a = 1
     },
     up(e) {
       if (e) { const l = pts[pts.length - 1], [x, y] = toPoint(e); if (Math.hypot(x - l[0], y - l[1]) * k >= 0.75) add(x, y); }
+      if (brush && !pen && pts.length > 2) {   // the lift: the last few points thin down to a point
+        const n = Math.min(TAPER_OUT, pts.length - 1);
+        for (let i = 0; i < n; i++) { const q = pts[pts.length - 1 - i]; q[2] = r(q[2] * Math.max(0.04, Math.pow(i / n, 0.8))); }
+      }
       return pts;
     },
   };
