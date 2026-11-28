@@ -21,7 +21,7 @@ import { mirrorCorners } from './loader.js';
 import { videoTiming } from './demux.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.65';
+export const VERSION = '0.9.66';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -229,7 +229,7 @@ async function sameClip(a, b) {
 // Settings › Check frame rates: every review whose clip file says a different frame rate from the one it
 // was reviewed at (a 30 fps playblast read as 24) is moved onto its real frames, and listed so the
 // feedback given on it can be looked at again.
-$('feelTestBtn').onclick = () => { Feel.prime(); Feel.tap(true); Feel.sound('key'); setTimeout(() => Feel.sound('open'), 350); };
+$('feelTestBtn').onclick = () => { Feel.prime(); Feel.sound('key'); Feel.tapWays(n => { $('feelTestBtn').textContent = String(n); Feel.sound('mouse'); }); setTimeout(() => { $('feelTestBtn').textContent = 'Test'; }, 1300); };
 $('fpsCheckBtn').onclick = async () => {
   const b = $('fpsCheckBtn'); b.disabled = true; b.textContent = 'Checking…';
   try {

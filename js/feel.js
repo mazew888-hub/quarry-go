@@ -93,3 +93,16 @@ export function sound(name) {
 // unlock on every touch end, so the first Keep or Skip already has sound
 for (const ev of ['touchend', 'click', 'pointerup']) addEventListener(ev, () => { if (!ctx || ctx.state !== 'running') prime(); }, { capture: true, passive: true });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && ctx && ctx.state !== 'running') { try { ctx.close(); } catch {} ctx = null; noiseBuf = null; } });
+
+// Test: three ways of making the iPhone tap, one after another, each shown as a number, to find the one this
+// iPhone answers to.
+export function tapWays(show) {
+  const make = (where, style) => { const l = document.createElement('label'), i = document.createElement('input');
+    i.type = 'checkbox'; i.setAttribute('switch', ''); l.setAttribute('aria-hidden', 'true'); l.style.cssText = style; l.append(i); where.append(l); return { l, i }; };
+  const ways = [
+    () => { const { l } = make(document.head, 'display:none'); l.click(); l.remove(); },
+    () => { const { l } = make(document.body, 'position:fixed;left:0;bottom:0;width:40px;height:30px;opacity:.02;z-index:99'); l.click(); setTimeout(() => l.remove(), 200); },
+    () => { const { l, i } = make(document.body, 'position:fixed;left:0;bottom:0;width:40px;height:30px;opacity:.02;z-index:99'); i.click(); setTimeout(() => l.remove(), 200); },
+  ];
+  ways.forEach((w, n) => setTimeout(() => { show(n + 1); try { w(); } catch {} }, n * 350));
+}
