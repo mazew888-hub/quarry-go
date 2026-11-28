@@ -51,7 +51,7 @@ export function createSort(root, { phone, drive, toast }) {
     const out = phone.actionsFile(); if (!out) return;
     if (navigator.canShare && navigator.canShare({ files: [out.file] })) {
       toast('Save to Files › Quarry Sync › phone › actions');
-      try { await navigator.share({ files: [out.file] }); await phone.markSent(out); Feel.sound('send'); toast('Sent: Quarry carries it out on your PC'); }
+      try { await navigator.share({ files: [out.file] }); await phone.markSent(out); toast('Sent: Quarry carries it out on your PC'); }
       catch (err) { if (err.name !== 'AbortError') toast(err.message); }
     } else {
       const a = document.createElement('a'); a.href = URL.createObjectURL(out.file); a.download = out.file.name; a.click();
@@ -59,7 +59,8 @@ export function createSort(root, { phone, drive, toast }) {
     }
     stageKey = ''; render();
   }
-  $('soSend').onclick = sendFile;
+  $('soSend').onclick = () => { Feel.tap(); Feel.sound('key'); sendFile(); };
+  $('soBring').addEventListener('click', () => { Feel.tap(); Feel.sound('key'); });
 
   function media(post, big) {
     const m = post.media || [], one = m[Math.min(mediaIx, m.length - 1)] || null;
@@ -133,6 +134,7 @@ export function createSort(root, { phone, drive, toast }) {
     const top = $('soCard'); top.querySelector('.so-who').id = 'soInfo'; top.querySelector('.so-onx').id = 'soOnX';
     top.querySelector('.so-who').addEventListener('pointerdown', e => { if (e.target.closest('.so-onx')) e.stopPropagation(); });
     $('soKeep').style.transform = $('soSkip').style.transform = '';
+    top.querySelector('.so-onx').addEventListener('click', () => { Feel.tap(); Feel.sound('mouse'); });
     wire(top, post);
     startVideo($('soCard'), post);
   }
@@ -220,7 +222,7 @@ export function createSort(root, { phone, drive, toast }) {
   }
 
   async function keep(post, from) {
-    if (busy) return; busy = true; Feel.tap(true); Feel.sound('keep');
+    if (busy) return; busy = true; Feel.tap(); Feel.sound(from ? 'swipeKeep' : 'key');
     try {
       // Keep is one swipe: no folder or tags here. Filing goes in a separate library tagging tab.
       stageKey = '';
@@ -230,13 +232,13 @@ export function createSort(root, { phone, drive, toast }) {
     } finally { busy = false; render(); }
   }
   async function skip(post, from) {
-    if (busy) return; busy = true; Feel.tap(); Feel.sound('skip');
+    if (busy) return; busy = true; Feel.tap(); Feel.sound(from ? 'swipeSkip' : 'key');
     try { await flyOut(-1, from); stageKey = ''; await phone.act({ op: 'skip', id: post.id, post }); history.push(post); }
     finally { busy = false; render(); }
   }
   $('soKeep').onclick = () => { const q = phone.current().queue; if (q[0]) keep(q[0]); };
   $('soSkip').onclick = () => { const q = phone.current().queue; if (q[0]) skip(q[0]); };
-  $('soUndo').onclick = async () => { const post = history.pop(); if (post) { Feel.tap(); Feel.sound('undo'); stageKey = ''; await phone.act({ op: 'undo', id: post.id, post }); render(); } };
+  $('soUndo').onclick = async () => { const post = history.pop(); if (post) { Feel.tap(); Feel.sound('mouse'); stageKey = ''; await phone.act({ op: 'undo', id: post.id, post }); render(); } };
 
   async function reload() {
     if (byFile()) { if (phone.fileReady) await phone.fileReady(); state = 'file'; stageKey = ''; render(); return; }

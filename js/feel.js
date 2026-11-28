@@ -1,4 +1,5 @@
-// Feel: small sounds and taps for X likes. Sounds are made on the spot (no files) and follow the
+// Feel: small sounds and taps for X likes, each sound with its tap: slides when a card is swiped away, a
+// keyboard-key click for the big buttons, a mouse click for the small ones, a deep whoomph for the ripple. Sounds are made on the spot (no files) and follow the
 // iPhone's silent switch. Taps: iPhone Safari has no vibrate, but flipping a hidden on/off switch gives
 // the same light tap the system switches give (iOS 18 and later); elsewhere navigator.vibrate is used.
 
@@ -32,33 +33,64 @@ export function tap(strong = false) {
   } catch {}
 }
 
-// a note: frequency glide f0→f1 over dur seconds, with a quick attack and a soft tail
-function note(f0, f1, at, dur, { type = 'sine', vol = 0.18 } = {}) {
-  const o = ctx.createOscillator(), g = ctx.createGain(), t = ctx.currentTime + at;
-  o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
-  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + dur + 0.02);
-}
-// a breath of noise through a sweeping filter: whooshes and swishes
-function air(at, dur, fFrom, fTo, vol = 0.12) {
-  const n = Math.floor(ctx.sampleRate * dur), buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+// Tactile sounds: short taps, clicks and paper-soft swishes made from filtered noise, with only a low
+// "body" thump under some (no beepy tones). ac is the audio context (live, or offline to make samples).
+let noiseBuf = null;
+function noise(ac) {
+  if (noiseBuf && noiseBuf.sampleRate === ac.sampleRate) return noiseBuf;
+  const n = ac.sampleRate, b = ac.createBuffer(1, n, ac.sampleRate), d = b.getChannelData(0);
   for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-  const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(), t = ctx.currentTime + at;
-  f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(fFrom, t); f.frequency.exponentialRampToValueAtTime(fTo, t + dur);
-  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  s.buffer = buf; s.connect(f).connect(g).connect(ctx.destination); s.start(t); s.stop(t + dur);
+  return (noiseBuf = b);
+}
+// a burst of noise through a filter: type, centre frequency (from → to), length, loudness, attack
+function hiss(ac, at, { type = 'bandpass', f0 = 2000, f1 = f0, q = 0.8, dur = 0.03, vol = 0.3, atk = 0.002 } = {}) {
+  const t = ac.currentTime + at, s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  s.buffer = noise(ac); f.type = type; f.Q.value = q;
+  f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + atk); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f).connect(g).connect(ac.destination); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.01);
+}
+// a soft low thump: the "body" you feel more than hear
+function thump(ac, at, { f0 = 150, f1 = 70, dur = 0.07, vol = 0.35 } = {}) {
+  const t = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.01);
 }
 
-const SOUNDS = {
-  open: () => { air(0, 0.55, 300, 2400, 0.1); note(392, 392, 0.05, 0.5, { vol: 0.08 }); note(587, 587, 0.12, 0.55, { vol: 0.07 }); note(784, 784, 0.2, 0.6, { vol: 0.06 }); },
-  keep: () => { note(660, 700, 0, 0.09, { type: 'triangle', vol: 0.16 }); note(990, 1050, 0.07, 0.16, { type: 'triangle', vol: 0.14 }); },
-  skip: () => { air(0, 0.18, 1800, 400, 0.09); note(220, 160, 0, 0.12, { vol: 0.08 }); },
-  undo: () => { note(990, 940, 0, 0.08, { type: 'triangle', vol: 0.12 }); note(660, 620, 0.06, 0.14, { type: 'triangle', vol: 0.12 }); },
-  line: () => note(1400, 1400, 0, 0.04, { type: 'sine', vol: 0.05 }),   // crossing the keep/skip line
-  send: () => { note(784, 784, 0, 0.12, { vol: 0.1 }); note(988, 988, 0.08, 0.14, { vol: 0.1 }); note(1319, 1319, 0.16, 0.3, { vol: 0.09 }); },
+// a keyboard key: the plasticky "clack" of the keycap and the low "thock" of it bottoming out
+function key(ac, at, { vol = 0.32 } = {}) {
+  hiss(ac, at, { f0: 2400, q: 1.4, dur: 0.014, vol, atk: 0.0008 });
+  thump(ac, at + 0.004, { f0: 340, f1: 190, dur: 0.035, vol: vol * 0.9 });
+  hiss(ac, at + 0.004, { type: 'lowpass', f0: 1100, dur: 0.03, vol: vol * 0.5, atk: 0.001 });
+}
+// a mouse click: a tiny, crisp, light snap
+function mouse(ac, at, { vol = 0.22 } = {}) {
+  hiss(ac, at, { f0: 5200, q: 2.5, dur: 0.004, vol, atk: 0.0005 });
+  thump(ac, at, { f0: 1800, f1: 1200, dur: 0.006, vol: vol * 0.4 });
+}
+// a slide: a card gliding over felt, the air rising (away to Keep) or falling (away to Skip)
+function slide(ac, at, { f0 = 900, f1 = 2600, dur = 0.24, vol = 0.15 } = {}) {
+  hiss(ac, at, { f0, f1, q: 0.7, dur, vol, atk: dur * 0.4 });
+  hiss(ac, at, { type: 'lowpass', f0: f0 * 0.6, f1: f1 * 0.4, q: 0.5, dur: dur * 0.9, vol: vol * 0.6, atk: dur * 0.35 });
+}
+// the ripple: a deep soft "whoomph" that blooms out with the circle, and a faint glassy shimmer on its edge
+function ripple(ac, at) {
+  thump(ac, at, { f0: 85, f1: 38, dur: 0.55, vol: 0.5 });
+  hiss(ac, at, { type: 'lowpass', f0: 160, f1: 900, q: 0.6, dur: 0.5, vol: 0.22, atk: 0.06 });
+  hiss(ac, at + 0.05, { f0: 5200, f1: 7800, q: 1.2, dur: 0.6, vol: 0.035, atk: 0.2 });
+}
+
+export const SOUNDS = {
+  open: ac => ripple(ac, 0),
+  swipeKeep: ac => slide(ac, 0, { f0: 800, f1: 2800 }),
+  swipeSkip: ac => slide(ac, 0, { f0: 2600, f1: 700 }),
+  key: ac => key(ac, 0),         // the big buttons: Keep, Skip, Send, Bring in
+  mouse: ac => mouse(ac, 0),     // the small ones: Undo, On X
+  line: ac => mouse(ac, 0, { vol: 0.14 }),   // crossing the keep/skip line while swiping
 };
 export function sound(name) {
-  try { if (!ctx) prime(); if (!ctx) return; if (ctx.state === 'suspended') ctx.resume(); SOUNDS[name] && SOUNDS[name](); } catch {}
+  try { if (!ctx) prime(); if (!ctx) return; if (ctx.state === 'suspended') ctx.resume(); SOUNDS[name] && SOUNDS[name](ctx); } catch {}
 }
 
 // unlock on every touch end, so the first Keep or Skip already has sound
