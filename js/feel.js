@@ -4,11 +4,14 @@
 
 let ctx = null, sw = null;
 
-// Call from a touch (pointerdown/click) so later sounds are allowed to play.
+// Call from a touch so later sounds are allowed to play. iPhone only lets sound start from the end of a
+// touch (touchend/click, not touchdown), and only once something has actually played in it, so every
+// touch end resumes the sound and plays a silent blip.
 export function prime() {
   try {
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if (ctx.state === 'suspended') ctx.resume();
+    if (ctx.state !== 'running') ctx.resume();
+    const b = ctx.createBuffer(1, 1, 22050), src = ctx.createBufferSource(); src.buffer = b; src.connect(ctx.destination); src.start(0);
   } catch {}
   if (!sw) {
     try {
@@ -57,3 +60,6 @@ const SOUNDS = {
 export function sound(name) {
   try { if (!ctx) prime(); if (!ctx) return; if (ctx.state === 'suspended') ctx.resume(); SOUNDS[name] && SOUNDS[name](); } catch {}
 }
+
+// unlock on every touch end, so the first Keep or Skip already has sound
+for (const ev of ['touchend', 'click', 'pointerup']) addEventListener(ev, () => { if (!ctx || ctx.state !== 'running') prime(); }, { capture: true, passive: true });

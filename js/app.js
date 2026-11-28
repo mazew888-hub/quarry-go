@@ -21,7 +21,7 @@ import { mirrorCorners } from './loader.js';
 import { videoTiming } from './demux.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.62';
+export const VERSION = '0.9.63';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -412,27 +412,29 @@ function openDevLab() {
 }
 // A page opening out from a point (x, y on screen): a soft-edged circle that widens, while the page swells
 // from that point, tips back a little and springs flat. The same feel as the start screen's reveal.
-function rippleIn(els, x, y, ms = 1150) {
-  const R = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) * 1.05;
-  const frames = [], n = 16;
-  for (let i = 0; i <= n; i++) {
-    const k = i / n, o = Math.min(1, k / 0.8), open = o * o * (3 - 2 * o);   // the circle widens over most of it, eased in and out
+function rippleIn(els, x, y) {
+  // exactly the start screen's reveal: a soft-edged circle (its edge feathered over the outer 18%) widening
+  // fast then easing out over 0.6 s, while the page swells from the key, tips and springs flat over 0.95 s
+  const RIPPLE = 0.6, SETTLE = RIPPLE + 0.35, R = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) * 1.05;
+  const out = k => 1 - Math.pow(1 - k, 3);
+  els = els.filter(Boolean);
+  const set = t => {
+    const r = R * out(Math.min(1, t / RIPPLE)), soft = Math.max(1, r * 0.18), k = Math.min(1, t / SETTLE);
     const w = Math.exp(-k * 4.2) * Math.cos(k * Math.PI * 3.2);
-    frames.push({ k, r: R * open, tf: `scale(${(1 - 0.18 * w).toFixed(4)}) skew(${(7 * w).toFixed(2)}deg, ${(-7 * w).toFixed(2)}deg)` });   // flat (2D) on purpose: a 3D tilt left iPhone's copy of the page blurry afterwards
-  }
-  // a glowing ring rides the edge of the opening circle and fades as it reaches the corners
-  const ring = document.createElement('div'); ring.className = 'ripple-ring';
-  ring.style.left = x + 'px'; ring.style.top = y + 'px'; document.body.append(ring);
-  const ra = ring.animate([{ offset: 0, width: '0px', height: '0px', opacity: 1 },
-    ...frames.filter((_, i) => i % 2 === 0).slice(1).map(f => ({ offset: f.k, width: `${(2 * f.r).toFixed(0)}px`, height: `${(2 * f.r).toFixed(0)}px`, opacity: Math.max(0, 1 - f.k * 1.15) }))],
-    { duration: ms, easing: 'linear', fill: 'forwards' });
-  ra.finished.catch(() => {}).then(() => ring.remove());
-  return Promise.all(els.filter(Boolean).map(el => {
-    const b = el.getBoundingClientRect(), cx = x - b.left, cy = y - b.top;
-    el.style.transformOrigin = `${cx}px ${cy}px`;
-    const a = el.animate(frames.map(f => ({ offset: f.k, clipPath: `circle(${f.r.toFixed(1)}px at ${cx}px ${cy}px)`, transform: f.tf })), { duration: ms, easing: 'linear' });
-    return a.finished.catch(() => {}).then(() => { a.cancel(); el.style.transformOrigin = ''; el.style.transform = ''; });
-  }));
+    for (const el of els) {
+      const b = el.getBoundingClientRect(), cx = x - b.left, cy = y - b.top;
+      const m = t >= RIPPLE ? '' : `radial-gradient(circle at ${cx}px ${cy}px, #000 ${Math.max(0, r - soft).toFixed(1)}px, transparent ${r.toFixed(1)}px)`;
+      el.style.webkitMaskImage = el.style.maskImage = m;
+      el.style.transformOrigin = `${cx}px ${cy}px`;
+      el.style.transform = k >= 1 ? '' : `scale(${(1 - 0.1 * w).toFixed(4)}) skew(${(4 * w).toFixed(2)}deg, ${(-4 * w).toFixed(2)}deg)`;   // flat (2D): a 3D tilt left iPhone's page blurry
+    }
+  };
+  set(0);
+  return new Promise(res => {
+    const t0 = performance.now();
+    const step = now => { const t = (now - t0) / 1000; set(t); if (t < SETTLE) requestAnimationFrame(step); else { for (const el of els) el.style.transformOrigin = ''; res(); } };
+    requestAnimationFrame(step);
+  });
 }
 function setTab(name) {
   $('tabbar').classList.toggle('show', !!name && extraTabs());

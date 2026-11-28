@@ -20,9 +20,9 @@ def test_hold_opens_straight_into_sort_with_a_ripple(page):
     hold(page)
     page.wait_for_selector('#sort.show')
     assert page.locator('#settingsVeil').is_hidden()
-    assert page.evaluate("document.getElementById('sort').getAnimations().length") >= 1   # rippling in
+    assert page.evaluate("document.getElementById('sort').style.transform") != ''   # rippling in
     page.wait_for_timeout(1400)
-    assert page.evaluate("document.getElementById('sort').getAnimations().length") == 0
+    assert page.evaluate("(() => { const s = document.getElementById('sort').style; return s.transform + s.webkitMaskImage + s.maskImage })()") == ''
     assert not page.evaluate("document.getElementById('reviews').classList.contains('stay')")
 
 def test_a_shorter_hold_is_just_settings(page):
