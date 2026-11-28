@@ -1,4 +1,5 @@
 // Quarry Go: boot, routing (#/ is Reviews, #/r/<id> is the player), saving and settings.
+import * as Feel from './feel.js';
 import * as DL from './devlab.js';
 import { loadFrames, CANT_OPEN } from './frames.js';
 import { openPlayer, log, status } from './player.js';
@@ -20,7 +21,7 @@ import { mirrorCorners } from './loader.js';
 import { videoTiming } from './demux.js';
 import { createLibrary } from './library.js';
 
-export const VERSION = '0.9.61';
+export const VERSION = '0.9.62';
 const $ = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 
@@ -400,7 +401,7 @@ function opening(on) {
 const extraTabs = () => { try { return DL.isUnlocked() && localStorage.getItem('qg_extra_tabs') === '1'; } catch { return false; } };
 // Dev lab: opened by holding the Quarry logo key, behind Face ID (js/devlab.js).
 function openDevLab() {
-  DL.unlock();
+  DL.unlock(); Feel.tap(true); Feel.sound('open');
   try { localStorage.setItem('qg_extra_tabs', '1'); } catch {}
   // the new tabs ripple in from the logo key, the way the app opens: Reviews stays underneath while
   // X likes opens out over it in a widening circle, warping a little and settling
@@ -411,14 +412,21 @@ function openDevLab() {
 }
 // A page opening out from a point (x, y on screen): a soft-edged circle that widens, while the page swells
 // from that point, tips back a little and springs flat. The same feel as the start screen's reveal.
-function rippleIn(els, x, y, ms = 950) {
+function rippleIn(els, x, y, ms = 1150) {
   const R = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) * 1.05;
   const frames = [], n = 16;
   for (let i = 0; i <= n; i++) {
     const k = i / n, o = Math.min(1, k / 0.8), open = o * o * (3 - 2 * o);   // the circle widens over most of it, eased in and out
     const w = Math.exp(-k * 4.2) * Math.cos(k * Math.PI * 3.2);
-    frames.push({ k, r: R * open, tf: `scale(${(1 - 0.1 * w).toFixed(4)}) skew(${(4 * w).toFixed(2)}deg, ${(-4 * w).toFixed(2)}deg)` });   // flat (2D) on purpose: a 3D tilt left iPhone's copy of the page blurry afterwards
+    frames.push({ k, r: R * open, tf: `scale(${(1 - 0.18 * w).toFixed(4)}) skew(${(7 * w).toFixed(2)}deg, ${(-7 * w).toFixed(2)}deg)` });   // flat (2D) on purpose: a 3D tilt left iPhone's copy of the page blurry afterwards
   }
+  // a glowing ring rides the edge of the opening circle and fades as it reaches the corners
+  const ring = document.createElement('div'); ring.className = 'ripple-ring';
+  ring.style.left = x + 'px'; ring.style.top = y + 'px'; document.body.append(ring);
+  const ra = ring.animate([{ offset: 0, width: '0px', height: '0px', opacity: 1 },
+    ...frames.filter((_, i) => i % 2 === 0).slice(1).map(f => ({ offset: f.k, width: `${(2 * f.r).toFixed(0)}px`, height: `${(2 * f.r).toFixed(0)}px`, opacity: Math.max(0, 1 - f.k * 1.15) }))],
+    { duration: ms, easing: 'linear', fill: 'forwards' });
+  ra.finished.catch(() => {}).then(() => ring.remove());
   return Promise.all(els.filter(Boolean).map(el => {
     const b = el.getBoundingClientRect(), cx = x - b.left, cy = y - b.top;
     el.style.transformOrigin = `${cx}px ${cy}px`;

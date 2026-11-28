@@ -725,3 +725,4 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 #reviews.stay{display:block}   /* stays underneath while the new tabs ripple in over it */
 
 .tg-nopic{position:absolute;inset:0;display:grid;place-items:center;color:var(--faint);font-size:13px;text-align:center;padding:0 30px}
+.ripple-ring{position:fixed;z-index:30;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;border:2px solid rgba(255,138,155,.85);box-shadow:0 0 24px 6px rgba(255,77,103,.45),inset 0 0 24px 4px rgba(255,77,103,.3)}

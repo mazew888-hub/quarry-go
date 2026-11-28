@@ -1,3 +1,4 @@
+import { prime } from './feel.js';
 // Dev lab: X likes and Tag, kept out of the way on other people's phones. There's no way in from
 // Settings: hold the Quarry logo key for 3 seconds and they open. Unlocked until the app closes.
 export const HOLD_MS = 3000;
@@ -11,7 +12,7 @@ export function unlock() { unlocked = true; }
 export function holdToOpen(el, onHold) {
   let timer = null, held = false;
   const stop = () => { clearTimeout(timer); timer = null; };
-  el.addEventListener('pointerdown', () => { held = false; stop(); timer = setTimeout(() => { held = true; timer = null; onHold(); }, HOLD_MS); });
+  el.addEventListener('pointerdown', () => { prime(); held = false; stop(); timer = setTimeout(() => { held = true; timer = null; onHold(); }, HOLD_MS); });
   for (const t of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(t, stop);
   el.addEventListener('contextmenu', e => e.preventDefault());
   el.addEventListener('click', e => { if (held) { held = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
