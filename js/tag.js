@@ -26,10 +26,14 @@ export function createTag(root, { phone, toast }) {
     <div class="tg-keys" id="tgKeys"><button class="btn" id="tgLater">Later</button><button class="btn pri" id="tgDone">Done ✓</button></div>`;
   const $ = id => root.querySelector('#' + id);
 
+  const isPic = u => !!u && (/^https?:\/\/pbs\.twimg\.com\//.test(u) || /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u));
+  phone.loadThumbNames && phone.loadThumbNames().then(() => render());
   // ---------- what's left: untagged items, Later ones at the back
   function queue() {
     const v = phone.current();
-    const un = v.items.filter(it => !it.tags.length);
+    // ones Quarry sent a picture for come first (it sends pictures for the newest untagged items only)
+    const pic = it => phone.hasThumb && (phone.hasThumb(it.thumb) || isPic(it.media_url));
+    const all = v.items.filter(it => !it.tags.length), un = [...all.filter(pic), ...all.filter(it => !pic(it))];
     const back = un.filter(it => later.includes(it.key)).sort((a, b) => later.indexOf(a.key) - later.indexOf(b.key));
     return { v, list: [...un.filter(it => !later.includes(it.key)), ...back] };
   }
@@ -71,8 +75,8 @@ export function createTag(root, { phone, toast }) {
   }
 
   // the picture Quarry sent; media_url only when it's a picture itself (usually it's the post's page)
-  const isPic = u => !!u && (/^https?:\/\/pbs\.twimg\.com\//.test(u) || /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u));
-  const picUrl = async it => (it.thumb && await phone.thumbUrl(it.thumb)) || (isPic(it.media_url) ? it.media_url : null);
+  const isPic2 = isPic;
+  const picUrl = async it => (it.thumb && await phone.thumbUrl(it.thumb)) || (isPic2(it.media_url) ? it.media_url : null);
   function drawCard(it, next) {
     $('tgDeck').innerHTML = `${next ? '<div class="tg-ghost"></div>' : ''}
       <div class="tg-card" id="tgCard">

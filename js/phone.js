@@ -105,7 +105,7 @@ export async function bringIn(files) {
   await S.kvSet('snap', snap);
   const a = (got.applied && got.applied[await phoneId()]) || got.appliedOne;
   if (a) { applied = { last: a.last || 0, failed: a.failed || [], time: a.time || null }; await S.kvSet('applied', applied); }
-  if (got.thumbs) await keepThumbs(got.thumbs);
+  if (got.thumbs) { await keepThumbs(got.thumbs); thumbNames = new Set(Object.keys(got.thumbs)); await S.kvSet('thumbNames', [...thumbNames]); }
   await S.kvSet('bundleSig', sig);
   await settle(); emit();
   return snap.status;
@@ -173,6 +173,10 @@ export async function retry(n) {
 // before it runs (the very first visit), a temporary blob address is used instead.
 const urls = new Map();
 // Thumbnails that came inside the bundle ({name: data URL}) go into the same cache Drive thumbs use.
+// Which pictures came in the latest file (Quarry sends them for the newest untagged items only).
+let thumbNames = null;
+export async function loadThumbNames() { if (!thumbNames) { const a = await S.kvGet('thumbNames'); thumbNames = new Set(a || []); } return thumbNames; }
+export const hasThumb = name => !!(name && thumbNames && thumbNames.has(name));
 async function keepThumbs(map) {
   try {
     const cache = await caches.open('qg-thumbs');
