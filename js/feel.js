@@ -3,33 +3,30 @@
 // iPhone's silent switch. Taps: iPhone Safari has no vibrate, but flipping a hidden on/off switch gives
 // the same light tap the system switches give (iOS 18 and later); elsewhere navigator.vibrate is used.
 
-let ctx = null, sw = null;
+let ctx = null;
 
 // Call from a touch so later sounds are allowed to play. iPhone only lets sound start from the end of a
 // touch (touchend/click, not touchdown), and only once something has actually played in it, so every
 // touch end resumes the sound and plays a silent blip.
 export function prime() {
   try {
+    // after another app plays sound (or a call), iPhone can leave the old one stuck "interrupted": start fresh
+    if (ctx && ctx.state !== 'running' && ctx.state !== 'suspended') { try { ctx.close(); } catch {} ctx = null; noiseBuf = null; }
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if (ctx.state !== 'running') ctx.resume();
+    if (ctx.state !== 'running') ctx.resume().catch(() => {});
     const b = ctx.createBuffer(1, 1, 22050), src = ctx.createBufferSource(); src.buffer = b; src.connect(ctx.destination); src.start(0);
   } catch {}
-  if (!sw) {
-    try {
-      const l = document.createElement('label'), i = document.createElement('input');
-      i.type = 'checkbox'; i.setAttribute('switch', ''); l.append(i);
-      l.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
-      l.setAttribute('aria-hidden', 'true'); document.body.append(l); sw = l;
-    } catch {}
-  }
 }
-
 export function tap(strong = false) {
   try {
-    if (navigator.vibrate) { navigator.vibrate(strong ? 18 : 8); return; }
-    if (!sw) prime();
-    sw && sw.click();
-    if (strong && sw) setTimeout(() => sw.click(), 70);   // a double tap reads as a firmer one
+    if (navigator.vibrate) { navigator.vibrate(strong ? [10, 60, 10] : 10); return; }
+    // iPhone: a fresh hidden on/off switch, flipped through its label (iOS 18 and later give a tap for it)
+    const once = () => {
+      const l = document.createElement('label'), i = document.createElement('input');
+      i.type = 'checkbox'; i.setAttribute('switch', ''); l.setAttribute('aria-hidden', 'true'); l.style.display = 'none';
+      l.append(i); document.head.append(l); l.click(); l.remove();
+    };
+    once(); if (strong) setTimeout(once, 70);
   } catch {}
 }
 
@@ -95,3 +92,4 @@ export function sound(name) {
 
 // unlock on every touch end, so the first Keep or Skip already has sound
 for (const ev of ['touchend', 'click', 'pointerup']) addEventListener(ev, () => { if (!ctx || ctx.state !== 'running') prime(); }, { capture: true, passive: true });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && ctx && ctx.state !== 'running') { try { ctx.close(); } catch {} ctx = null; noiseBuf = null; } });
