@@ -88,7 +88,10 @@ export function createTag(root, { phone, toast }) {
         <div class="tg-on" id="tgOn"></div>
       </div>`;
     const img = $('tgDeck').querySelector('.tg-pic');
-    picUrl(it).then(u => { if (u && shownKey === it.key) img.src = u; else if (!u) img.remove(); });
+    picUrl(it).then(u => {
+      if (u && shownKey === it.key) img.src = u;
+      else if (!u) img.replaceWith(Object.assign(document.createElement('div'), { className: 'tg-nopic', textContent: 'No picture from Quarry for this one' }));
+    });
     $('tgDeck').querySelector('.tg-name').textContent = [it.title || it.key.split('/').pop(), it.author ? '@' + it.author : ''].filter(Boolean).join(' · ');
     $('tgFolder').onpointerdown = e => e.stopPropagation();
     $('tgFolder').onclick = pickFolder;

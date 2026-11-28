@@ -724,3 +724,4 @@ body:has(#tabbar.show) #reviews .dock{bottom:calc(env(safe-area-inset-bottom) + 
 #opening canvas{width:104px;height:104px;color:var(--ink,#ECEDEF)}
 #reviews.stay{display:block}   /* stays underneath while the new tabs ripple in over it */
 
+.tg-nopic{position:absolute;inset:0;display:grid;place-items:center;color:var(--faint);font-size:13px;text-align:center;padding:0 30px}

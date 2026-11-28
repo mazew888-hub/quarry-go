@@ -93,7 +93,7 @@ export async function bringIn(files) {
   // sig as last time means nothing changed, so the big file needn't be read again
   if (files.length === 1) {
     const m = (await files[0].slice(0, 600).text()).match(/"sig"\s*:\s*"([0-9a-f]{16,64})"/);
-    if (m && snap && m[1] === (await S.kvGet('bundleSig'))) { await settle(); emit(); return { ...snap.status, same: true }; }
+    if (m && snap && m[1] === (await S.kvGet('bundleSig2'))) { await settle(); emit(); return { ...snap.status, same: true }; }
   }
   const named = [];
   for (const f of files) { try { named.push({ name: f.name, json: JSON.parse(await f.text()) }); } catch {} }
@@ -106,7 +106,7 @@ export async function bringIn(files) {
   const a = (got.applied && got.applied[await phoneId()]) || got.appliedOne;
   if (a) { applied = { last: a.last || 0, failed: a.failed || [], time: a.time || null }; await S.kvSet('applied', applied); }
   if (got.thumbs) { await keepThumbs(got.thumbs); thumbNames = new Set(Object.keys(got.thumbs)); await S.kvSet('thumbNames', [...thumbNames]); }
-  await S.kvSet('bundleSig', sig);
+  await S.kvSet('bundleSig2', sig);
   await settle(); emit();
   return snap.status;
 }
@@ -178,16 +178,21 @@ let thumbNames = null;
 export async function loadThumbNames() { if (!thumbNames) { const a = await S.kvGet('thumbNames'); thumbNames = new Set(a || []); } return thumbNames; }
 export const hasThumb = name => !!(name && thumbNames && thumbNames.has(name));
 async function keepThumbs(map) {
-  try {
-    const cache = await caches.open('qg-thumbs');
-    for (const [name, data] of Object.entries(map)) {
-      if (typeof data !== 'string' || !data.startsWith('data:image/')) continue;
+  // kept twice: as the data links themselves (always works), and in the picture cache (faster to show)
+  thumbData = map; try { await S.kvSet('thumbData', map); } catch {}
+  let cache = null; try { cache = await caches.open('qg-thumbs'); } catch {}
+  for (const [name, data] of Object.entries(map)) {
+    urls.delete(name);
+    if (!cache || typeof data !== 'string' || !data.startsWith('data:image/')) continue;
+    try {
       const url = new URL('qg-thumbs/' + encodeURIComponent(name), document.baseURI).href;
-      await cache.put(url, new Response(await (await fetch(data)).blob(), { headers: { 'Content-Type': data.slice(5, data.indexOf(';')) } }));
-      urls.delete(name);
-    }
-  } catch {}
+      const bin = atob(data.slice(data.indexOf(',') + 1)), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      await cache.put(url, new Response(bytes, { headers: { 'Content-Type': data.slice(5, data.indexOf(';')) } }));
+    } catch {}   // one picture failing doesn't stop the rest
+  }
 }
+let thumbData = null;
 export async function thumbUrl(name) {
   if (!name) return null;
   if (urls.has(name)) return urls.get(name);
@@ -195,6 +200,8 @@ export async function thumbUrl(name) {
   const cache = await caches.open('qg-thumbs');
   let res = await cache.match(url);
   if (!res) {
+    if (!thumbData) thumbData = (await S.kvGet('thumbData')) || {};
+    if (typeof thumbData[name] === 'string') { urls.set(name, thumbData[name]); return thumbData[name]; }
     const id = thumbIds && thumbIds[name];
     if (!id) return null;
     try { await cache.put(url, new Response(await G.readBlob(id), { headers: { 'Content-Type': 'image/jpeg' } })); res = await cache.match(url); }
